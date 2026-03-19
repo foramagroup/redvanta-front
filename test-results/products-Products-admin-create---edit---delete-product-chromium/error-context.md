@@ -1,0 +1,58 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Krootal" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Affiliate" [ref=e6] [cursor=pointer]:
+          - /url: /affiliate
+        - link "Dashboard" [ref=e7] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Login" [ref=e8] [cursor=pointer]:
+          - /url: /login
+  - main [ref=e9]:
+    - generic [ref=e10]:
+      - complementary [ref=e11]:
+        - heading "Krootal Admin" [level=2] [ref=e12]
+        - navigation [ref=e13]:
+          - link "Dashboard" [ref=e14] [cursor=pointer]:
+            - /url: /dashboard/products
+          - link "NFC" [ref=e15] [cursor=pointer]:
+            - /url: /dashboard/nfc/products
+          - link "Users" [ref=e16] [cursor=pointer]:
+            - /url: /dashboard/users/products
+          - link "Products" [ref=e17] [cursor=pointer]:
+            - /url: /dashboard/products/products
+          - link "Subscriptions" [ref=e18] [cursor=pointer]:
+            - /url: /dashboard/subscriptions/products
+          - link "Settings" [ref=e19] [cursor=pointer]:
+            - /url: /dashboard/settings/products
+      - main [ref=e20]:
+        - generic [ref=e21]:
+          - heading "Nouveau produit" [level=1] [ref=e22]
+          - generic [ref=e23]:
+            - textbox "Titre" [ref=e24]: E2E Test Product
+            - textbox "Slug" [ref=e25]: e2e-test-product
+            - spinbutton [ref=e26]: "9.99"
+            - textbox "Catégorie" [ref=e27]
+            - textbox "Description" [ref=e28]
+            - button "Choose File" [ref=e29]
+            - generic [ref=e30]:
+              - button "Générer Upsell automatique" [ref=e31] [cursor=pointer]
+              - button "Enregistrer" [ref=e32] [cursor=pointer]
+            - generic [ref=e33]:
+              - heading "Upsell" [level=4] [ref=e34]
+              - generic [ref=e35]: Aucun
+            - generic [ref=e36]:
+              - heading "Cross-sell" [level=4] [ref=e37]
+              - generic [ref=e38]: Aucun
+            - generic [ref=e39]:
+              - heading "Bundles" [level=4] [ref=e40]
+              - generic [ref=e41]: Aucun
+  - contentinfo [ref=e42]:
+    - generic [ref=e43]: © 2025 Krootal — all rights reserved
+  - alert [ref=e44]
+```
