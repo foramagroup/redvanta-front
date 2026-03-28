@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Globe, Package, Upload, X, Loader2, GripVertical, Images, Layers, CreditCard, Film, ImageIcon, Play, Youtube, Link as LinkIcon, Palette } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+
+const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+const resolveMediaUrl = (value) => {
+  if (!value || value === "/placeholder.svg") return "/placeholder.svg";
+  if (typeof value === "string" && value.startsWith("/uploads/")) return `${apiBase}${value}`;
+  return value;
+};
 
 const languages = ["en", "fr", "de", "es"];
 const langLabels = { en: "English", fr: "French", de: "German", es: "Spanish" };
@@ -159,7 +167,7 @@ function ImageDropZone({ value, onChange, label }) {
       <Label>{label}</Label>
       {hasImage ? (
         <div className="relative group rounded-lg border border-border overflow-hidden bg-secondary">
-          <img src={value} alt="Preview" className="w-full h-28 object-contain" />
+          <img src={resolveMediaUrl(value)} alt="Preview" className="w-full h-28 object-contain" />
           <button onClick={() => onChange("/placeholder.svg")} className="absolute top-1.5 right-1.5 rounded-full bg-background/80 backdrop-blur p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"><X size={14} /></button>
         </div>
       ) : (
@@ -333,7 +341,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
             >
               {item.type === "youtube" ? (
                 <>
-                  <img src={item.poster || "/placeholder.svg"} alt={`YouTube ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={resolveMediaUrl(item.poster || "/placeholder.svg")} alt={`YouTube ${i + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute top-1 left-1 bg-red-600 text-white text-[8px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5">
                     <Youtube size={8} /> YT
                   </div>
@@ -341,7 +349,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
               ) : item.type === "video" ? (
                 <>
                   {item.poster ? (
-                    <img src={item.poster} alt={`Video poster ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(item.poster)} alt={`Video poster ${i + 1}`} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-muted">
                       <Film size={20} className="text-muted-foreground" />
@@ -369,7 +377,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
                   </div>
                 </>
               ) : (
-                <img src={item.url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={resolveMediaUrl(item.url)} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
               )}
               <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                 <button onClick={() => removeItem(i)} className="rounded-full bg-destructive/90 text-destructive-foreground p-1 hover:bg-destructive"><X size={12} /></button>
@@ -457,8 +465,11 @@ function titleToSlug(title) {
 
 const Products = () => {
   const { t } = useLanguage();
-  const [products, setProducts] = useState(initialProducts);
-  const [cardTypes, setCardTypes] = useState(DEFAULT_CARD_TYPES);
+  const [products, setProducts] = useState([]);
+  const [cardTypes, setCardTypes] = useState([]);
+  const [languageRecords, setLanguageRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [cardTypeDialogOpen, setCardTypeDialogOpen] = useState(false);
   const [editingCardType, setEditingCardType] = useState(null);
   const [cardTypeForm, setCardTypeForm] = useState({ id: "", name: "", color: "#6b7280", image: "/placeholder.svg", active: true });
@@ -481,6 +492,85 @@ const Products = () => {
     cardTypePrices: [],
   });
 
+  const loadData = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [productsRes, cardTypesRes, languagesRes] = await Promise.all([
+        fetch(`${apiBase}/api/superadmin/products`, { credentials: "include" }),
+        fetch(`${apiBase}/api/superadmin/card-types`, { credentials: "include" }),
+        fetch(`${apiBase}/api/superadmin/language-settings`, { credentials: "include" }),
+      ]);
+
+      const [productsPayload, cardTypesPayload, languagesPayload] = await Promise.all([
+        productsRes.json().catch(() => ({})),
+        cardTypesRes.json().catch(() => ({})),
+        languagesRes.json().catch(() => ({})),
+      ]);
+
+      if (!productsRes.ok) throw new Error(productsPayload?.message || "Failed to load products");
+      if (!cardTypesRes.ok) throw new Error(cardTypesPayload?.message || "Failed to load card types");
+      if (!languagesRes.ok) throw new Error(languagesPayload?.message || "Failed to load languages");
+
+      setProducts(Array.isArray(productsPayload?.data) ? productsPayload.data : []);
+      setCardTypes(Array.isArray(cardTypesPayload?.data) ? cardTypesPayload.data : []);
+      setLanguageRecords(Array.isArray(languagesPayload?.data) ? languagesPayload.data : []);
+    } catch (err) {
+      setError(err.message || "Failed to load product settings");
+      setProducts([]);
+      setCardTypes([]);
+      setLanguageRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const buildTranslationsPayload = () => {
+    const entries = Object.keys(form.title)
+      .filter((lang) => form.title[lang]?.trim() && form.slug[lang]?.trim())
+      .map((lang) => {
+        const languageRecord = languageRecords.find((item) => item.code === lang);
+        if (!languageRecord) return null;
+        return {
+          langId: Number(languageRecord.id),
+          title: form.title[lang] || "",
+          slug: form.slug[lang] || "",
+          seoTitle: form.seoTitle[lang] || "",
+          metaDescription: form.metaDescription[lang] || "",
+          metaImage: form.metaImage[lang] || "",
+        };
+      })
+      .filter(Boolean);
+
+    return entries;
+  };
+
+  const buildProductPayload = () => ({
+    price: Number(form.price || 0),
+    active: Boolean(form.active),
+    image: form.image && form.image !== "/placeholder.svg" ? form.image : undefined,
+    gallery: form.gallery.map((item, index) => ({
+      url: item.url,
+      type: item.type,
+      poster: item.poster,
+      position: index,
+    })),
+    translations: buildTranslationsPayload(),
+    packageTiers: form.packageTiers.map((tier) => ({
+      qty: Number(tier.qty),
+      price: Number(tier.price),
+    })),
+    cardTypePrices: form.cardTypePrices.map((item) => ({
+      cardTypeId: item.typeId,
+      price: Number(item.price),
+    })),
+  });
+
   const openCreate = () => {
     setEditing(null); setActiveLang("en"); setSlugManualEdits({});
     setForm({ slug: { en: "" }, price: 0, active: true, image: "/placeholder.svg", gallery: [], title: { en: "" }, seoTitle: { en: "" }, metaDescription: { en: "" }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [] });
@@ -501,7 +591,7 @@ const Products = () => {
     setActiveLang(lang);
   };
 
-  const save = () => {
+  const save = async () => {
     // Validate unique tier quantities
     if (form.packageTiers.length > 0) {
       const qtys = form.packageTiers.map(t => t.qty);
@@ -510,15 +600,51 @@ const Products = () => {
         return;
       }
     }
-    if (editing) {
-      setProducts(ps => ps.map(p => p.id === editing.id ? { ...p, ...form } : p));
-    } else {
-      setProducts(ps => [...ps, { id: Date.now(), ...form }]);
+    const payload = buildProductPayload();
+    if (payload.translations.length === 0) {
+      toast({ title: "Translation required", description: "At least one valid language version is required.", variant: "destructive" });
+      return;
     }
-    setDialogOpen(false);
+
+    try {
+      const response = await fetch(`${apiBase}/api/superadmin/products${editing ? `/${editing.id}` : ""}`, {
+        method: editing ? "PUT" : "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || `Failed to ${editing ? "update" : "create"} product`);
+      }
+
+      await loadData();
+      setDialogOpen(false);
+      toast({ title: editing ? "Product updated" : "Product created" });
+    } catch (err) {
+      toast({ title: "Save failed", description: err.message || "Unable to save product.", variant: "destructive" });
+    }
   };
 
-  const deleteProduct = (id) => setProducts(ps => ps.filter(p => p.id !== id));
+  const deleteProduct = async (id) => {
+    try {
+      const response = await fetch(`${apiBase}/api/superadmin/products/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || "Failed to delete product");
+      }
+
+      setProducts(ps => ps.filter(p => p.id !== id));
+      toast({ title: "Product deleted" });
+    } catch (err) {
+      toast({ title: "Delete failed", description: err.message || "Unable to delete product.", variant: "destructive" });
+    }
+  };
 
   // Card Type CRUD
   const openCreateCardType = () => {
@@ -533,31 +659,55 @@ const Products = () => {
     setCardTypeDialogOpen(true);
   };
 
-  const saveCardType = () => {
+  const saveCardType = async () => {
     if (!cardTypeForm.name.trim()) {
       toast({ title: "Name required", description: "Card type name cannot be empty.", variant: "destructive" });
       return;
     }
-    if (editingCardType) {
-      setCardTypes(cts => cts.map(ct => ct.id === editingCardType.id ? { ...cardTypeForm, id: editingCardType.id } : ct));
-    } else {
-      const id = cardTypeForm.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `type-${Date.now()}`;
-      if (cardTypes.some(ct => ct.id === id)) {
-        toast({ title: "Duplicate ID", description: "A card type with this name already exists.", variant: "destructive" });
-        return;
+
+    try {
+      const response = await fetch(`${apiBase}/api/superadmin/card-types${editingCardType ? `/${editingCardType.id}` : ""}`, {
+        method: editingCardType ? "PUT" : "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cardTypeForm.name,
+          color: cardTypeForm.color,
+          image: cardTypeForm.image && cardTypeForm.image !== "/placeholder.svg" ? cardTypeForm.image : undefined,
+          active: Boolean(cardTypeForm.active),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || `Failed to ${editingCardType ? "update" : "create"} card type`);
       }
-      setCardTypes(cts => [...cts, { ...cardTypeForm, id }]);
+
+      await loadData();
+      setCardTypeDialogOpen(false);
+      toast({ title: editingCardType ? "Card type updated" : "Card type created" });
+    } catch (err) {
+      toast({ title: "Save failed", description: err.message || "Unable to save card type.", variant: "destructive" });
     }
-    setCardTypeDialogOpen(false);
   };
 
-  const deleteCardType = (id) => {
-    setCardTypes(cts => cts.filter(ct => ct.id !== id));
-    // Remove from all products' cardTypePrices
-    setProducts(ps => ps.map(p => ({
-      ...p,
-      cardTypePrices: p.cardTypePrices.filter(ctp => ctp.typeId !== id)
-    })));
+  const deleteCardType = async (id) => {
+    try {
+      const response = await fetch(`${apiBase}/api/superadmin/card-types/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || "Failed to delete card type");
+      }
+
+      await loadData();
+      toast({ title: "Card type deleted" });
+    } catch (err) {
+      toast({ title: "Delete failed", description: err.message || "Unable to delete card type.", variant: "destructive" });
+    }
   };
 
   return (
@@ -566,6 +716,11 @@ const Products = () => {
         ? <Button onClick={openCreate}><Plus size={16} className="mr-1" /> {t("sa.prod_create")}</Button>
         : <Button onClick={openCreateCardType}><Plus size={16} className="mr-1" /> New Card Type</Button>
     }>
+      {error ? (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+          {error}
+        </div>
+      ) : null}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="space-y-4">
         <TabsList>
           <TabsTrigger value="products" className="flex items-center gap-1.5"><Package size={14} /> Products</TabsTrigger>
@@ -580,13 +735,15 @@ const Products = () => {
                   <TableHead>{t("sa.prod_product")}</TableHead><TableHead>{t("sa.prod_slug")}</TableHead><TableHead>{t("sa.prod_price")}</TableHead><TableHead>{t("sa.prod_languages")}</TableHead><TableHead>{t("sa.prod_status")}</TableHead><TableHead className="w-12"></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {products.map(p => (
+                  {loading ? (
+                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading products...</TableCell></TableRow>
+                  ) : products.map(p => (
                     <TableRow key={p.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
                             {p.image && p.image !== "/placeholder.svg" ? (
-                              <img src={p.image} alt="" className="h-full w-full object-cover" />
+                              <img src={resolveMediaUrl(p.image)} alt="" className="h-full w-full object-cover" />
                             ) : (
                               <Package size={16} className="text-muted-foreground" />
                             )}
@@ -624,12 +781,14 @@ const Products = () => {
           <Card className="border-border/50 bg-card">
             <CardContent className="p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {cardTypes.map(ct => (
+                {loading ? (
+                  <div className="col-span-full rounded-xl border border-border/50 bg-secondary/20 p-6 text-sm text-muted-foreground">Loading card types...</div>
+                ) : cardTypes.map(ct => (
                   <div key={ct.id} className="relative group rounded-xl border border-border/50 bg-secondary/30 overflow-hidden transition-all hover:border-primary/30 hover:shadow-md">
                     {/* Card Image */}
                     <div className="aspect-[4/3] bg-secondary flex items-center justify-center overflow-hidden">
                       {ct.image && ct.image !== "/placeholder.svg" ? (
-                        <img src={ct.image} alt={ct.name} className="w-full h-full object-cover" />
+                        <img src={resolveMediaUrl(ct.image)} alt={ct.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                           <CreditCard size={32} />
@@ -852,8 +1011,8 @@ const Products = () => {
             <div className="space-y-6">
               <ProductGallery
                 images={[
-                  previewProduct.image !== "/placeholder.svg" ? previewProduct.image : null,
-                  ...previewProduct.gallery.map(g => ({ url: g.url, type: g.type, poster: g.poster }))
+                  previewProduct.image !== "/placeholder.svg" ? resolveMediaUrl(previewProduct.image) : null,
+                  ...previewProduct.gallery.map(g => ({ url: resolveMediaUrl(g.url), type: g.type, poster: resolveMediaUrl(g.poster) }))
                 ].filter(Boolean)}
                 productName={previewProduct.title.en}
                 variant="compact"

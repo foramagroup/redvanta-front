@@ -13,6 +13,7 @@ import LiveTextEditorRoot from "./LiveTextEditorRoot";
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const isSuperadmin = pathname?.startsWith("/superadmin");
+  const isDashboard = pathname?.startsWith("/dashboard");
 
   if (isSuperadmin) {
     return children;
@@ -20,8 +21,8 @@ export default function AppShell({ children }) {
 
   return (
     <>
-      <LiveTextEditorBar />
-      <Header />
+      {!isDashboard && <LiveTextEditorBar />}
+      {!isDashboard && <Header />}
       <LiveTextEditorRoot>
         <main className="container" style={{ paddingTop: 20, paddingBottom: 40 }}>
           {children}

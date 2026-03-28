@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -51,6 +50,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -64,44 +64,47 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiCandidates = Array.from(
-        new Set([process.env.NEXT_PUBLIC_API_URL, "http://localhost:4000"].filter(Boolean))
-      );
+      const response = await fetch(`${apiBase}/api/admin/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json().catch(() => ({}));
 
-      let data = null;
-      let lastError = null;
+      if (!response.ok) {
+        throw new Error(data?.error || "Login failed");
+      }
 
-      for (const apiUrl of apiCandidates) {
-        try {
-          const response = await axios.post(
-            `${apiUrl}/api/auth/login`,
-            { email, password },
-            { withCredentials: true }
-          );
-          data = response.data;
-          break;
-        } catch (error) {
-          lastError = error;
+      if (data?.requiresSelection) {
+        const firstCompany = Array.isArray(data?.companies) ? data.companies[0] : null;
+
+        if (!data?.userId || !firstCompany?.id) {
+          throw new Error("No active company available for this account");
         }
-      }
 
-      if (!data) {
-        throw lastError || new Error("No login response");
-      }
+        const selectResponse = await fetch(`${apiBase}/api/admin/auth/select-company`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: data.userId,
+            companyId: firstCompany.id,
+          }),
+        });
+        const selectData = await selectResponse.json().catch(() => ({}));
 
-      if (!data.ok && !data.token) {
-        setErr("Login failed");
-        return;
-      }
-
-      if (data.token) {
-        document.cookie = `token=${data.token}; path=/; sameSite=lax`;
+        if (!selectResponse.ok || !selectData?.success) {
+          throw new Error(selectData?.error || "Failed to select company");
+        }
+      } else if (!data?.success) {
+        throw new Error(data?.error || "Login failed");
       }
 
       router.push("/dashboard");
     } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
-      setErr(error.response?.data?.error || "Login failed");
+      console.error("Login error:", error);
+      setErr(error?.message || "Login failed");
     } finally {
       setLoading(false);
     }

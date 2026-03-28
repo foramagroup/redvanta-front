@@ -22,7 +22,7 @@ export function PositiveResult({ googlePlaceId, onRedirect }) {
         animate={{ scale: 1 }}
         transition={{ type: "spring", damping: 15, delay: 0.1 }}
       >
-        <CheckCircle2 className="h-14 w-14 text-success" />
+        <CheckCircle2 className="h-14 w-14 text-green-500" />
       </motion.div>
       <h2 className="text-lg font-display font-bold text-foreground">
         We're happy you had a great experience!

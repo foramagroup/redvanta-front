@@ -268,6 +268,7 @@ const StarsRow = ({ color = "#FBBF24", size = 12 }) => (
   </div>
 );
 
+
 // ── Card Preview Component ──────────────────────────────────
 // ── Pattern Overlay SVG ──────────────────────────────────────
 const PatternOverlay = ({ pattern, color = "rgba(255,255,255,0.06)" }) => {
@@ -913,9 +914,11 @@ const CardPreview = ({ design, orientation, side, frontLine1, frontLine2, backLi
 const Customize = () => {
   const params = useParams();
   const router = useRouter();
-  const { items, updateDesign, updateQuantity } = useCart();
+  const { items, updateDesign, updateQuantity, isCartReady } = useCart();
   const { t } = useLanguage();
   const { addDesign, updateDesign: updateSavedDesign, getDesignById, pushVersion, getVersionHistory, restoreVersion } = useDesigns();
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const shopApiBase = `${apiBase}/api/client/shop`;
   const [isHydrated, setIsHydrated] = useState(false);
   const itemId = Array.isArray(params?.orderId) ? params.orderId[0] : params?.orderId;
 
@@ -928,7 +931,7 @@ const Customize = () => {
   const editDesignId = isEditMode && itemId ? itemId.replace("edit-", "") : null;
   const editingDesign = editDesignId ? getDesignById(editDesignId) : null;
 
-  const item = !isEditMode ? items.find((i) => i.id === itemId) : null;
+  const item = !isEditMode ? items.find((i) => String(i.id) === String(itemId)) : null;
   const [design, setDesign] = useState(() => {
     if (editingDesign) {
       return {
@@ -936,14 +939,24 @@ const Customize = () => {
         businessName: editingDesign.businessName,
       };
     }
-    return item?.design || defaultDesign(item?.model || "classic");
+    return {
+      ...defaultDesign(item?.model || "classic"),
+      ...(item?.design || {}),
+      errors: Array.isArray(item?.design?.errors) ? item.design.errors : [],
+    };
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
+  const [businessResults, setBusinessResults] = useState([]);
+  const [isSearchingBusinesses, setIsSearchingBusinesses] = useState(false);
   const [logoFile, setLogoFile] = useState(design.logoUrl);
   const [orientation, setOrientation] = useState(() => editingDesign?.orientation || "landscape");
   const [currentStep, setCurrentStep] = useState(0);
   const [previewSide, setPreviewSide] = useState("front");
+  const [remoteDesignId, setRemoteDesignId] = useState(() => item?.design?.id || null);
+  const [isSyncingRemoteDesign, setIsSyncingRemoteDesign] = useState(false);
+  const [isSavingDesignStep, setIsSavingDesignStep] = useState(false);
+  const initializedCartItemRef = useRef(null);
 
   // Instructions state - pre-load from editing design if available
   const [frontLine1, setFrontLine1] = useState(() => editingDesign?.frontInstructions.split("\n")[0] || "Approach the phone to the card");
@@ -1063,6 +1076,152 @@ const Customize = () => {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const autoSaveRef = useRef(false);
   const autoSaveNewIdRef = useRef(null);
+  const placesSessionRef = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-places`);
+
+  const previewDesign = useMemo(() => ({
+    ...design,
+    logoUrl:
+      typeof design.logoUrl === "string" && design.logoUrl.startsWith("/uploads/")
+        ? `${apiBase}${design.logoUrl}`
+        : design.logoUrl,
+  }), [apiBase, design]);
+
+  const syncCartDesignSummary = useCallback((remoteDesign) => {
+    if (!item || !remoteDesign) return;
+
+    updateDesign(item.id, {
+      ...(item.design || {}),
+      id: remoteDesign.id,
+      businessName: remoteDesign.businessName,
+      cardModel: remoteDesign.cardModel,
+      orientation: remoteDesign.orientation,
+      status: remoteDesign.status,
+      validatedAt: remoteDesign.validatedAt,
+      version: remoteDesign.version,
+    });
+  }, [item, updateDesign]);
+
+  const applyRemoteDesignData = useCallback((remoteDesign) => {
+    if (!remoteDesign) return;
+
+    setRemoteDesignId(remoteDesign.id);
+    setDesign((prev) => ({
+      ...prev,
+      id: remoteDesign.id ?? prev.id,
+      businessName: remoteDesign.businessName ?? prev.businessName,
+      slogan: remoteDesign.slogan ?? prev.slogan,
+      cta: remoteDesign.callToAction ?? prev.cta,
+      googlePlaceId: remoteDesign.googlePlaceId ?? prev.googlePlaceId,
+      googleReviewLink: remoteDesign.googleReviewUrl ?? prev.googleReviewLink,
+      logoUrl: remoteDesign.logoUrl ?? prev.logoUrl,
+      bgColor: remoteDesign.bgColor ?? prev.bgColor,
+      textColor: remoteDesign.textColor ?? prev.textColor,
+      qrColor: remoteDesign.accentColor ?? prev.qrColor,
+      model: remoteDesign.cardModel ?? prev.model,
+      status: remoteDesign.status ?? prev.status,
+      errors: [],
+    }));
+
+    if (remoteDesign.businessName) setSearchQuery(remoteDesign.businessName);
+    if (remoteDesign.logoUrl) setLogoFile(remoteDesign.logoUrl);
+    if (remoteDesign.orientation) setOrientation(remoteDesign.orientation);
+    if (remoteDesign.templateName && CARD_TEMPLATES.some((tpl) => tpl.id === remoteDesign.templateName)) {
+      setSelectedTemplate(remoteDesign.templateName);
+    }
+    if (remoteDesign.gradient1) setGradient1(remoteDesign.gradient1);
+    if (remoteDesign.gradient2) setGradient2(remoteDesign.gradient2);
+    if (remoteDesign.accentBand1) setAccentBand1(remoteDesign.accentBand1);
+    if (remoteDesign.accentBand2) setAccentBand2(remoteDesign.accentBand2);
+    if (remoteDesign.bandPosition) setBandPosition(remoteDesign.bandPosition);
+    if (remoteDesign.colorMode) setColorMode(remoteDesign.colorMode);
+    if (remoteDesign.businessFont) setNameFont(remoteDesign.businessFont);
+    if (remoteDesign.sloganFont) setSloganFont(remoteDesign.sloganFont);
+    if (remoteDesign.businessFontSize != null) setNameFontSize(remoteDesign.businessFontSize);
+    if (remoteDesign.sloganFontSize != null) setSloganFontSize(remoteDesign.sloganFontSize);
+    if (remoteDesign.businessFontSpacing) setNameLetterSpacing(remoteDesign.businessFontSpacing);
+    if (remoteDesign.sloganFontSpacing) setSloganLetterSpacing(remoteDesign.sloganFontSpacing);
+    if (remoteDesign.businessTextTransform) setNameTextTransform(remoteDesign.businessTextTransform);
+    if (remoteDesign.sloganTextTransform) setSloganTextTransform(remoteDesign.sloganTextTransform);
+    if (remoteDesign.businessLineHeight) setNameLineHeight(String(remoteDesign.businessLineHeight));
+    if (remoteDesign.sloganLineHeight) setSloganLineHeight(String(remoteDesign.sloganLineHeight));
+    if (remoteDesign.businessAlign) setNameTextAlign(remoteDesign.businessAlign);
+    if (remoteDesign.sloganAlign) setSloganTextAlign(remoteDesign.sloganAlign);
+    if (remoteDesign.logoPosition) setLogoPosition(remoteDesign.logoPosition);
+    if (remoteDesign.logoSize != null) setLogoSize(remoteDesign.logoSize);
+    if (remoteDesign.qrCodeSize != null) setQrSize(remoteDesign.qrCodeSize);
+    if (remoteDesign.businessFontWeight) setNameFontWeight(String(remoteDesign.businessFontWeight));
+    if (remoteDesign.sloganFontWeight) setSloganFontWeight(String(remoteDesign.sloganFontWeight));
+    if (remoteDesign.instrFontWeight) setInstructionFontWeight(String(remoteDesign.instrFontWeight));
+    if (remoteDesign.checkStrokeWidth != null) setCheckStrokeWidth(Number(remoteDesign.checkStrokeWidth));
+    if (remoteDesign.starColor) setStarsColor(remoteDesign.starColor);
+    if (remoteDesign.iconsColor) setIconsColor(remoteDesign.iconsColor);
+    if (remoteDesign.nfcIconSize != null) setNfcIconSize(remoteDesign.nfcIconSize);
+    if (remoteDesign.frontBandHeight != null) setFrontBandHeight(remoteDesign.frontBandHeight);
+    if (remoteDesign.backBandHeight != null) setBackBandHeight(remoteDesign.backBandHeight);
+    if (remoteDesign.textShadow) setTextShadow(remoteDesign.textShadow);
+    if (remoteDesign.ctaPaddingTop != null) setCtaPaddingTop(remoteDesign.ctaPaddingTop);
+    if (remoteDesign.googleLogoSize != null) setGoogleIconSize(remoteDesign.googleLogoSize);
+    if (remoteDesign.showNfcIcon != null) setShowNfcIcon(remoteDesign.showNfcIcon);
+    if (remoteDesign.showGoogleIcon != null) setShowGoogleIcon(remoteDesign.showGoogleIcon);
+    if (remoteDesign.frontInstruction1 != null) setFrontLine1(remoteDesign.frontInstruction1);
+    if (remoteDesign.frontInstruction2 != null) setFrontLine2(remoteDesign.frontInstruction2);
+    if (remoteDesign.backInstruction1 != null) setBackLine1(remoteDesign.backInstruction1);
+    if (remoteDesign.backInstruction2 != null) setBackLine2(remoteDesign.backInstruction2);
+    if (remoteDesign.instrFont) setInstructionFont(remoteDesign.instrFont);
+    if (remoteDesign.instrFontSize != null) setInstructionFontSize(remoteDesign.instrFontSize);
+    if (remoteDesign.instrFontSpacing) setInstructionLetterSpacing(remoteDesign.instrFontSpacing);
+    if (remoteDesign.instrLineHeight) setInstructionLineHeight(String(remoteDesign.instrLineHeight));
+    if (remoteDesign.instrAlign) setInstructionTextAlign(remoteDesign.instrAlign);
+    if (remoteDesign.elementOffsets?.landscape && remoteDesign.elementOffsets?.portrait) {
+      setAllOffsets(remoteDesign.elementOffsets);
+    }
+  }, []);
+
+  const ensureRemoteDesign = useCallback(async ({ forceReload = false } = {}) => {
+    if (isEditMode || !item?.id || !item?.productId) return null;
+
+    if (remoteDesignId && !forceReload) {
+      return remoteDesignId;
+    }
+
+    const existingResponse = await fetch(`${shopApiBase}/designs/cart-item/${item.id}`, {
+      credentials: "include",
+    });
+    const existingPayload = await existingResponse.json().catch(() => ({}));
+
+    if (!existingResponse.ok) {
+      throw new Error(existingPayload?.error || "Failed to load design");
+    }
+
+    let remoteDesign = existingPayload?.data || null;
+
+    if (!remoteDesign) {
+      const createResponse = await fetch(`${shopApiBase}/designs`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cartItemId: item.id,
+          productId: item.productId,
+        }),
+      });
+      const createPayload = await createResponse.json().catch(() => ({}));
+
+      if (!createResponse.ok) {
+        throw new Error(createPayload?.error || "Failed to create design");
+      }
+
+      remoteDesign = createPayload?.data || null;
+    }
+
+    if (remoteDesign) {
+      applyRemoteDesignData(remoteDesign);
+      syncCartDesignSummary(remoteDesign);
+      return remoteDesign.id;
+    }
+
+    return null;
+  }, [applyRemoteDesignData, isEditMode, item, remoteDesignId, shopApiBase, syncCartDesignSummary]);
 
   const buildDesignSnapshot = useCallback(() => {
     const now = new Date().toISOString().split("T")[0];
@@ -1162,12 +1321,94 @@ const Customize = () => {
     setDesign(d => ({ ...d, textColor: tpl.textColor, qrColor: tpl.qrColor }));
   };
 
-  const filteredBusinesses = useMemo(
-    () => searchQuery.length > 1 ? MOCK_BUSINESSES.filter((b) => b.name.toLowerCase().includes(searchQuery.toLowerCase())) : [],
-    [searchQuery]
-  );
+  useEffect(() => {
+    if (currentStep !== 0) return;
+
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setBusinessResults([]);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setIsSearchingBusinesses(true);
+      try {
+        const response = await fetch(
+          `${apiBase}/api/client/places/search?q=${encodeURIComponent(query)}&session=${encodeURIComponent(placesSessionRef.current)}&lang=fr`,
+          { credentials: "include" }
+        );
+        const payload = await response.json().catch(() => ({}));
+
+        if (!active) return;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Failed to search businesses");
+        }
+
+        setBusinessResults(
+          Array.isArray(payload.data)
+            ? payload.data.map((place) => ({
+                placeId: place.placeId,
+                name: place.mainText || place.description || "",
+                address: place.secondaryText || "",
+                reviewLink: "",
+              }))
+            : []
+        );
+      } catch {
+        if (active) {
+          setBusinessResults([]);
+        }
+      } finally {
+        if (active) {
+          setIsSearchingBusinesses(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [apiBase, currentStep, searchQuery]);
+
+  useEffect(() => {
+    if (isEditMode || !isHydrated || !isCartReady || !item?.id || !item?.productId) return;
+    if (initializedCartItemRef.current === item.id) return;
+
+    initializedCartItemRef.current = item.id;
+    let active = true;
+
+    (async () => {
+      setIsSyncingRemoteDesign(true);
+      try {
+        await ensureRemoteDesign({ forceReload: true });
+      } catch (error) {
+        if (active) {
+          toast({
+            title: t("customize.load_failed") || "Failed to load design",
+            description: error?.message || "Unable to load the current design.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (active) {
+          setIsSyncingRemoteDesign(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [ensureRemoteDesign, isCartReady, isEditMode, isHydrated, item?.id, item?.productId, t]);
 
   if (!isHydrated) {
+    return null;
+  }
+
+  if (!isEditMode && !isCartReady) {
     return null;
   }
 
@@ -1182,10 +1423,40 @@ const Customize = () => {
     );
   }
 
-  const selectBusiness = (biz) => {
-    setDesign((d) => ({ ...d, businessName: biz.name, address: biz.address, googlePlaceId: biz.placeId, googleReviewLink: biz.reviewLink }));
-    setSearchQuery(biz.name);
-    setShowResults(false);
+  const selectBusiness = async (biz) => {
+    try {
+      const response = await fetch(
+        `${apiBase}/api/client/places/details/${encodeURIComponent(biz.placeId)}?session=${encodeURIComponent(placesSessionRef.current)}`,
+        { credentials: "include" }
+      );
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "Failed to load place details");
+      }
+
+      const place = payload.data || {};
+      setDesign((d) => ({
+        ...d,
+        businessName: place.name || biz.name,
+        address: place.formattedAddress || biz.address,
+        googlePlaceId: place.placeId || biz.placeId,
+        googleReviewLink: place.reviewUrl || "",
+      }));
+      setSearchQuery(place.name || biz.name);
+    } catch {
+      setDesign((d) => ({
+        ...d,
+        businessName: biz.name,
+        address: biz.address,
+        googlePlaceId: biz.placeId,
+        googleReviewLink: biz.reviewLink,
+      }));
+      setSearchQuery(biz.name);
+    } finally {
+      setShowResults(false);
+      setBusinessResults([]);
+    }
   };
 
   const applyTheme = (themeId) => {
@@ -1196,9 +1467,14 @@ const Customize = () => {
   const handleLogoUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoFile(url);
-      setDesign((d) => ({ ...d, logoUrl: url }));
+      const reader = new FileReader();
+      reader.onload = () => {
+        const value = typeof reader.result === "string" ? reader.result : null;
+        if (!value) return;
+        setLogoFile(value);
+        setDesign((d) => ({ ...d, logoUrl: value }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -1206,7 +1482,121 @@ const Customize = () => {
     setDesign((d) => ({ ...d, model }));
   };
 
-  const validateDesign = () => {
+  const buildStep1Payload = () => ({
+    businessName: design.businessName,
+    slogan: design.slogan,
+    callToAction: design.cta,
+    ctaPaddingTop,
+    googlePlaceId: design.googlePlaceId || undefined,
+    googleReviewUrl: design.googleReviewLink || undefined,
+  });
+
+  const buildStep2Payload = () => ({
+    orientation,
+    logo: typeof design.logoUrl === "string" && design.logoUrl.startsWith("data:image/") ? design.logoUrl : undefined,
+    logoUrl: typeof design.logoUrl === "string" && !design.logoUrl.startsWith("data:image/") ? design.logoUrl : undefined,
+    logoPosition,
+    logoSize,
+    colorMode,
+    bgColor: design.bgColor,
+    textColor: design.textColor,
+    qrColor: design.qrColor,
+    starColor: starsColor,
+    iconsColor,
+    templateName: selectedTemplate,
+    gradient1,
+    gradient2,
+    accentBand1,
+    accentBand2,
+    bandPosition,
+    frontBandHeight,
+    backBandHeight,
+    showNfcIcon,
+    showGoogleIcon,
+    nfcIconSize,
+    googleLogoSize: googleIconSize,
+    businessFont: nameFont,
+    businessFontSize: nameFontSize,
+    businessFontWeight: nameFontWeight,
+    businessFontSpacing: nameLetterSpacing,
+    businessLineHeight: nameLineHeight,
+    businessAlign: nameTextAlign,
+    businessTextTransform: nameTextTransform,
+    sloganFont,
+    sloganFontSize,
+    sloganFontWeight,
+    sloganFontSpacing: sloganLetterSpacing,
+    sloganLineHeight,
+    sloganAlign: sloganTextAlign,
+    sloganTextTransform,
+    textShadow,
+    frontInstruction1: frontLine1,
+    frontInstruction2: frontLine2,
+    backInstruction1: backLine1,
+    backInstruction2: backLine2,
+    instrFont: instructionFont,
+    instrFontSize: instructionFontSize,
+    instrFontWeight: instructionFontWeight,
+    instrFontSpacing: instructionLetterSpacing,
+    instrLineHeight: instructionLineHeight,
+    instrAlign: instructionTextAlign,
+    checkStrokeWidth,
+    qrCodeSize: qrSize,
+    cardModel: design.model,
+    elementOffsets: allOffsets,
+  });
+
+  const saveRemoteStep1 = async () => {
+    const designId = await ensureRemoteDesign();
+    if (!designId) throw new Error("Design not ready");
+
+    const response = await fetch(`${shopApiBase}/designs/${designId}/step1`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildStep1Payload()),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Failed to save business step");
+    }
+
+    if (payload?.data) {
+      applyRemoteDesignData(payload.data);
+      syncCartDesignSummary(payload.data);
+      return payload.data;
+    }
+
+    return null;
+  };
+
+  const saveRemoteStep2 = async () => {
+    const designId = await ensureRemoteDesign();
+    if (!designId) throw new Error("Design not ready");
+
+    const response = await fetch(`${shopApiBase}/designs/${designId}/step2`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildStep2Payload()),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Failed to save design step");
+    }
+
+    if (payload?.data) {
+      applyRemoteDesignData(payload.data);
+      syncCartDesignSummary(payload.data);
+      return payload.data;
+    }
+
+    return null;
+  };
+
+  const validateDesign = async () => {
     const errors = [];
     if (!design.businessName) errors.push(t("customize.name_required"));
     if (!design.logoUrl) errors.push(t("customize.logo_required"));
@@ -1217,11 +1607,54 @@ const Customize = () => {
       return;
     }
 
-    const validated = { ...design, status: "validated", errors: [] };
-    setDesign(validated);
-    if (item) updateDesign(item.id, validated);
-    toast({ title: t("customize.design_ok"), description: t("customize.design_ok_desc") });
-    setCurrentStep(2);
+    setIsSavingDesignStep(true);
+
+    try {
+      await saveRemoteStep1();
+      const savedDesign = await saveRemoteStep2();
+      const designId = savedDesign?.id || remoteDesignId;
+
+      if (!designId) {
+        throw new Error("Design not ready");
+      }
+
+      const response = await fetch(`${shopApiBase}/designs/${designId}/validate`, {
+        method: "PUT",
+        credentials: "include",
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to validate design");
+      }
+
+      const validated = payload?.data
+        ? {
+            ...design,
+            status: payload.data.status || "validated",
+            errors: [],
+          }
+        : { ...design, status: "validated", errors: [] };
+
+      if (payload?.data) {
+        applyRemoteDesignData(payload.data);
+        syncCartDesignSummary(payload.data);
+      } else {
+        setDesign(validated);
+        if (item) updateDesign(item.id, validated);
+      }
+
+      toast({ title: t("customize.design_ok"), description: t("customize.design_ok_desc") });
+      setCurrentStep(2);
+    } catch (error) {
+      toast({
+        title: t("customize.validation_failed"),
+        description: error?.message || "Failed to validate design.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingDesignStep(false);
+    }
   };
 
   const saveAndContinue = () => {
@@ -1237,15 +1670,35 @@ const Customize = () => {
     }
   };
 
-  const goToNextStep = () => {
+  const goToNextStep = async () => {
     if (currentStep === 0) {
       if (!design.businessName) {
         toast({ title: t("customize.biz_required"), description: t("customize.biz_required_desc"), variant: "destructive" });
         return;
       }
-      setCurrentStep(1);
+      if (!design.googlePlaceId) {
+        toast({
+          title: t("customize.biz_required"),
+          description: t("customize.select_google_business") || "Please select a business from Google Maps search results.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setIsSavingDesignStep(true);
+      try {
+        await saveRemoteStep1();
+        setCurrentStep(1);
+      } catch (error) {
+        toast({
+          title: t("customize.load_failed") || "Failed to save business step",
+          description: error?.message || "Unable to save the business details.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSavingDesignStep(false);
+      }
     } else if (currentStep === 1) {
-      validateDesign();
+      await validateDesign();
     }
   };
 
@@ -1292,6 +1745,8 @@ const Customize = () => {
           ))}
         </div>
 
+
+
         <div className="mt-10 grid gap-10 lg:grid-cols-5">
           {/* Editor Panel */}
           <motion.div initial="hidden" animate="visible" className="lg:col-span-3 space-y-8 order-2 lg:order-1">
@@ -1306,15 +1761,25 @@ const Customize = () => {
                   <div className="relative mt-4">
                     <Input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setShowResults(true); }}
                       placeholder="Search business name on Google Maps..." className="bg-background border-border/50" />
-                    {showResults && filteredBusinesses.length > 0 && (
+                    {showResults && (isSearchingBusinesses || businessResults.length > 0 || searchQuery.trim().length >= 2) && (
                       <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-border/50 bg-secondary shadow-lg">
-                        {filteredBusinesses.map((b) => (
-                          <button key={b.placeId} onClick={() => selectBusiness(b)}
-                            className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0">
-                            <p className="text-sm font-medium">{b.name}</p>
-                            <p className="text-xs text-muted-foreground">{b.address}</p>
-                          </button>
-                        ))}
+                        {isSearchingBusinesses ? (
+                          <div className="px-4 py-3 text-sm text-muted-foreground">
+                            {t("customize.searching_business") || "Searching Google Maps..."}
+                          </div>
+                        ) : businessResults.length > 0 ? (
+                          businessResults.map((b) => (
+                            <button key={b.placeId} onClick={() => selectBusiness(b)}
+                              className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0">
+                              <p className="text-sm font-medium">{b.name}</p>
+                              <p className="text-xs text-muted-foreground">{b.address}</p>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-muted-foreground">
+                            {t("customize.no_business_found") || "No business found."}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1344,6 +1809,10 @@ const Customize = () => {
                 </motion.div>
               </>
             )}
+
+
+
+
 
             {/* Step 1: Design */}
             {currentStep === 1 && (
@@ -2144,8 +2613,16 @@ const Customize = () => {
                 </Button>
               )}
               {currentStep < 2 && (
-                <Button onClick={goToNextStep} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90">
-                  {currentStep === 1 ? t("customize.btn_validate") : t("customize.btn_next")}
+                <Button
+                  onClick={goToNextStep}
+                  disabled={isSyncingRemoteDesign || isSavingDesignStep}
+                  className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {isSavingDesignStep
+                    ? (t("customize.saving") || "Saving...")
+                    : currentStep === 1
+                      ? t("customize.btn_validate")
+                      : t("customize.btn_next")}
                 </Button>
               )}
               {currentStep === 2 && (
@@ -2267,7 +2744,7 @@ const Customize = () => {
                 </div>
 
                 <CardPreview
-                  design={design}
+                  design={previewDesign}
                   orientation={orientation}
                   side={previewSide}
                   frontLine1={frontLine1}
@@ -2333,7 +2810,7 @@ const Customize = () => {
                 </div>
               </div>
 
-              {design.errors.length > 0 && (
+              {Array.isArray(design.errors) && design.errors.length > 0 && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-2">
                   {design.errors.map((err, i) => (
                     <p key={i} className="flex items-center gap-2 text-sm text-destructive">

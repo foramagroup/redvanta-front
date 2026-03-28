@@ -19,14 +19,16 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const PRICE_PER_CARD = 29;
-const smartCardImg = "/assets/smart-card-mockup.png";
+const defaultSmartCardImg = "/assets/smart-card-mockup.png";
 
-const bundles = [
+const defaultBundles = [
   { qty: 1, label: "1 Card", price: 29, savingsUsd: 0 },
   { qty: 10, label: "10 Cards", price: 249, savingsUsd: 41 },
   { qty: 25, label: "25 Cards", price: 549, savingsUsd: 176 },
   { qty: 50, label: "50 Cards", price: 999, savingsUsd: 451 },
 ];
+
+
 
 const benefits = [
   { icon: Zap, title: "Instant Customer Action", desc: "One tap triggers the review flow — zero friction, zero hesitation." },
@@ -62,6 +64,9 @@ const faqs = [
 ];
 
 const Product = () => {
+  const [bundles, setBundles] = useState(defaultBundles);
+  const [productImage, setProductImage] = useState(defaultSmartCardImg);
+  const [productId, setProductId] = useState(null);
   const [selectedBundle, setSelectedBundle] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isSticky, setIsSticky] = useState(false);
@@ -70,25 +75,72 @@ const Product = () => {
   const { t } = useLanguage();
   const router = useRouter();
 
-  const currentBundle = bundles[selectedBundle];
+  const currentBundle = bundles[selectedBundle] || bundles[0] || defaultBundles[0];
   const totalPrice = selectedBundle === 0 ? quantity * PRICE_PER_CARD : currentBundle.price;
   const totalQty = selectedBundle === 0 ? quantity : currentBundle.qty;
+  const isProductReady = !!productId && !!currentBundle?.id;
 
-  const handleAddToCart = () => {
-    addItem({
+  const handleAddToCart = async () => {
+    if (!isProductReady) return;
+    await addItem({
+      productId,
+      packageTierId: currentBundle?.id || null,
       productName: `Smart Review Card${totalQty > 1 ? ` (${totalQty}-pack)` : ""}`,
       model: "classic",
       quantity: totalQty,
       unitPrice: totalPrice / totalQty,
       design: null,
     });
-    router.push("/cart");
   };
 
   useEffect(() => {
     const handleScroll = () => setIsSticky(window.scrollY > 600);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShopDetails = async () => {
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const res = await fetch(`${apiBase}/api/client/shop-details`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load shop details");
+
+        const payload = await res.json();
+        if (cancelled) return;
+
+        if (Array.isArray(payload?.bundles) && payload.bundles.length > 0) {
+          setBundles(payload.bundles);
+          setSelectedBundle((current) => (current < payload.bundles.length ? current : 0));
+        }
+
+        if (payload?.productId) {
+          setProductId(payload.productId);
+        }
+
+        if (payload?.image) {
+          setProductImage(
+            payload.image.startsWith("/uploads/")
+              ? `http://localhost:4000${payload.image}`
+              : payload.image
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setBundles(defaultBundles);
+          setProductId(null);
+          setProductImage(defaultSmartCardImg);
+        }
+      }
+    };
+
+    loadShopDetails();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -102,13 +154,17 @@ const Product = () => {
       >
         <div className="container mx-auto flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-4">
-            <img src={smartCardImg} alt="REDVANTA Card" className="h-10 w-auto rounded" />
+            <img src={productImage} alt="REDVANTA Card" className="h-10 w-auto rounded" />
             <div>
               <p className="text-sm font-semibold">Smart Review Card</p>
               <p className="text-xs text-muted-foreground">{totalQty} {totalQty === 1 ? "card" : "cards"} — {formatPrice(totalPrice)}</p>
             </div>
           </div>
-          <Button className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleAddToCart}>
+          <Button
+            className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={handleAddToCart}
+            disabled={!isProductReady}
+          >
             <ShoppingCart size={16} className="mr-2" /> {t("shop.add_to_cart")}
           </Button>
         </div>
@@ -137,7 +193,7 @@ const Product = () => {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {bundles.map((b, i) => (
                     <button
-                      key={i}
+                      key={b.id ?? i}
                       onClick={() => { setSelectedBundle(i); if (i === 0) setQuantity(1); }}
                       className={`relative rounded-lg border p-3 text-left transition-all ${
                         selectedBundle === i
@@ -173,7 +229,12 @@ const Product = () => {
               )}
 
               <motion.div variants={fadeUp} custom={5} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                 <Button size="lg" className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8" onClick={handleAddToCart}>
+                 <Button
+                   size="lg"
+                   className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8"
+                   onClick={handleAddToCart}
+                   disabled={!isProductReady}
+                 >
                    <ShoppingCart size={18} className="mr-2" /> {t("shop.add_to_cart")} — {formatPrice(totalPrice)}
                  </Button>
                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -193,7 +254,7 @@ const Product = () => {
                 <div className="h-72 w-72 rounded-full bg-primary/15 blur-[100px]" />
               </div>
               <img
-                src={smartCardImg}
+                src={productImage}
                 alt="REDVANTA Smart Review Card — NFC-enabled magnetic card"
                 className="relative z-10 w-full max-w-lg rounded-2xl"
               />

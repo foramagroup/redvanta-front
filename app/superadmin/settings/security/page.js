@@ -138,19 +138,17 @@ const SecurityPage = () => {
       toast({ title: "Security settings updated" });
     } catch (err) {
       setError(err.message || "Failed to save security settings");
+      throw err;
     } finally {
       setSavingPolicy(false);
     }
   };
 
   const handleToggleEnforce2FA = async (checked) => {
-    const nextPolicy = {
-      ...policy,
+    setPolicy((current) => ({
+      ...current,
       enforce2FA: checked,
-    };
-
-    setPolicy(nextPolicy);
-    await handleSavePolicy(nextPolicy);
+    }));
   };
 
   const handleSaveAdmin = async () => {
@@ -270,7 +268,7 @@ const SecurityPage = () => {
           <Card className="bg-card border-border/50">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">{t("sa.sec_policies")}</CardTitle>
-              <Button size="sm" onClick={handleSavePolicy} disabled={loading || savingPolicy}>
+              <Button size="sm" onClick={() => handleSavePolicy()} disabled={loading || savingPolicy}>
                 {savingPolicy ? "Saving..." : t("sa.sec_save")}
               </Button>
             </CardHeader>

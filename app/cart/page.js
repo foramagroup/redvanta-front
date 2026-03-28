@@ -13,10 +13,18 @@ import { fadeUp } from "@/lib/animations";
 import { MODEL_LABELS } from "@/types/shop";
 
 const Cart = () => {
-  const { items, removeItem, updateQuantity, subtotal, itemCount } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
   const { formatPrice } = useCurrency();
   const { t } = useLanguage();
   const router = useRouter();
+
+  if (!isCartReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-dark pt-20">
+        <div className="text-sm text-muted-foreground">Loading cart...</div>
+      </div>
+    );
+  }
 
   const allValidated = items.length > 0 && items.every((i) => !i.design || i.design.status === "validated" || i.design.status === "locked");
   const hasUnvalidated = items.some((i) => i.design && i.design.status === "draft");
@@ -80,39 +88,47 @@ const Cart = () => {
                   {/* Row 2: Quantity + Price */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-0 rounded-lg border border-border/50 bg-secondary overflow-hidden">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2.5 py-1.5 hover:bg-muted transition-colors">
+                      <button
+                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                        disabled={item.quantity <= 1}
+                        className="px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
                         <Minus size={14} />
                       </button>
                       <span className="px-3 py-1.5 text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2.5 py-1.5 hover:bg-muted transition-colors">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        className="px-2.5 py-1.5 hover:bg-muted transition-colors"
+                      >
                         <Plus size={14} />
                       </button>
                     </div>
-                    <span className="font-display text-lg sm:text-xl font-bold">{formatPrice(item.unitPrice * item.quantity)}</span>
+                    <span className="font-display text-lg sm:text-xl font-bold">{formatPrice(item.lineTotal ?? (item.unitPrice * item.quantity))}</span>
                   </div>
 
                   {/* Design status row (if applicable) */}
-                  {item.design && (
-                    <div className="flex items-center gap-2">
-                      {item.design.status === "validated" || item.design.status === "locked" ? (
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                          <CheckCircle2 size={12} className="mr-1" /> {t("cart.validated")}
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                          <AlertTriangle size={12} className="mr-1" /> {t("cart.draft")}
-                        </Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground">{item.design.businessName}</span>
-                    </div>
-                  )}
-                  {!item.design && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.design && (
+                      <>
+                        {item.design.status === "validated" || item.design.status === "locked" ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            <CheckCircle2 size={12} className="mr-1" /> {t("cart.validated")}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                            <AlertTriangle size={12} className="mr-1" /> {t("cart.draft")}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground">{item.design.businessName}</span>
+                      </>
+                    )}
                     <Link href={`/customize/${item.id}`}>
                       <Button variant="outline" size="sm" className="text-xs">
-                        <Pencil size={12} className="mr-1" /> {t("shop.customize_design")}
+                        <Pencil size={12} className="mr-1" />
+                        {item.design ? (t("cart.edit_design") || "Edit design") : t("shop.customize_design")}
                       </Button>
                     </Link>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             ))}
