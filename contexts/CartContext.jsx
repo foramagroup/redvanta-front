@@ -5,6 +5,12 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 const CartContext = createContext(null);
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+const getCartSummaryFromItems = (cartItems) => ({
+  itemCount: cartItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
+  subtotal: cartItems.reduce((sum, item) => sum + (Number(item?.lineTotal) || ((Number(item?.unitPrice) || 0) * (Number(item?.quantity) || 1))), 0),
+  totalCards: cartItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
+});
+
 const mapRemoteCartItem = (item) => ({
   id: item.id,
   productId: item.productId,
@@ -23,6 +29,7 @@ const mapRemoteCartItem = (item) => ({
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
+  const [cartSummary, setCartSummary] = useState({ itemCount: 0, subtotal: 0, totalCards: 0 });
   const [currentOrder, setCurrentOrder] = useState(null);
   const [user, setUser] = useState(null);
   const [authUser, setAuthUser] = useState(null);
@@ -33,6 +40,7 @@ export function CartProvider({ children }) {
   const handleClientLogout = () => {
     setAuthUser(null);
     setItems([]);
+    setCartSummary({ itemCount: 0, subtotal: 0, totalCards: 0 });
     setCurrentOrder(null);
     setUser(null);
     setIsCartReady(true);
@@ -73,7 +81,14 @@ export function CartProvider({ children }) {
       const rawCart = localStorage.getItem("krootal_cart");
       const rawOrder = localStorage.getItem("krootal_current_order");
       const rawUser = localStorage.getItem("krootal_user");
-      if (rawCart) setItems(JSON.parse(rawCart));
+      if (rawCart) {
+        const parsedItems = JSON.parse(rawCart);
+        setItems(parsedItems);
+        setCartSummary(getCartSummaryFromItems(parsedItems));
+      } else {
+        setItems([]);
+        setCartSummary({ itemCount: 0, subtotal: 0, totalCards: 0 });
+      }
       if (rawOrder) setCurrentOrder(JSON.parse(rawOrder));
       if (rawUser) setUser(JSON.parse(rawUser));
     } catch {}
@@ -91,6 +106,11 @@ export function CartProvider({ children }) {
     const payload = await response.json().catch(() => ({}));
     const remoteItems = Array.isArray(payload?.data?.items) ? payload.data.items.map(mapRemoteCartItem) : [];
     setItems(remoteItems);
+    setCartSummary({
+      itemCount: Number(payload?.data?.itemCount) || remoteItems.length,
+      subtotal: Number(payload?.data?.subtotal) || 0,
+      totalCards: Number(payload?.data?.totalCards) || remoteItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
+    });
   };
 
   const syncLocalCartToRemote = async (localItems) => {
@@ -196,6 +216,7 @@ export function CartProvider({ children }) {
     const normalized = {
       id: item?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       quantity: Number(item?.quantity) || 1,
+      lineTotal: Number(item?.lineTotal) || ((Number(item?.unitPrice) || 0) * (Number(item?.quantity) || 1)),
       ...item,
     };
 
@@ -235,9 +256,33 @@ export function CartProvider({ children }) {
     }
 
     setItems((prev) => [...prev, normalized]);
+    setCartSummary((prev) => ({
+      itemCount: prev.itemCount + normalized.quantity,
+      subtotal: prev.subtotal + (Number(normalized.lineTotal) || 0),
+      totalCards: prev.totalCards + normalized.quantity,
+    }));
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = async () => {
+    if (isAuthenticated) {
+      const response = await fetch(`${apiBase}/api/client/shop/cart`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || "Failed to clear cart");
+      }
+
+      setItems([]);
+      setCartSummary({ itemCount: 0, subtotal: 0, totalCards: 0 });
+      return;
+    }
+
+    setItems([]);
+    setCartSummary({ itemCount: 0, subtotal: 0, totalCards: 0 });
+  };
 
   const removeItem = async (idOrIndex) => {
     if (isAuthenticated && typeof idOrIndex === "number") {
@@ -249,9 +294,11 @@ export function CartProvider({ children }) {
       return;
     }
 
-    setItems((prev) =>
-      prev.filter((item, i) => (typeof idOrIndex === "number" ? i !== idOrIndex : item.id !== idOrIndex))
-    );
+    setItems((prev) => {
+      const nextItems = prev.filter((item, i) => (typeof idOrIndex === "number" ? i !== idOrIndex : item.id !== idOrIndex));
+      setCartSummary(getCartSummaryFromItems(nextItems));
+      return nextItems;
+    });
   };
 
   const updateQuantity = async (idOrIndex, nextQuantity) => {
@@ -288,13 +335,15 @@ export function CartProvider({ children }) {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item, i) =>
+    setItems((prev) => {
+      const nextItems = prev.map((item, i) =>
         (typeof idOrIndex === "number" ? i === idOrIndex : item.id === idOrIndex)
-          ? { ...item, quantity }
+          ? { ...item, quantity, lineTotal: (Number(item?.unitPrice) || 0) * quantity }
           : item
-      )
-    );
+      );
+      setCartSummary(getCartSummaryFromItems(nextItems));
+      return nextItems;
+    });
   };
 
   const updateDesign = (idOrIndex, design) => {
@@ -353,13 +402,21 @@ export function CartProvider({ children }) {
   };
 
   const itemCount = useMemo(
-    () => items.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
-    [items]
+    () => (
+      isAuthenticated
+        ? (Number(cartSummary.totalCards) || 0)
+        : items.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0)
+    ),
+    [cartSummary.totalCards, isAuthenticated, items]
   );
 
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + (Number(item?.lineTotal) || ((Number(item?.unitPrice) || 0) * (Number(item?.quantity) || 1))), 0),
-    [items]
+    () => (
+      isAuthenticated
+        ? (Number(cartSummary.subtotal) || 0)
+        : items.reduce((sum, item) => sum + (Number(item?.lineTotal) || ((Number(item?.unitPrice) || 0) * (Number(item?.quantity) || 1))), 0)
+    ),
+    [cartSummary.subtotal, isAuthenticated, items]
   );
 
   const value = useMemo(
@@ -376,10 +433,11 @@ export function CartProvider({ children }) {
       authUser,
       isAuthenticated,
       isCartReady,
+      cartSummary,
       itemCount,
       subtotal,
     }),
-    [items, currentOrder, user, authUser, isAuthenticated, isCartReady, itemCount, subtotal]
+    [items, currentOrder, user, authUser, isAuthenticated, isCartReady, cartSummary, itemCount, subtotal]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

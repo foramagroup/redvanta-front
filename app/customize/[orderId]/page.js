@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   Search, Upload, CheckCircle2, AlertTriangle, QrCode,
   Palette, Type, Image as ImageIcon, Smartphone, RotateCcw,
-  Check, Star, Layers, Move, Save, Pencil, History, Clock, Eye,
+  Check, Star, Layers, Move, Save, Pencil, History, Clock, Eye, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -1764,8 +1764,9 @@ const Customize = () => {
                     {showResults && (isSearchingBusinesses || businessResults.length > 0 || searchQuery.trim().length >= 2) && (
                       <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-border/50 bg-secondary shadow-lg">
                         {isSearchingBusinesses ? (
-                          <div className="px-4 py-3 text-sm text-muted-foreground">
-                            {t("customize.searching_business") || "Searching Google Maps..."}
+                          <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                            <Loader2 size={16} className="animate-spin text-primary" />
+                            <span>{t("customize.searching_business") || "Searching Google Maps..."}</span>
                           </div>
                         ) : businessResults.length > 0 ? (
                           businessResults.map((b) => (

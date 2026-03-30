@@ -13,10 +13,12 @@ import { fadeUp } from "@/lib/animations";
 import { MODEL_LABELS } from "@/types/shop";
 
 const Cart = () => {
-  const { items, removeItem, updateQuantity, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
   const { formatPrice } = useCurrency();
   const { t } = useLanguage();
   const router = useRouter();
+  const isDraftDesignBlockingCheckout = (design) =>
+    !!design && design.status === "draft" && !!design.googlePlaceId;
 
   if (!isCartReady) {
     return (
@@ -26,8 +28,8 @@ const Cart = () => {
     );
   }
 
-  const allValidated = items.length > 0 && items.every((i) => !i.design || i.design.status === "validated" || i.design.status === "locked");
-  const hasUnvalidated = items.some((i) => i.design && i.design.status === "draft");
+  const allValidated = items.length > 0 && items.every((i) => !isDraftDesignBlockingCheckout(i.design));
+  const hasUnvalidated = items.some((i) => isDraftDesignBlockingCheckout(i.design));
 
   if (items.length === 0) {
     return (
@@ -137,7 +139,13 @@ const Cart = () => {
           {/* Summary */}
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={2}>
             <div className="sticky top-28 rounded-xl border border-border/50 bg-gradient-card p-6 space-y-6">
-               <h3 className="font-display text-lg font-semibold">{t("shop.order_summary")}</h3>
+               <div className="flex items-center justify-between gap-3">
+                 <h3 className="font-display text-lg font-semibold">{t("shop.order_summary")}</h3>
+                 <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive" onClick={clearCart}>
+                   <Trash2 size={14} className="mr-1" />
+                   {t("cart.clear") || "Clear cart"}
+                 </Button>
+               </div>
                <div className="space-y-3 text-sm">
                  <div className="flex justify-between">
                    <span className="text-muted-foreground">{t("cart.subtotal")}</span>
@@ -163,7 +171,7 @@ const Cart = () => {
               <Button
                 className="w-full glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90"
                 disabled={!allValidated}
-                onClick={() => router.push("/account-required")}
+                onClick={() => router.push(isAuthenticated ? "/checkout" : "/account-required")}
               >
                  {t("shop.proceed_checkout")}
                </Button>

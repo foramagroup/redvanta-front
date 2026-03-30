@@ -1,10 +1,10 @@
 "use client";
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu, X, ShoppingCart } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut, Mail, Menu, ShoppingCart, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage, LANGUAGES } from "@/contexts/LanguageContext";
@@ -30,7 +30,10 @@ const Header = () => {
   const [apiCartCount, setApiCartCount] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const userMenuRef = useRef(null);
   const { itemCount } = useCart();
   const { lang, setLang, t } = useLanguage();
   const { currency, setCurrencyCode, currencies } = useCurrency();
@@ -97,11 +100,27 @@ const Header = () => {
       setAuthUser(null);
       setApiCartCount(0);
       setIsOpen(false);
+      setUserMenuOpen(false);
     };
 
     window.addEventListener("app:logout", onLogout);
     return () => window.removeEventListener("app:logout", onLogout);
   }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!userMenuRef.current?.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     let active = true;
@@ -172,8 +191,22 @@ const Header = () => {
   const cartCount = itemCount > 0 ? itemCount : (apiCartCount ?? 0);
   const isAuthenticated = !!authUser;
   const desktopNavLinks = navLinks.filter((link) => link.path !== "/dashboard" || isAuthenticated);
+  const displayUserName = authUser?.name || authUser?.email || "";
+  const displayUserEmail = authUser?.email || "";
 
   const editBarHeight = isEditing ? "top-10" : "top-8";
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${apiBase}/api/client/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      window.dispatchEvent(new Event("app:logout"));
+      router.refresh();
+    }
+  };
 
   return (
     <nav className={`fixed ${editBarHeight} left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl transition-all`}>
@@ -240,9 +273,33 @@ const Header = () => {
             )}
           </Link>
           {authChecked && isAuthenticated ? (
-            <span className="max-w-[180px] truncate text-sm font-medium text-foreground">
-              {authUser.name || authUser.email}
-            </span>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen((open) => !open)}
+                className="flex max-w-[220px] items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
+              >
+                <span className="truncate">{displayUserName}</span>
+                <ChevronDown size={12} className={`shrink-0 text-muted-foreground transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-lg border border-border/50 bg-card shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border/50">
+                    <p className="text-sm font-medium text-foreground">{displayUserName}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Mail size={12} />
+                      <span className="truncate">{displayUserEmail}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm text-red-400 transition-colors hover:bg-secondary/50"
+                  >
+                    <LogOut size={14} />
+                    <span>{t("sa.navbar_logout") || "Logout"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           ) : authChecked ? (
             <>
               <Link href="/login">

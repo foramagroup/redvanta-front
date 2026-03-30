@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import {
   Zap, Smartphone, Shield, Star, CreditCard, MapPin,
   Minus, Plus, ShoppingCart, Lock, Truck, Play,
@@ -20,12 +19,22 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const PRICE_PER_CARD = 29;
 const defaultSmartCardImg = "/assets/smart-card-mockup.png";
+const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const defaultBundles = [
   { qty: 1, label: "1 Card", price: 29, savingsUsd: 0 },
   { qty: 10, label: "10 Cards", price: 249, savingsUsd: 41 },
   { qty: 25, label: "25 Cards", price: 549, savingsUsd: 176 },
   { qty: 50, label: "50 Cards", price: 999, savingsUsd: 451 },
+];
+
+const defaultProducts = [
+  {
+    id: null,
+    title: "Smart Review Card",
+    image: defaultSmartCardImg,
+    bundles: defaultBundles,
+  },
 ];
 
 
@@ -64,17 +73,20 @@ const faqs = [
 ];
 
 const Product = () => {
-  const [bundles, setBundles] = useState(defaultBundles);
-  const [productImage, setProductImage] = useState(defaultSmartCardImg);
-  const [productId, setProductId] = useState(null);
+  const [products, setProducts] = useState(defaultProducts);
+  const [selectedProduct, setSelectedProduct] = useState(0);
   const [selectedBundle, setSelectedBundle] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isSticky, setIsSticky] = useState(false);
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
   const { t } = useLanguage();
-  const router = useRouter();
 
+  const activeProduct = products[selectedProduct] || products[0] || defaultProducts[0];
+  const bundles = activeProduct?.bundles?.length ? activeProduct.bundles : defaultBundles;
+  const productImage = activeProduct?.image || defaultSmartCardImg;
+  const productId = activeProduct?.id || null;
+  const productTitle = activeProduct?.title || "Smart Review Card";
   const currentBundle = bundles[selectedBundle] || bundles[0] || defaultBundles[0];
   const totalPrice = selectedBundle === 0 ? quantity * PRICE_PER_CARD : currentBundle.price;
   const totalQty = selectedBundle === 0 ? quantity : currentBundle.qty;
@@ -85,7 +97,7 @@ const Product = () => {
     await addItem({
       productId,
       packageTierId: currentBundle?.id || null,
-      productName: `Smart Review Card${totalQty > 1 ? ` (${totalQty}-pack)` : ""}`,
+      productName: `${productTitle}${totalQty > 1 ? ` (${totalQty}-pack)` : ""}`,
       model: "classic",
       quantity: totalQty,
       unitPrice: totalPrice / totalQty,
@@ -104,34 +116,48 @@ const Product = () => {
 
     const loadShopDetails = async () => {
       try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
         const res = await fetch(`${apiBase}/api/client/shop-details`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load shop details");
 
         const payload = await res.json();
         if (cancelled) return;
 
-        if (Array.isArray(payload?.bundles) && payload.bundles.length > 0) {
-          setBundles(payload.bundles);
-          setSelectedBundle((current) => (current < payload.bundles.length ? current : 0));
-        }
-
-        if (payload?.productId) {
-          setProductId(payload.productId);
-        }
-
-        if (payload?.image) {
-          setProductImage(
-            payload.image.startsWith("/uploads/")
-              ? `http://localhost:4000${payload.image}`
-              : payload.image
+        if (Array.isArray(payload?.products) && payload.products.length > 0) {
+          setProducts(
+            payload.products.map((product) => ({
+              ...product,
+              image: product.image?.startsWith("/uploads/")
+                ? `${apiBase}${product.image}`
+                : (product.image || defaultSmartCardImg),
+            }))
           );
+          setSelectedProduct(0);
+          setSelectedBundle(0);
+          setQuantity(1);
+          return;
+        }
+
+        if ((payload?.productId || payload?.title || payload?.image) && Array.isArray(payload?.bundles) && payload.bundles.length > 0) {
+          setProducts([
+            {
+              id: payload.productId ?? null,
+              title: payload.title || "Smart Review Card",
+              image: payload.image?.startsWith("/uploads/")
+                ? `${apiBase}${payload.image}`
+                : (payload.image || defaultSmartCardImg),
+              bundles: payload.bundles,
+            },
+          ]);
+          setSelectedProduct(0);
+          setSelectedBundle(0);
+          setQuantity(1);
         }
       } catch {
         if (!cancelled) {
-          setBundles(defaultBundles);
-          setProductId(null);
-          setProductImage(defaultSmartCardImg);
+          setProducts(defaultProducts);
+          setSelectedProduct(0);
+          setSelectedBundle(0);
+          setQuantity(1);
         }
       }
     };
@@ -156,7 +182,7 @@ const Product = () => {
           <div className="flex items-center gap-4">
             <img src={productImage} alt="REDVANTA Card" className="h-10 w-auto rounded" />
             <div>
-              <p className="text-sm font-semibold">Smart Review Card</p>
+              <p className="text-sm font-semibold">{productTitle}</p>
               <p className="text-xs text-muted-foreground">{totalQty} {totalQty === 1 ? "card" : "cards"} — {formatPrice(totalPrice)}</p>
             </div>
           </div>
@@ -187,8 +213,33 @@ const Product = () => {
                 REDVANTA Smart Review Cards instantly open a feedback modal via NFC or QR scan — no apps, no friction.
               </motion.p>
 
+              {products.length > 1 && (
+                <motion.div variants={fadeUp} custom={3} className="mt-10">
+                  <p className="text-sm font-medium text-muted-foreground mb-3">{t("shop.select_product") || "Select product"}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {products.map((product, i) => (
+                      <button
+                        key={product.id ?? i}
+                        onClick={() => {
+                          setSelectedProduct(i);
+                          setSelectedBundle(0);
+                          setQuantity(1);
+                        }}
+                        className={`relative rounded-lg border p-3 text-left transition-all ${
+                          selectedProduct === i
+                            ? "border-primary/50 bg-primary/10 glow-red-sm"
+                            : "border-border/50 bg-secondary hover:border-border"
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{product.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               {/* Bundle Selector */}
-              <motion.div variants={fadeUp} custom={3} className="mt-10">
+              <motion.div variants={fadeUp} custom={products.length > 1 ? 4 : 3} className="mt-10">
                 <p className="text-sm font-medium text-muted-foreground mb-3">{t("shop.select_package")}</p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {bundles.map((b, i) => (
@@ -211,9 +262,10 @@ const Product = () => {
                 </div>
               </motion.div>
 
+
               {/* Quantity (single card only) */}
               {selectedBundle === 0 && (
-                <motion.div variants={fadeUp} custom={4} className="mt-6 flex items-center gap-4">
+                <motion.div variants={fadeUp} custom={products.length > 1 ? 5 : 4} className="mt-6 flex items-center gap-4">
                   <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
                   <div className="flex items-center gap-0 rounded-lg border border-border/50 bg-secondary overflow-hidden">
                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 hover:bg-muted transition-colors">
@@ -228,7 +280,7 @@ const Product = () => {
                 </motion.div>
               )}
 
-              <motion.div variants={fadeUp} custom={5} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <motion.div variants={fadeUp} custom={products.length > 1 ? 6 : 5} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                  <Button
                    size="lg"
                    className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8"

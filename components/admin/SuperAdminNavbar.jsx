@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, ChevronDown, LogOut, CreditCard, User, FileText, Lock, Sun, Moon, Search, X } from "lucide-react";
 import { useLanguage, LANGUAGES } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
+
+const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const notifications = [
   { id: 1, text: "New account registered: Bella's Kitchen", time: "5 min ago", read: false },
@@ -33,6 +36,7 @@ const searchableItems = [
 ];
 
 const SuperAdminNavbar = () => {
+  const router = useRouter();
   const { lang, setLang, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [langOpen, setLangOpen] = useState(false);
@@ -40,9 +44,67 @@ const SuperAdminNavbar = () => {
   const [userOpen, setUserOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [account, setAccount] = useState(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const selectedLang = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0];
   const closeAll = () => { setLangOpen(false); setNotifOpen(false); setUserOpen(false); };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAccount = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/superadmin/auth/me`, {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          return;
+        }
+
+        const data = await res.json();
+        if (isMounted) {
+          setAccount(data?.user || null);
+        }
+      } catch {
+        // Keep the navbar usable even if the auth ping fails.
+      }
+    };
+
+    loadAccount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const displayName = account?.name || "Super Admin";
+  const displayEmail = account?.email || "admin@redvanta.com";
+  const displayRole = account?.role?.name || "Super Admin";
+  const avatarLabel = useMemo(() => {
+    const source = displayName?.trim() || displayEmail?.trim() || "S";
+    return source.charAt(0).toUpperCase();
+  }, [displayEmail, displayName]);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    setUserOpen(false);
+
+    try {
+      await fetch(`${apiBase}/api/superadmin/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      router.replace("/superadmin/login");
+      router.refresh();
+    }
+  };
 
   const filteredSearch = searchQuery.length > 0
     ? searchableItems.filter(i => t(i.labelKey).toLowerCase().includes(searchQuery.toLowerCase()))
@@ -143,16 +205,16 @@ const SuperAdminNavbar = () => {
               <button onClick={() => { closeAll(); setUserOpen(!userOpen); }}
                 className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User size={16} className="text-primary" />
+                  <span className="text-xs font-semibold text-primary">{avatarLabel}</span>
                 </div>
-                <span className="hidden sm:inline text-xs font-medium">Super Admin</span>
+                <span className="hidden sm:inline text-xs font-medium">{displayRole}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
               </button>
               {userOpen && (
                 <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border/50 bg-card shadow-xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-border/50">
-                    <p className="text-sm font-medium">Admin User</p>
-                    <p className="text-[10px] text-muted-foreground">admin@redvanta.com</p>
+                    <p className="text-sm font-medium">{displayName}</p>
+                    <p className="text-[10px] text-muted-foreground">{displayEmail}</p>
                   </div>
                   <Link href="/superadmin/billing" onClick={() => setUserOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
                     <CreditCard size={14} /> {t("sa.navbar_all_orders")}
@@ -176,9 +238,13 @@ const SuperAdminNavbar = () => {
                     </button>
                   </div>
                   <div className="border-t border-border/50">
-                    <Link href="/login" className="flex w-full items-center gap-3 px-4 py-2.5 text-xs text-red-400 hover:bg-secondary/50 transition-colors">
+                    <button
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-xs text-red-400 hover:bg-secondary/50 transition-colors disabled:opacity-60"
+                    >
                       <LogOut size={14} /> {t("sa.navbar_logout")}
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )}

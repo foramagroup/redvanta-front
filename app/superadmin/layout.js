@@ -26,14 +26,14 @@ export default function SuperadminLayout({ children }) {
         });
 
         if (!res.ok) {
-          router.replace(`/superadmin/login?next=${encodeURIComponent(pathname || "/superadmin")}`);
+          router.replace(`/superadmin/login?next=${encodeURIComponent(pathname || "/superadmin/dashboard")}`);
           return;
         }
 
         const data = await res.json();
         setUser(data.user || null);
       } catch {
-        router.replace(`/superadmin/login?next=${encodeURIComponent(pathname || "/superadmin")}`);
+        router.replace(`/superadmin/login?next=${encodeURIComponent(pathname || "/superadmin/dashboard")}`);
         return;
       } finally {
         setChecking(false);
@@ -63,7 +63,7 @@ export default function SuperadminLayout({ children }) {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-card/80 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-          <Link href="/superadmin" className="font-display text-xl font-bold">
+          <Link href="/superadmin/dashboard" className="font-display text-xl font-bold">
             Superadmin
           </Link>
           <div className="flex items-center gap-4">

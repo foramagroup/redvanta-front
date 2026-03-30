@@ -35,6 +35,35 @@ const LanguageContext = createContext(defaultValue);
 
 export const useLanguage = () => useContext(LanguageContext);
 
+const resolveSupportedLanguage = (value) => {
+  if (!value) return null;
+
+  const normalized = String(value).toLowerCase();
+  if (allLocales[normalized]) {
+    return normalized;
+  }
+
+  const baseCode = normalized.split("-")[0];
+  return allLocales[baseCode] ? baseCode : null;
+};
+
+const getBrowserLanguage = () => {
+  if (typeof window === "undefined") return null;
+
+  const preferredLanguages = Array.isArray(window.navigator.languages) && window.navigator.languages.length > 0
+    ? window.navigator.languages
+    : [window.navigator.language];
+
+  for (const candidate of preferredLanguages) {
+    const resolved = resolveSupportedLanguage(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return null;
+};
+
 const getNestedValue = (obj, path) => {
   if (!obj || !path) return undefined;
   if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path];
@@ -56,9 +85,15 @@ export const LanguageProvider = ({ children }) => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved && allLocales[saved] && saved !== "en") {
+    const saved = resolveSupportedLanguage(window.localStorage.getItem(STORAGE_KEY));
+    if (saved) {
       setLangState(saved);
+      return;
+    }
+
+    const browserLang = getBrowserLanguage();
+    if (browserLang) {
+      setLangState(browserLang);
     }
   }, []);
 

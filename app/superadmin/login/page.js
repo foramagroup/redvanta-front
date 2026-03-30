@@ -11,7 +11,9 @@ import { fadeUp } from "@/lib/animations";
 export default function SuperadminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/superadmin";
+  const defaultNextPath = "/superadmin/dashboard";
+  const rawNextPath = searchParams.get("next") || defaultNextPath;
+  const nextPath = rawNextPath === "/superadmin" ? defaultNextPath : rawNextPath;
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   const [email, setEmail] = useState("");
@@ -39,7 +41,7 @@ export default function SuperadminLoginPage() {
         return;
       }
 
-      router.push(nextPath.startsWith("/superadmin") ? nextPath : "/superadmin");
+      router.push(nextPath.startsWith("/superadmin") ? nextPath : defaultNextPath);
     } catch {
       setError("Unable to connect to backend.");
       setLoading(false);
@@ -96,5 +98,3 @@ export default function SuperadminLoginPage() {
     </div>
   );
 }
-
-
