@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const sidebarItems = [
   { icon: Home, labelKey: "dash.dashboard", path: "/dashboard" },
+  { icon: Palette, labelKey: "dash.my_designs", path: "/dashboard/designs" },
   { icon: Star, labelKey: "dash.reviews", path: "/dashboard/reviews" },
   { icon: MessageSquare, labelKey: "dash.requests", path: "/dashboard/requests" },
   { icon: Filter, labelKey: "dash.filtering", path: "/dashboard/filtering" },
@@ -27,7 +28,6 @@ const sidebarItems = [
   { icon: CreditCard, labelKey: "dash.billing", path: "/dashboard/billing" },
   { icon: Activity, labelKey: "dash.events", path: "/dashboard/events" },
   { icon: Package, labelKey: "dash.addons", path: "/dashboard/addons" },
-  { icon: Palette, labelKey: "dash.my_designs", path: "/dashboard/designs" },
   { icon: Crown, labelKey: "dash.upgrade", path: "/dashboard/upgrade" },
   { icon: Settings, labelKey: "dash.settings", path: "/dashboard/settings" },
 ];
@@ -44,6 +44,61 @@ const DashboardLayout = ({ children, title, subtitle, headerAction }) => {
   const { t } = useLanguage();
   const isOrdersActive = ordersSubItems.some(item => pathname === item.path);
   const [ordersOpen, setOrdersOpen] = useState(isOrdersActive);
+
+  const renderOrdersMenu = () => {
+    if (collapsed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Link
+                href="/dashboard/orders"
+                onClick={() => setMobileOpen(false)}
+                className={`flex w-full items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isOrdersActive ? "bg-primary/10 text-primary border-glow" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <ShoppingBag size={18} className="shrink-0" />
+              </Link>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">Orders</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Collapsible open={ordersOpen} onOpenChange={setOrdersOpen}>
+        <CollapsibleTrigger className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+          isOrdersActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+        }`}>
+          <div className="flex items-center gap-3">
+            <ShoppingBag size={18} className="shrink-0" />
+            <span>Orders</span>
+          </div>
+          {ordersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-1 ml-2">
+          {ordersSubItems.map((sub) => {
+            const subActive = pathname === sub.path;
+            return (
+              <Link
+                key={sub.path}
+                href={sub.path}
+                onClick={() => setMobileOpen(false)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  subActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <sub.icon size={16} className="shrink-0" />
+                <span>{sub.label}</span>
+              </Link>
+            );
+          })}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
 
   return (
     <>
@@ -72,7 +127,6 @@ const DashboardLayout = ({ children, title, subtitle, headerAction }) => {
                   const isActive = pathname === item.path;
                   const linkContent = (
                     <Link
-                      key={item.labelKey}
                       href={item.path}
                       onClick={() => setMobileOpen(false)}
                       className={`flex w-full items-center ${collapsed ? "justify-center" : ""} gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -88,71 +142,29 @@ const DashboardLayout = ({ children, title, subtitle, headerAction }) => {
 
                   if (collapsed) {
                     return (
-                      <Tooltip key={item.labelKey}>
-                        <TooltipTrigger asChild>
-                          <div>
-                            {linkContent}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs">
-                          {t(item.labelKey)}
-                        </TooltipContent>
-                      </Tooltip>
+                      <div key={item.labelKey}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              {linkContent}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">
+                            {t(item.labelKey)}
+                          </TooltipContent>
+                        </Tooltip>
+                        {item.path === "/dashboard/designs" && renderOrdersMenu()}
+                      </div>
                     );
                   }
 
-                  return linkContent;
+                  return (
+                    <div key={item.labelKey}>
+                      {linkContent}
+                      {item.path === "/dashboard/designs" && renderOrdersMenu()}
+                    </div>
+                  );
                 })}
-
-                {/* Orders submenu */}
-                {collapsed ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Link
-                          href="/dashboard/orders"
-                          onClick={() => setMobileOpen(false)}
-                          className={`flex w-full items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                            isOrdersActive ? "bg-primary/10 text-primary border-glow" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                          }`}
-                        >
-                          <ShoppingBag size={18} className="shrink-0" />
-                        </Link>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="text-xs">Orders</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Collapsible open={ordersOpen} onOpenChange={setOrdersOpen}>
-                    <CollapsibleTrigger className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isOrdersActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}>
-                      <div className="flex items-center gap-3">
-                        <ShoppingBag size={18} className="shrink-0" />
-                        <span>Orders</span>
-                      </div>
-                      {ordersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-1 mt-1 ml-2">
-                      {ordersSubItems.map((sub) => {
-                        const subActive = pathname === sub.path;
-                        return (
-                          <Link
-                            key={sub.path}
-                            href={sub.path}
-                            onClick={() => setMobileOpen(false)}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                              subActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                            }`}
-                          >
-                            <sub.icon size={16} className="shrink-0" />
-                            <span>{sub.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
               </TooltipProvider>
             </div>
 

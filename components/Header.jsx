@@ -15,7 +15,7 @@ import { ChevronDown } from "lucide-react";
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const navLinks = [
-  { label: "nav.product", path: "/product" },
+  { label: "nav.products", path: "/products" },
   { label: "nav.features", path: "/features" },
   { label: "nav.pricing", path: "/pricing" },
   { label: "nav.agency", path: "/agency" },
@@ -23,7 +23,7 @@ const navLinks = [
   { label: "nav.contact", path: "/contact" },
 ];
 
-const Header = () => {
+const Header = ({ showEditBar = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [apiLanguages, setApiLanguages] = useState([]);
   const [apiCurrencies, setApiCurrencies] = useState([]);
@@ -194,7 +194,9 @@ const Header = () => {
   const displayUserName = authUser?.name || authUser?.email || "";
   const displayUserEmail = authUser?.email || "";
 
-  const editBarHeight = isEditing ? "top-10" : "top-8";
+  const editBarHeight = showEditBar
+    ? (isEditing ? "top-10" : "top-8")
+    : "top-0";
 
   const handleLogout = async () => {
     try {
