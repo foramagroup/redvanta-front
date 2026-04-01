@@ -67,13 +67,11 @@ const Products = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/products`, {
-        credentials: "include",
-      });
+      const response = await fetch(`${apiBase}/api/client`);
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload?.message || "Failed to load products");
+        throw new Error(payload?.error || payload?.message || "Failed to load products");
       }
 
       const items = Array.isArray(payload?.data) ? payload.data : [];

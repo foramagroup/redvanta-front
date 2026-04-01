@@ -230,7 +230,7 @@ const Checkout = () => {
     setError(null);
 
     try {
-      const payload = await api.post("/api/orders", {
+      const payload = await api.post("/api/client/orders", {
         shippingFullName: address.fullName,
         shippingAddress: address.address,
         shippingCity: address.city,
