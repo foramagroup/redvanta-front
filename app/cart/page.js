@@ -19,6 +19,18 @@ const Cart = () => {
   const router = useRouter();
   const isDraftDesignBlockingCheckout = (design) =>
     !!design && design.status === "draft" && !!design.googlePlaceId;
+  const handleProceedCheckout = () => {
+    if (!isAuthenticated) {
+      router.push("/account-required");
+      return;
+    }
+
+    try {
+      sessionStorage.setItem("krootal_checkout_autostart", "1");
+    } catch {}
+
+    router.push("/checkout");
+  };
 
   if (!isCartReady) {
     return (
@@ -28,7 +40,6 @@ const Cart = () => {
     );
   }
 
-  const allValidated = items.length > 0 && items.every((i) => !isDraftDesignBlockingCheckout(i.design));
   const hasUnvalidated = items.some((i) => isDraftDesignBlockingCheckout(i.design));
 
   if (items.length === 0) {
@@ -170,9 +181,9 @@ const Cart = () => {
 
               <Button
                 className="w-full glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={!allValidated}
-                onClick={() => router.push(isAuthenticated ? "/checkout" : "/account-required")}
+                onClick={handleProceedCheckout}
               >
+              
                  {t("shop.proceed_checkout")}
                </Button>
                <Link href="/product" className="block text-center text-sm text-muted-foreground hover:text-primary transition-colors">
