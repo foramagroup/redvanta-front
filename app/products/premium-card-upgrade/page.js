@@ -49,9 +49,12 @@ const PremiumCardUpgrade = () => {
   const { product, loading, error } = useClientProduct(PRODUCT_SLUG, lang, FALLBACK_PRODUCT);
   const packageTiers = product.packageTiers || [];
   const selectedPackage = packageTiers[selectedPackageIndex] || null;
-  const totalQty = selectedPackage?.qty || quantity;
+  const isSingleUnitPackage = selectedPackage?.qty === 1;
+  const totalQty = selectedPackage ? (isSingleUnitPackage ? quantity : selectedPackage.qty) : quantity;
   const unitPrice = selectedPackage?.price || product.price;
-  const totalPrice = selectedPackage?.lineTotal || quantity * product.price;
+  const totalPrice = selectedPackage
+    ? (isSingleUnitPackage ? quantity * Number(selectedPackage.price) : selectedPackage.lineTotal)
+    : quantity * product.price;
   const resolvedPackageTierId = selectedPackage?.id || product.packageTierId || undefined;
   const canAddToCart = !loading && (!product.id || !!resolvedPackageTierId);
 
@@ -89,7 +92,7 @@ const PremiumCardUpgrade = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><CreditCard size={20} className="text-primary" /></div>
             <div>
               <p className="text-sm font-semibold">{product.title}</p>
-              <p className="text-xs text-muted-foreground">{selectedPackage ? `${totalQty} cards - ${formatPrice(totalPrice)}` : `${quantity} x ${formatPrice(product.price)}`}</p>
+              <p className="text-xs text-muted-foreground">{selectedPackage ? `${totalQty} units - ${formatPrice(totalPrice)}` : `${quantity} x ${formatPrice(product.price)}`}</p>
             </div>
           </div>
           <Button className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleAddToCart} disabled={!canAddToCart}>
@@ -117,7 +120,12 @@ const PremiumCardUpgrade = () => {
                       {packageTiers.map((tier, index) => (
                         <button
                           key={tier.id ?? index}
-                          onClick={() => setSelectedPackageIndex(index)}
+                          onClick={() => {
+                            setSelectedPackageIndex(index);
+                            if (tier.qty !== 1) {
+                              setQuantity(1);
+                            }
+                          }}
                           className={`rounded-lg border p-3 text-left transition-all ${
                             selectedPackageIndex === index
                               ? "border-primary/50 bg-primary/10 glow-red-sm"
@@ -130,7 +138,19 @@ const PremiumCardUpgrade = () => {
                         </button>
                       ))}
                     </div>
-                    <span className="block font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
+                    {isSingleUnitPackage ? (
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
+                        <div className="flex items-center overflow-hidden rounded-lg border border-border/50 bg-secondary">
+                          <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 hover:bg-muted"><Minus size={16} /></button>
+                          <span className="min-w-[3rem] px-4 py-2 text-center text-sm font-semibold">{quantity}</span>
+                          <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-2 hover:bg-muted"><Plus size={16} /></button>
+                        </div>
+                        <span className="font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
+                      </div>
+                    ) : (
+                      <span className="block font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
+                    )}
                   </div>
                 ) : (
                   <>

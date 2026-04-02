@@ -37,6 +37,24 @@ const normalizeProduct = (product, lang) => {
   const slug = pickLocalizedValue(product.slug, lang);
   const description = pickLocalizedValue(product.metaDescription, lang) || pickLocalizedValue(product.seoTitle, lang);
   const features = toFeatureList(description);
+  const packageTiers = Array.isArray(product.packageTiers)
+    ? product.packageTiers
+        .map((tier) => {
+          const qty = Number(tier?.qty || 0);
+          const price = Number(tier?.price || 0);
+
+          if (!qty || !price) return null;
+
+          return {
+            id: tier.id,
+            qty,
+            price,
+            lineTotal: Number(tier?.lineTotal || price * qty),
+          };
+        })
+        .filter(Boolean)
+    : [];
+  const defaultTier = packageTiers[0] || null;
 
   return {
     id: product.id,
@@ -44,7 +62,13 @@ const normalizeProduct = (product, lang) => {
     title,
     desc: description || "No description available yet.",
     price: Number(product.price || 0),
-    image: product.image || fallbackImage,
+    lineTotal: Number(product.price || 0),
+    quantity: 1,
+    packageTierId: defaultTier?.id || null,
+    image:
+      product.image?.startsWith("/uploads/")
+        ? `${apiBase}${product.image}`
+        : (product.image || fallbackImage),
     icon: iconCycle[(product.id - 1) % iconCycle.length] || CreditCard,
     badge: product.active ? null : "Draft",
     features,
@@ -93,8 +117,17 @@ const Products = () => {
     [lang, products]
   );
 
-  const handleAdd = (product) => {
-    addItem({ productName: product.title, model: "classic", quantity: 1, unitPrice: product.price, design: null });
+  const handleAdd = async (product) => {
+    await addItem({
+      productId: product.id || undefined,
+      packageTierId: product.packageTierId || undefined,
+      productName: product.title,
+      model: "classic",
+      quantity: product.quantity,
+      unitPrice: product.price,
+      lineTotal: product.lineTotal,
+      design: null,
+    });
     router.push("/cart");
   };
 
@@ -163,7 +196,7 @@ const Products = () => {
                   <span className="font-display text-2xl font-bold">{formatPrice(product.price)}</span>
                   <div className="flex gap-1.5">
                     <Button size="sm" variant="ghost" onClick={() => setQuickView(product)} className="h-8 w-8 p-0"><Eye size={14} /></Button>
-                    <Button size="sm" variant="outline" onClick={() => handleAdd(product)} className="hover:bg-primary/10 hover:text-primary hover:border-primary/30">
+                    <Button size="sm" variant="outline" onClick={() => handleAdd(product)} disabled={!!product.id && !product.packageTierId} className="hover:bg-primary/10 hover:text-primary hover:border-primary/30">
                       <ShoppingCart size={14} className="mr-1" />{t("shop.add")}
                     </Button>
                     <Button size="sm" asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -208,7 +241,7 @@ const Products = () => {
                 ) : null}
                 <div className="flex items-center justify-between pt-4 border-t border-border/50">
                   <span className="font-display text-3xl font-bold">{formatPrice(quickView.price)}</span>
-                  <Button onClick={() => { handleAdd(quickView); setQuickView(null); }} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 px-6">
+                  <Button onClick={() => { handleAdd(quickView); setQuickView(null); }} disabled={!!quickView.id && !quickView.packageTierId} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 px-6">
                     <ShoppingCart size={14} className="mr-1" />{t("shop.add_to_cart")}
                   </Button>
                 </div>

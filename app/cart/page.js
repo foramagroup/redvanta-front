@@ -76,7 +76,13 @@ const Cart = () => {
         <div className="mt-10 grid gap-10 lg:grid-cols-3">
           {/* Items */}
           <motion.div initial="hidden" animate="visible" className="lg:col-span-2 space-y-4">
-            {items.map((item, i) => (
+            {items.map((item, i) => {
+              const hasPackage = !!(item.packageTierId || item.packageTier || item.availableTiers?.length);
+              const packageLabel = item.packageTier?.qty
+                ? `${item.packageTier.qty} ${item.packageTier.qty === 1 ? "unit" : "units"}`
+                : null;
+
+              return (
               <motion.div
                 key={item.id}
                 variants={fadeUp}
@@ -100,22 +106,28 @@ const Cart = () => {
 
                   {/* Row 2: Quantity + Price */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-0 rounded-lg border border-border/50 bg-secondary overflow-hidden">
-                      <button
-                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                        disabled={item.quantity <= 1}
-                        className="px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="px-3 py-1.5 text-sm font-semibold">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="px-2.5 py-1.5 hover:bg-muted transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
+                    {hasPackage ? (
+                      <div className="rounded-lg border border-border/50 bg-secondary px-3 py-1.5 text-sm font-semibold text-muted-foreground">
+                        {packageLabel || `${item.quantity} fixed`}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-0 rounded-lg border border-border/50 bg-secondary overflow-hidden">
+                        <button
+                          onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                          disabled={item.quantity <= 1}
+                          className="px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="px-3 py-1.5 text-sm font-semibold">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="px-2.5 py-1.5 hover:bg-muted transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
                     <span className="font-display text-lg sm:text-xl font-bold">{formatPrice(item.lineTotal ?? (item.unitPrice * item.quantity))}</span>
                   </div>
 
@@ -144,7 +156,8 @@ const Cart = () => {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </motion.div>
 
           {/* Summary */}

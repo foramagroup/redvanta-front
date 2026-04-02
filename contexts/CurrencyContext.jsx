@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 const CURRENCIES = [
   { code: "EUR", symbol: "€", rate: 0.92, position: "right_space" },
@@ -13,6 +13,8 @@ const CURRENCIES = [
   { code: "CHF", symbol: "CHF", rate: 0.88, position: "right_space" },
 ];
 
+const STORAGE_KEY = "krootal_currency";
+
 const CurrencyContext = createContext(null);
 
 export const useCurrency = () => {
@@ -21,13 +23,40 @@ export const useCurrency = () => {
   return ctx;
 };
 
-export const CurrencyProvider = ({ children }) => {
-  const [currency, setCurrency] = useState(CURRENCIES[0]);
+export const CurrencyProvider = ({ children, initialCurrencyCode }) => {
+  const initialCurrency =
+    CURRENCIES.find((item) => item.code === initialCurrencyCode) || CURRENCIES[0];
+
+  const [currency, setCurrency] = useState(initialCurrency);
+  const [isReady, setIsReady] = useState(false);
 
   const setCurrencyCode = useCallback((code) => {
     const c = CURRENCIES.find((item) => item.code === code);
     if (c) setCurrency(c);
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedCode = window.localStorage.getItem(STORAGE_KEY);
+      const savedCurrency = CURRENCIES.find((item) => item.code === savedCode);
+      if (savedCurrency && savedCurrency.code !== initialCurrency.code) {
+        setCurrency(savedCurrency);
+      }
+    } catch {}
+    setIsReady(true);
+  }, [initialCurrency.code]);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, currency.code);
+    } catch {}
+
+    try {
+      document.cookie = `${STORAGE_KEY}=${currency.code}; path=/; max-age=31536000; samesite=lax`;
+    } catch {}
+  }, [currency, isReady]);
 
   const formatPrice = useCallback(
     (usdAmount) => {

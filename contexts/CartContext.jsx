@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const CartContext = createContext(null);
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const isSyncableCartItem = (item) => !!item?.productId;
 
 const getCartSummaryFromItems = (cartItems) => ({
   itemCount: cartItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
@@ -11,21 +12,25 @@ const getCartSummaryFromItems = (cartItems) => ({
   totalCards: cartItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
 });
 
-const mapRemoteCartItem = (item) => ({
-  id: item.id,
-  productId: item.productId,
-  packageTierId: item.packageTier?.id || null,
-  productName: item.productName,
-  quantity: Number(item.totalCards) || 1,
-  totalCards: Number(item.totalCards) || 1,
-  unitPrice: Number(item.unitPrice) || 0,
-  lineTotal: Number(item.lineTotal) || 0,
-  model: item.design?.cardModel || "classic",
-  design: item.design || null,
-  cardType: item.cardType || null,
-  packageTier: item.packageTier || null,
-  availableTiers: Array.isArray(item.availableTiers) ? item.availableTiers : [],
-});
+const mapRemoteCartItem = (item) => {
+  const quantity = Number(item.quantity ?? item.totalCards) || 1;
+
+  return {
+    id: item.id,
+    productId: item.productId,
+    packageTierId: item.packageTier?.id || null,
+    productName: item.productName,
+    quantity,
+    totalCards: Number(item.totalCards) || quantity,
+    unitPrice: Number(item.unitPrice) || 0,
+    lineTotal: Number(item.lineTotal) || 0,
+    model: item.design?.cardModel || "classic",
+    design: item.design || null,
+    cardType: item.cardType || null,
+    packageTier: item.packageTier || null,
+    availableTiers: Array.isArray(item.availableTiers) ? item.availableTiers : [],
+  };
+};
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
@@ -76,6 +81,11 @@ export function CartProvider({ children }) {
     }
   };
 
+  const getPersistableCartItems = (cartItems) =>
+    Array.isArray(cartItems)
+      ? cartItems.filter((item) => !isAuthenticated || !isSyncableCartItem(item))
+      : [];
+
   const loadLocalCart = () => {
     try {
       const rawCart = localStorage.getItem("krootal_cart");
@@ -105,21 +115,24 @@ export function CartProvider({ children }) {
 
     const payload = await response.json().catch(() => ({}));
     const remoteItems = Array.isArray(payload?.data?.items) ? payload.data.items.map(mapRemoteCartItem) : [];
-    setItems(remoteItems);
-    setCartSummary({
-      itemCount: Number(payload?.data?.itemCount) || remoteItems.length,
+    const nextSummary = {
+      itemCount: remoteItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
       subtotal: Number(payload?.data?.subtotal) || 0,
-      totalCards: Number(payload?.data?.totalCards) || remoteItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
-    });
+      totalCards: remoteItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
+    };
+    setItems(remoteItems);
+    setCartSummary(nextSummary);
+    return { remoteItems, nextSummary };
   };
 
   const syncLocalCartToRemote = async (localItems) => {
     const syncableItems = Array.isArray(localItems)
       ? localItems
-          .filter((item) => item?.productId && item?.packageTierId)
+          .filter((item) => item?.productId)
           .map((item) => ({
             productId: item.productId,
-            packageTierId: item.packageTierId,
+            packageTierId: item.packageTierId || null,
+            quantity: Number(item.quantity) || 1,
             cardTypeId: item.cardType?.id || null,
           }))
       : [];
@@ -154,7 +167,14 @@ export function CartProvider({ children }) {
           if (localItems.length) {
             await syncLocalCartToRemote(localItems);
           }
-          await loadRemoteCart();
+          const { remoteItems } = await loadRemoteCart();
+          const localOnlyItems = localItems.filter((item) => !isSyncableCartItem(item));
+
+          if (localOnlyItems.length) {
+            const mergedItems = [...remoteItems, ...localOnlyItems];
+            setItems(mergedItems);
+            setCartSummary(getCartSummaryFromItems(mergedItems));
+          }
         } else {
           setAuthUser(null);
           loadLocalCart();
@@ -188,11 +208,18 @@ export function CartProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) return;
+    if (!isCartReady) return;
+
     try {
-      localStorage.setItem("krootal_cart", JSON.stringify(items));
+      const persistableItems = getPersistableCartItems(items);
+
+      if (persistableItems.length) {
+        localStorage.setItem("krootal_cart", JSON.stringify(persistableItems));
+      } else {
+        localStorage.removeItem("krootal_cart");
+      }
     } catch {}
-  }, [items, isAuthenticated]);
+  }, [isCartReady, items, isAuthenticated]);
 
   useEffect(() => {
     try {
@@ -220,12 +247,8 @@ export function CartProvider({ children }) {
       ...item,
     };
 
-    if (normalized.productId && !normalized.packageTierId) {
-      throw new Error("Product package is not ready yet");
-    }
-
     let sessionUser = authUser;
-    if (!sessionUser && normalized.productId && normalized.packageTierId) {
+    if (!sessionUser && isSyncableCartItem(normalized)) {
       try {
         sessionUser = await resolveAuthUser();
       } catch {
@@ -233,14 +256,15 @@ export function CartProvider({ children }) {
       }
     }
 
-    if (sessionUser && normalized.productId && normalized.packageTierId) {
+    if (sessionUser && isSyncableCartItem(normalized)) {
       const response = await fetch(`${apiBase}/api/client/shop/cart`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: normalized.productId,
-          packageTierId: normalized.packageTierId,
+          packageTierId: normalized.packageTierId || null,
+          quantity: Number(normalized.quantity) || 1,
           cardTypeId: normalized.cardType?.id || null,
         }),
       });
@@ -250,8 +274,16 @@ export function CartProvider({ children }) {
         throw new Error(payload?.error || "Failed to add item to cart");
       }
 
-      await loadRemoteCart();
-      localStorage.removeItem("krootal_cart");
+      const { remoteItems } = await loadRemoteCart();
+      const localOnlyItems = getStoredLocalCart().filter((entry) => !isSyncableCartItem(entry));
+
+      if (localOnlyItems.length) {
+        const mergedItems = [...remoteItems, ...localOnlyItems];
+        setItems(mergedItems);
+        setCartSummary(getCartSummaryFromItems(mergedItems));
+      } else {
+        localStorage.removeItem("krootal_cart");
+      }
       return;
     }
 
@@ -319,7 +351,7 @@ export function CartProvider({ children }) {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ totalCards: quantity }),
+        body: JSON.stringify(item?.packageTierId ? { totalCards: quantity } : { quantity }),
       });
 
       if (!response.ok) {

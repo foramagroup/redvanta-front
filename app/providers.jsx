@@ -6,12 +6,12 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LiveTextEditorProvider } from "@/contexts/LiveTextEditorContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
-export default function Providers({ children }) {
+export default function Providers({ children, initialCurrencyCode }) {
   return (
     <ThemeProvider>
       <CartProvider>
         <LanguageProvider>
-          <CurrencyProvider>
+          <CurrencyProvider initialCurrencyCode={initialCurrencyCode}>
             <LiveTextEditorProvider>{children}</LiveTextEditorProvider>
           </CurrencyProvider>
         </LanguageProvider>

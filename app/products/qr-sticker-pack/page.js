@@ -53,7 +53,7 @@ const QrStickerPack = () => {
   const unitPrice = selectedPackage?.price || product.price;
   const totalPrice = selectedPackage?.lineTotal || quantity * product.price;
   const resolvedPackageTierId = selectedPackage?.id || product.packageTierId || undefined;
-  const canAddToCart = !loading && (!product.id || !!resolvedPackageTierId);
+  const canAddToCart = !loading;
 
   const handleAddToCart = async () => {
     if (!canAddToCart) return;

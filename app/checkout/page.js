@@ -129,6 +129,9 @@ const Checkout = () => {
   const [amounts, setAmounts] = useState(null);
   const [error, setError] = useState(null);
   const [autostartRequested, setAutostartRequested] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
+  const [selectedMethod, setSelectedMethod] = useState(null);
 
   const shippingOptions = [
     { method: "standard", labelKey: "checkout.standard", price: 9.99, timeKey: "checkout.standard_time" },
@@ -145,6 +148,21 @@ const Checkout = () => {
 
   const paymentReady = Boolean(clientSecret && amounts);
   const checkoutLocked = paymentReady || processingOrder;
+
+  useEffect(() => {
+    setLoadingMethods(true);
+    api.get("/api/client/shop/payment-methods")
+      .then((res) => {
+        const methods = res?.data ?? [];
+        setPaymentMethods(methods);
+        setSelectedMethod(methods[0] ? String(methods[0].id) : null);
+      })
+      .catch(() => {
+        setPaymentMethods([]);
+        setSelectedMethod(null);
+      })
+      .finally(() => setLoadingMethods(false));
+  }, []);
 
   useEffect(() => {
     if (!items.length) {
@@ -429,9 +447,57 @@ const Checkout = () => {
 
             <motion.div variants={fadeUp} custom={4} className="rounded-xl border border-border/50 bg-gradient-card p-6">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
+                <CreditCard size={18} className="text-primary" /> Payment Methods
+              </h3>
+              <div className="mt-4 space-y-3">
+                {loadingMethods ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading payment methods...
+                  </div>
+                ) : paymentMethods.length ? (
+                  paymentMethods.map((method) => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      disabled={checkoutLocked}
+                      onClick={() => setSelectedMethod(String(method.id))}
+                      className={`w-full rounded-lg border p-4 text-left transition-all ${
+                        selectedMethod === String(method.id)
+                          ? "border-primary/50 bg-primary/10"
+                          : "border-border/50 hover:border-border"
+                      } ${checkoutLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                          selectedMethod === String(method.id) ? "border-primary" : "border-muted-foreground"
+                        }`}>
+                          {selectedMethod === String(method.id) && (
+                            <div className="h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <CreditCard size={16} className="text-primary" />
+                        <div>
+                          <p className="text-sm font-semibold">{method.name}</p>
+                          {method.instructions && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">{method.instructions}</p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-400">
+                    Aucun mode de paiement disponible.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div variants={fadeUp} custom={5} className="rounded-xl border border-border/50 bg-gradient-card p-6">
+              <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
                 <CreditCard size={18} className="text-primary" /> {t("checkout.payment")}
               </h3>
-
               {!paymentReady && !processingOrder && (
                 <div className="mt-4 rounded-lg border border-dashed border-border/50 bg-background/40 p-4">
                   <p className="text-sm text-muted-foreground">
