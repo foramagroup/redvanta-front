@@ -13,9 +13,18 @@ export default function CheckoutSuccessPage() {
   const params = useSearchParams();
   const paymentIntentId = params.get("payment_intent");
   const clientSecret = params.get("payment_intent_client_secret");
+  const manualStatus = params.get("status");
+  const manualMessage = params.get("message");
+  const orderNumber = params.get("order");
+  const invoiceNumber = params.get("invoice");
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
+    if (manualStatus === "manual") {
+      setStatus("manual");
+      return;
+    }
+
     if (!paymentIntentId || !clientSecret || !stripePromise) {
       setStatus("success");
       return;
@@ -29,7 +38,7 @@ export default function CheckoutSuccessPage() {
       .catch(() => {
         setStatus("success");
       });
-  }, [clientSecret, paymentIntentId]);
+  }, [clientSecret, manualStatus, paymentIntentId]);
 
   if (status === "loading") {
     return (
@@ -56,6 +65,36 @@ export default function CheckoutSuccessPage() {
             className="mt-6 inline-flex rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Revenir au checkout
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "manual") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-dark px-6">
+        <div className="w-full max-w-md rounded-xl border border-border/50 bg-gradient-card p-8 text-center">
+          <div className="mb-4 text-5xl text-green-400">✓</div>
+          <h1 className="font-display text-2xl font-bold">Commande enregistree</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {manualMessage || "Votre commande a ete enregistree. Vous paierez sur place."}
+          </p>
+          {orderNumber && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Commande : <span className="font-medium text-foreground">{orderNumber}</span>
+            </p>
+          )}
+          {invoiceNumber && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Facture : <span className="font-medium text-foreground">{invoiceNumber}</span>
+            </p>
+          )}
+          <Link
+            href="/"
+            className="mt-6 inline-flex rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Retour à l&apos;accueil
           </Link>
         </div>
       </div>

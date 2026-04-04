@@ -36,6 +36,20 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PK
 const CHECKOUT_AUTOSTART_KEY = "krootal_checkout_autostart";
 const CHECKOUT_DRAFT_KEY = "krootal_checkout_draft";
 
+function resolvePaymentFlow(method) {
+  const normalizedName = String(method?.name || "").trim().toLowerCase();
+
+  if (normalizedName === "card payment") {
+    return "stripe";
+  }
+
+  if (normalizedName === "cash payment") {
+    return "manual";
+  }
+
+  return null;
+}
+
 const INITIAL_ADDRESS = {
   fullName: "",
   address: "",
@@ -145,6 +159,11 @@ const Checkout = () => {
     () => ["fullName", "address", "city", "zip", "country"].every((field) => String(address[field] || "").trim()),
     [address]
   );
+  const selectedMethodData = useMemo(
+    () => paymentMethods.find((method) => String(method.id) === String(selectedMethod)) ?? null,
+    [paymentMethods, selectedMethod]
+  );
+  const selectedPaymentFlow = resolvePaymentFlow(selectedMethodData);
 
   const paymentReady = Boolean(clientSecret && amounts);
   const checkoutLocked = paymentReady || processingOrder;
@@ -240,7 +259,12 @@ const Checkout = () => {
 
   const prepareCheckout = async () => {
     if (!requiredAddressComplete) {
-      setError("Completez les informations de livraison avant de charger Stripe.");
+      setError("Completez les informations de livraison avant de continuer.");
+      return;
+    }
+
+    if (!selectedMethodData || !selectedPaymentFlow) {
+      setError("Selectionnez un mode de paiement valide.");
       return;
     }
 
@@ -256,14 +280,34 @@ const Checkout = () => {
         shippingZip: address.zip,
         shippingCountry: address.country,
         shippingMethod: shipping,
+        paymentMethod: selectedPaymentFlow,
+        paymentMethodId: selectedPaymentFlow === "manual" ? selectedMethodData.id : null,
       });
 
-      if (!payload?.stripeClientSecret) {
-        throw new Error("Stripe n'a pas renvoye de client secret.");
-      }
+      if (selectedPaymentFlow === "stripe") {
+        if (!payload?.stripeClientSecret) {
+          throw new Error("Stripe n'a pas renvoye de client secret.");
+        }
 
-      setClientSecret(payload.stripeClientSecret);
-      setAmounts(payload.amounts || null);
+        setClientSecret(payload.stripeClientSecret);
+        setAmounts(payload.amounts || null);
+      } else {
+        const params = new URLSearchParams({
+          status: "manual",
+          message: "Votre commande a ete enregistree. Vous paierez sur place.",
+        });
+
+        if (payload?.data?.orderNumber) {
+          params.set("order", payload.data.orderNumber);
+        }
+
+        if (payload?.invoiceNumber) {
+          params.set("invoice", payload.invoiceNumber);
+        }
+
+        router.push(`/checkout/success?${params.toString()}`);
+        return;
+      }
     } catch (requestError) {
       setClientSecret(null);
       setAmounts(null);
@@ -501,7 +545,11 @@ const Checkout = () => {
               {!paymentReady && !processingOrder && (
                 <div className="mt-4 rounded-lg border border-dashed border-border/50 bg-background/40 p-4">
                   <p className="text-sm text-muted-foreground">
-                   <span className="font-medium text-foreground">Proceed to checkout</span> 
+                    <span className="font-medium text-foreground">
+                      {selectedPaymentFlow === "manual"
+                        ? "Confirmez la commande pour payer sur place"
+                        : "Chargez le paiement pour continuer"}
+                    </span>
                   </p>
                 </div>
               )}
@@ -569,7 +617,7 @@ const Checkout = () => {
               {!paymentReady ? (
                 <Button
                   className="w-full glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={processingOrder || !requiredAddressComplete}
+                  disabled={processingOrder || !requiredAddressComplete || !selectedPaymentFlow}
                   onClick={prepareCheckout}
                 >
                   {processingOrder ? (
@@ -580,7 +628,7 @@ const Checkout = () => {
                   ) : (
                     <>
                       <Lock size={16} className="mr-2" />
-                      Charger le paiement Stripe
+                      Charger le paiement
                     </>
                   )}
                 </Button>
