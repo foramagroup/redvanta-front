@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Building2, CreditCard, Activity, Plug, MessageSquare, BarChart3,
   Settings, Sliders, DollarSign, Package, Shield, Flag, Lock, FileText, Server,
   Menu, X, ChevronDown, ChevronRight, Globe, Coins, Wallet, Smartphone,
-  FileStack, HelpCircle, FolderOpen, Mail, Webhook, MessageCircle, ShoppingBag, ClipboardList, Palette
+  FileStack, HelpCircle, FolderOpen, Mail, Webhook, MessageCircle, ShoppingBag, ClipboardList, Palette, Nfc, Tags
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,6 +26,9 @@ const mainItems = [
   { icon: BarChart3, labelKey: "sa.sidebar_analytics", path: "/superadmin/analytics" },
   { icon: ShoppingBag, labelKey: "sa.sidebar_products", path: "/superadmin/products" },
   { icon: Palette, labelKey: "sa.sidebar_all_designs", path: "/superadmin/designs" },
+  { icon: Nfc, labelKey: "NFC Cards", path: "/superadmin/nfc-cards" },
+  { icon: Tags, labelKey: "NFC Tags", path: "/superadmin/nfc-tags" },
+  { icon: Palette, labelKey: "Template Manager", path: "/superadmin/templates" }
 ];
 
 const settingsItems = [
