@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { Pencil, Star } from "lucide-react";
+import { Download, Pencil, RefreshCw, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -139,7 +139,14 @@ function PrintReadyPage({ design, side, previewRef }) {
   );
 }
 
-export default function DesignDetailModal({ design, onClose, onEdit }) {
+export default function DesignDetailModal({
+  design,
+  onClose,
+  onEdit,
+  onDownloadCardExport,
+  onRegenerateCard,
+  cardActionLoading = false,
+}) {
   const [previewSide, setPreviewSide] = useState("front");
   const [isGenerating, setIsGenerating] = useState(false);
   const frontPreviewRef = useRef(null);
@@ -228,10 +235,39 @@ export default function DesignDetailModal({ design, onClose, onEdit }) {
                   Verso
                 </button>
               </div>
-              <Button variant="outline" onClick={handleDownloadPdf} disabled={isGenerating}>
-                {isGenerating ? "Generating..." : "Download PDF"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {design?.primaryCardUid && onRegenerateCard && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onRegenerateCard(design)}
+                    disabled={cardActionLoading}
+                    className="gap-2"
+                  >
+                    <RefreshCw size={14} className={cardActionLoading ? "animate-spin" : ""} />
+                    {cardActionLoading ? "Regenerating..." : "Regenerate"}
+                  </Button>
+                )}
+                {design?.primaryCardUid && onDownloadCardExport && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onDownloadCardExport(design, "pdf")}
+                    className="gap-2"
+                  >
+                    <Download size={14} />
+                    Card Export
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGenerating}>
+                  {isGenerating ? "Generating..." : "Download PDF"}
+                </Button>
+              </div>
             </div>
+
+            {design?.primaryCardUid && (
+              <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+                API linked card: <span className="font-medium text-foreground">{design.primaryCardUid}</span>
+              </div>
+            )}
 
             <CardPreview design={design} side={previewSide} previewRef={null} aspectRatio={aspectRatio} />
 

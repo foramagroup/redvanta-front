@@ -6,50 +6,14 @@ const STORAGE_KEY = "redvanta_saved_designs";
 const VERSIONS_STORAGE_KEY = "redvanta_design_versions";
 const MAX_VERSIONS = 20;
 
-const INITIAL_DESIGNS = [
-  {
-    id: "d-1", name: "Bella's Main Card", businessName: "Bella's Italian Kitchen",
-    template: "Crimson Noir", templateColor1: "#B91C1C", templateColor2: "#0D0D0D",
-    orientation: "landscape", model: "Premium", status: "active",
-    linkedCard: "CARD-00421", createdAt: "2025-01-15", updatedAt: "2025-02-20",
-    frontInstructions: "Tap your phone here", backInstructions: "Scan QR to leave a review"
-  },
-  {
-    id: "d-2", name: "Summit Dental Portrait", businessName: "Summit Dental Care",
-    template: "Midnight Gold", templateColor1: "#1E1B4B", templateColor2: "#0F172A",
-    orientation: "portrait", model: "Metal", status: "active",
-    linkedCard: "CARD-00422", createdAt: "2025-01-20", updatedAt: "2025-03-01",
-    frontInstructions: "Hold phone near card", backInstructions: "Scan to review us"
-  },
-  {
-    id: "d-3", name: "Auto Service Draft", businessName: "Elite Auto Service",
-    template: "Arctic Fire", templateColor1: "#FFFFFF", templateColor2: "#F1F5F9",
-    orientation: "landscape", model: "Classic", status: "draft",
-    linkedCard: null, createdAt: "2025-02-10", updatedAt: "2025-02-10",
-    frontInstructions: "Tap NFC to start", backInstructions: "Leave us a review"
-  },
-  {
-    id: "d-4", name: "Old Branding Design", businessName: "Bella's Italian Kitchen",
-    template: "Emerald Dark", templateColor1: "#064E3B", templateColor2: "#0D0D0D",
-    orientation: "landscape", model: "Classic", status: "archived",
-    linkedCard: null, createdAt: "2024-11-05", updatedAt: "2024-12-01",
-    frontInstructions: "Tap here", backInstructions: "Scan QR code"
-  },
-  {
-    id: "d-5", name: "Bella's Table Stand", businessName: "Bella's Italian Kitchen",
-    template: "Onyx Orbit", templateColor1: "#0A0A0A", templateColor2: "#1A1A1A",
-    orientation: "portrait", model: "Premium", status: "draft",
-    linkedCard: null, createdAt: "2025-03-01", updatedAt: "2025-03-05",
-    frontInstructions: "Scan to review", backInstructions: "Thank you for visiting"
-  },
-];
+const INITIAL_DESIGNS = [];
 
 function loadDesigns() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch { /* ignore */ }
   return INITIAL_DESIGNS;

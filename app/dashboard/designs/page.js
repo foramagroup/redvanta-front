@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/animations";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -23,17 +23,76 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useDesigns } from "@/contexts/DesignsContext";
+import { get, post } from "@/lib/api";
 
 const STATUS_CONFIG = {
   active: { label: "Active", className: "bg-green-500/15 text-green-400 border-green-500/30" },
   draft: { label: "Draft", className: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
   archived: { label: "Archived", className: "bg-muted/50 text-muted-foreground border-border/50" },
 };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toISOString().split("T")[0];
+}
+
+function mapApiStatus(status) {
+  if (status === "draft") return "draft";
+  if (status === "archived") return "archived";
+  return "active";
+}
+
+function mapCardsToDesigns(cards = []) {
+  const grouped = new Map();
+
+  cards.forEach((card) => {
+    const design = card?.designSummary;
+    if (!design?.id) return;
+
+    const existing = grouped.get(design.id);
+    if (existing) {
+      existing.cardCount += 1;
+      existing.linkedCard = existing.cardCount > 1 ? `${existing.cardCount} cards` : card.uid;
+      existing.updatedAt = formatDate(card.activatedAt || card.generatedAt);
+      return;
+    }
+
+    const businessName = design.businessName || card.locationName || "Unnamed business";
+    const model = design.cardModel || "Classic";
+
+    grouped.set(design.id, {
+      id: String(design.id),
+      name: `${businessName} Design`,
+      businessName,
+      template: card.productName || "NFC Card",
+      templateColor1: design.bgColor || "#111827",
+      templateColor2: design.accentColor || "#E10600",
+      orientation: design.orientation || "landscape",
+      model,
+      status: mapApiStatus(design.status),
+      linkedCard: card.uid || null,
+      primaryCardUid: card.uid || null,
+      cardCount: 1,
+      createdAt: formatDate(card.generatedAt),
+      updatedAt: formatDate(card.activatedAt || card.generatedAt),
+      frontInstructions: "Tap your phone here",
+      backInstructions: "Scan QR to leave a review",
+    });
+  });
+
+  return Array.from(grouped.values()).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
 
 const MyDesigns = () => {
   const { t } = useLanguage();
   const router = useRouter();
   const { designs, setDesigns, addDesign, updateDesign } = useDesigns();
+  const [loadingDesigns, setLoadingDesigns] = useState(true);
+  const [cardActionLoading, setCardActionLoading] = useState(false);
+  const [nfcStats, setNfcStats] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
@@ -42,7 +101,131 @@ const MyDesigns = () => {
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
 
-  const filtered = designs.filter((design) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDesigns = async () => {
+      try {
+        setLoadingDesigns(true);
+        const [cardsResponse, statsResponse] = await Promise.all([
+          get("/api/admin/nfc/cards", { limit: 100 }),
+          get("/api/admin/nfc/stats"),
+        ]);
+        if (cancelled) return;
+        setDesigns(mapCardsToDesigns(cardsResponse?.data || []));
+        setNfcStats(statsResponse?.data || null);
+      } catch (error) {
+        if (cancelled) return;
+        toast({
+          title: "Designs",
+          description: error?.error || "Unable to load designs.",
+          variant: "destructive",
+        });
+      } finally {
+        if (!cancelled) setLoadingDesigns(false);
+      }
+    };
+
+    loadDesigns();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setDesigns]);
+
+  const reloadFromApi = async () => {
+    const [cardsResponse, statsResponse] = await Promise.all([
+      get("/api/admin/nfc/cards", { limit: 100 }),
+      get("/api/admin/nfc/stats"),
+    ]);
+    const nextDesigns = mapCardsToDesigns(cardsResponse?.data || []);
+    setDesigns(nextDesigns);
+    setNfcStats(statsResponse?.data || null);
+    return nextDesigns;
+  };
+
+  const handlePreviewOpen = async (design) => {
+    setPreviewDesign(design);
+    if (!design?.primaryCardUid) return;
+
+    try {
+      const response = await get(`/api/admin/nfc/cards/${design.primaryCardUid}`);
+      const detailedDesign = mapCardsToDesigns([response?.data])[0];
+      if (!detailedDesign) return;
+      const merged = { ...design, ...detailedDesign };
+      setPreviewDesign(merged);
+      setDesigns((current) => current.map((item) => (item.id === design.id ? { ...item, ...merged } : item)));
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.error || "Unable to load design details.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadCardExport = async (design, format = "pdf") => {
+    if (!design?.primaryCardUid) {
+      toast({ title: "Designs", description: "No linked card available for export.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/admin/nfc/cards/${design.primaryCardUid}/export?format=${format}`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        let payload = {};
+        try { payload = await response.json(); } catch {}
+        throw new Error(payload?.error || "Unable to export card.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${design.name || "design-card"}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || "Unable to export card.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRegenerateCard = async (design) => {
+    if (!design?.primaryCardUid) {
+      toast({ title: "Designs", description: "No linked card available to regenerate.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setCardActionLoading(true);
+      await post(`/api/admin/nfc/cards/${design.primaryCardUid}/regenerate`);
+      const nextDesigns = await reloadFromApi();
+      const refreshed = nextDesigns.find((item) => item.id === design.id);
+      if (refreshed) setPreviewDesign(refreshed);
+      toast({ title: "Designs", description: "Card exports regenerated." });
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.error || "Unable to regenerate card exports.",
+        variant: "destructive",
+      });
+    } finally {
+      setCardActionLoading(false);
+    }
+  };
+
+  const sourceDesigns = loadingDesigns ? [] : designs;
+
+  const filtered = sourceDesigns.filter((design) => {
     const matchSearch =
       design.name.toLowerCase().includes(search.toLowerCase()) ||
       design.businessName.toLowerCase().includes(search.toLowerCase());
@@ -106,10 +289,10 @@ const MyDesigns = () => {
   };
 
   const stats = {
-    total: designs.length,
-    active: designs.filter((design) => design.status === "active").length,
-    draft: designs.filter((design) => design.status === "draft").length,
-    archived: designs.filter((design) => design.status === "archived").length,
+    total: sourceDesigns.length,
+    active: sourceDesigns.filter((design) => design.status === "active").length,
+    draft: sourceDesigns.filter((design) => design.status === "draft").length,
+    archived: sourceDesigns.filter((design) => design.status === "archived").length,
   };
 
   const DesignCard = ({ design }) => {
@@ -120,7 +303,7 @@ const MyDesigns = () => {
         <div
           className="relative h-36 flex items-center justify-center cursor-pointer"
           style={{ background: `linear-gradient(135deg, ${design.templateColor1}, ${design.templateColor2})` }}
-          onClick={() => setPreviewDesign(design)}
+          onClick={() => handlePreviewOpen(design)}
         >
           <div className="text-center px-4">
             <div className="flex justify-center mb-1">
@@ -172,7 +355,7 @@ const MyDesigns = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={() => setPreviewDesign(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePreviewOpen(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(`/customize/edit-${design.id}`)}><Pencil size={14} className="mr-2" />Edit Design</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => startRename(design)}><Type size={14} className="mr-2" />Rename</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleDuplicate(design)}><Copy size={14} className="mr-2" />Duplicate</DropdownMenuItem>
@@ -213,7 +396,7 @@ const MyDesigns = () => {
         <div
           className="w-16 h-10 rounded-lg shrink-0 cursor-pointer"
           style={{ background: `linear-gradient(135deg, ${design.templateColor1}, ${design.templateColor2})` }}
-          onClick={() => setPreviewDesign(design)}
+          onClick={() => handlePreviewOpen(design)}
         />
         <div className="min-w-0 flex-1">
           {renamingId === design.id ? (
@@ -246,7 +429,7 @@ const MyDesigns = () => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => setPreviewDesign(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handlePreviewOpen(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/customize/edit-${design.id}`)}><Pencil size={14} className="mr-2" />Edit</DropdownMenuItem>
             <DropdownMenuItem onClick={() => startRename(design)}><Type size={14} className="mr-2" />Rename</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleDuplicate(design)}><Copy size={14} className="mr-2" />Duplicate</DropdownMenuItem>
@@ -313,8 +496,20 @@ const MyDesigns = () => {
           </div>
         </motion.div>
 
+        {nfcStats && (
+          <motion.div variants={fadeUp} custom={1} className="rounded-xl border border-border/50 bg-gradient-card p-3 text-xs text-muted-foreground">
+            Synced with NFC API: {nfcStats.total} cards, {nfcStats.active} active, {nfcStats.printed} printed, {nfcStats.shipped} shipped.
+          </motion.div>
+        )}
+
         <motion.div variants={fadeUp} custom={2}>
-          {filtered.length === 0 ? (
+          {loadingDesigns ? (
+            <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
+              <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4 animate-pulse" />
+              <h3 className="font-display text-lg font-semibold mb-1">Loading designs...</h3>
+              <p className="text-sm text-muted-foreground">Fetching your latest NFC design data.</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
               <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4" />
               <h3 className="font-display text-lg font-semibold mb-1">No designs found</h3>
@@ -342,6 +537,9 @@ const MyDesigns = () => {
           setPreviewDesign(null);
           router.push(`/customize/edit-${design?.id}`);
         }}
+        onDownloadCardExport={handleDownloadCardExport}
+        onRegenerateCard={handleRegenerateCard}
+        cardActionLoading={cardActionLoading}
       />
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

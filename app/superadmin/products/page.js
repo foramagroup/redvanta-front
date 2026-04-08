@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,21 +15,16 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Globe, Package, Upload, X, Loader2, GripVertical, Images, Layers, CreditCard, Film, ImageIcon, Play, Youtube, Link as LinkIcon, Palette } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Globe, Package, Upload, X, Loader2, GripVertical, Images, Layers, CreditCard, Film, ImageIcon, Play, Youtube, Link as LinkIcon, Palette, Settings2, RectangleHorizontal, RectangleVertical, Square, Circle, Star, RotateCcw, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+import { PLATFORMS, ALL_CARD_TEMPLATES, getTemplatesForPlatform, getTemplateById, gradientCSS } from "@/data/cardTemplates";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { get, post, put, remove } from "@/lib/api";
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-const resolveMediaUrl = (value) => {
-  if (!value || value === "/placeholder.svg") return "/placeholder.svg";
-  if (typeof value === "string" && value.startsWith("/uploads/")) return `${apiBase}${value}`;
-  return value;
-};
-
-const languages = ["en", "fr", "de", "es"];
-const langLabels = { en: "English", fr: "French", de: "German", es: "Spanish" };
-
+const DEFAULT_LANGUAGES = ["en", "fr", "de", "es"];
+const DEFAULT_LANG_LABELS = { en: "English", fr: "French", de: "German", es: "Spanish" };
 
 const DEFAULT_CARD_TYPES = [
   { id: "classic", name: "Classic", color: "#6b7280", image: "/placeholder.svg", active: true },
@@ -38,9 +33,23 @@ const DEFAULT_CARD_TYPES = [
   { id: "transparent", name: "Transparent", color: "#7dd3fc", image: "/placeholder.svg", active: true },
 ];
 
+const DEFAULT_CARD_SETTINGS = {
+  width: 85,
+  height: 54,
+  cornerRadiusEnabled: true,
+  cornerRadius: 8,
+  layouts: ["landscape"],
+  reviewPlatform: "google",
+  defaultTemplateId: "google-classic",
+  availableTemplates: [],
+};
 
-
-
+const LAYOUT_OPTIONS = [
+  { value: "landscape", label: "Landscape", icon: RectangleHorizontal },
+  { value: "portrait", label: "Portrait", icon: RectangleVertical },
+  { value: "square", label: "Square", icon: Square },
+  { value: "circle", label: "Circle", icon: Circle },
+];
 
 const defaultPackageTiers = [
   { qty: 1, price: 29 },
@@ -57,11 +66,11 @@ const defaultCardTypePrices = [
 ];
 
 const initialProducts = [
-  { id: 1, slug: { en: "premium-table-stand" }, price: 39, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Premium Table Stand", fr: "Support de Table Premium" }, seoTitle: { en: "Premium Table Stand - REDVANTA" }, metaDescription: { en: "Elegant acrylic stand to display your card at reception or checkout counter." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [] },
-  { id: 2, slug: { en: "qr-sticker-pack" }, price: 19, active: true, image: "/placeholder.svg", gallery: [], title: { en: "QR Sticker Pack (10x)", fr: "Pack Autocollants QR (10x)" }, seoTitle: { en: "QR Sticker Pack - REDVANTA" }, metaDescription: { en: "Waterproof vinyl stickers with your unique QR code." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [] },
-  { id: 3, slug: { en: "premium-card-upgrade" }, price: 20, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Premium Card Upgrade", fr: "Carte Premium" }, seoTitle: { en: "Premium Card Upgrade - REDVANTA" }, metaDescription: { en: "Upgrade to metallic finish and enhanced durability." }, metaImage: { en: "/placeholder.svg" }, packageTiers: defaultPackageTiers, cardTypePrices: defaultCardTypePrices },
-  { id: 4, slug: { en: "duplicate-card" }, price: 24, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Duplicate Card (Different Color)", fr: "Carte Dupliquée (Couleur Différente)" }, seoTitle: { en: "Duplicate Card - REDVANTA" }, metaDescription: { en: "Create a color variant linked to the same location." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [] },
-  { id: 5, slug: { en: "nfc-qr-bundle" }, price: 69, active: true, image: "/placeholder.svg", gallery: [], title: { en: "NFC + QR Bundle", fr: "Pack NFC + QR" }, seoTitle: { en: "NFC + QR Bundle - REDVANTA" }, metaDescription: { en: "Smart Review Card + Table Stand + 10 QR Stickers at 20% off." }, metaImage: { en: "/placeholder.svg" }, packageTiers: defaultPackageTiers, cardTypePrices: defaultCardTypePrices },
+  { id: 1, slug: { en: "premium-table-stand" }, price: 39, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Premium Table Stand", fr: "Support de Table Premium" }, seoTitle: { en: "Premium Table Stand - REDVANTA" }, metaDescription: { en: "Elegant acrylic stand to display your card at reception or checkout counter." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [], cardSettings: { ...DEFAULT_CARD_SETTINGS } },
+  { id: 2, slug: { en: "qr-sticker-pack" }, price: 19, active: true, image: "/placeholder.svg", gallery: [], title: { en: "QR Sticker Pack (10x)", fr: "Pack Autocollants QR (10x)" }, seoTitle: { en: "QR Sticker Pack - REDVANTA" }, metaDescription: { en: "Waterproof vinyl stickers with your unique QR code." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [], cardSettings: { ...DEFAULT_CARD_SETTINGS } },
+  { id: 3, slug: { en: "premium-card-upgrade" }, price: 20, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Premium Card Upgrade", fr: "Carte Premium" }, seoTitle: { en: "Premium Card Upgrade - REDVANTA" }, metaDescription: { en: "Upgrade to metallic finish and enhanced durability." }, metaImage: { en: "/placeholder.svg" }, packageTiers: defaultPackageTiers, cardTypePrices: defaultCardTypePrices, cardSettings: { ...DEFAULT_CARD_SETTINGS } },
+  { id: 4, slug: { en: "duplicate-card" }, price: 24, active: true, image: "/placeholder.svg", gallery: [], title: { en: "Duplicate Card (Different Color)", fr: "Carte Dupliquée (Couleur Différente)" }, seoTitle: { en: "Duplicate Card - REDVANTA" }, metaDescription: { en: "Create a color variant linked to the same location." }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [], cardSettings: { ...DEFAULT_CARD_SETTINGS } },
+  { id: 5, slug: { en: "nfc-qr-bundle" }, price: 69, active: true, image: "/placeholder.svg", gallery: [], title: { en: "NFC + QR Bundle", fr: "Pack NFC + QR" }, seoTitle: { en: "NFC + QR Bundle - REDVANTA" }, metaDescription: { en: "Smart Review Card + Table Stand + 10 QR Stickers at 20% off." }, metaImage: { en: "/placeholder.svg" }, packageTiers: defaultPackageTiers, cardTypePrices: defaultCardTypePrices, cardSettings: { ...DEFAULT_CARD_SETTINGS } },
 ];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -88,7 +97,7 @@ function compressImage(file) {
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         URL.revokeObjectURL(url);
-        reject(new Error("Failed to initialize canvas context"));
+        reject(new Error("Canvas context unavailable"));
         return;
       }
       ctx.drawImage(img, 0, 0, width, height);
@@ -129,7 +138,7 @@ function processVideoFile(file) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
     reader.onerror = () => { toast({ title: "Upload failed", description: `Could not read "${file.name}".`, variant: "destructive" }); resolve(null); };
     reader.readAsDataURL(file);
   });
@@ -167,7 +176,7 @@ function ImageDropZone({ value, onChange, label }) {
       <Label>{label}</Label>
       {hasImage ? (
         <div className="relative group rounded-lg border border-border overflow-hidden bg-secondary">
-          <img src={resolveMediaUrl(value)} alt="Preview" className="w-full h-28 object-contain" />
+          <img src={value} alt="Preview" className="w-full h-28 object-contain" />
           <button onClick={() => onChange("/placeholder.svg")} className="absolute top-1.5 right-1.5 rounded-full bg-background/80 backdrop-blur p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"><X size={14} /></button>
         </div>
       ) : (
@@ -341,7 +350,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
             >
               {item.type === "youtube" ? (
                 <>
-                  <img src={resolveMediaUrl(item.poster || "/placeholder.svg")} alt={`YouTube ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={item.poster || "/placeholder.svg"} alt={`YouTube ${i + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute top-1 left-1 bg-red-600 text-white text-[8px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5">
                     <Youtube size={8} /> YT
                   </div>
@@ -349,7 +358,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
               ) : item.type === "video" ? (
                 <>
                   {item.poster ? (
-                    <img src={resolveMediaUrl(item.poster)} alt={`Video poster ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={item.poster} alt={`Video poster ${i + 1}`} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-muted">
                       <Film size={20} className="text-muted-foreground" />
@@ -377,7 +386,7 @@ function GalleryUploader({ items, onChange, max = MAX_GALLERY_ITEMS }) {
                   </div>
                 </>
               ) : (
-                <img src={resolveMediaUrl(item.url)} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={item.url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
               )}
               <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                 <button onClick={() => removeItem(i)} className="rounded-full bg-destructive/90 text-destructive-foreground p-1 hover:bg-destructive"><X size={12} /></button>
@@ -463,13 +472,44 @@ function titleToSlug(title) {
   return title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
+function normalizeCardType(cardType) {
+  return {
+    id: cardType.id,
+    name: cardType.name,
+    color: cardType.color || "#6b7280",
+    image: cardType.image || "/placeholder.svg",
+    active: Boolean(cardType.active),
+  };
+}
+
+function normalizeProduct(product) {
+  return {
+    id: product.id,
+    slug: product.slug || { en: "" },
+    price: Number(product.price || 0),
+    active: Boolean(product.active),
+    image: product.image || "/placeholder.svg",
+    gallery: Array.isArray(product.gallery) ? product.gallery : [],
+    title: product.title || { en: "" },
+    seoTitle: product.seoTitle || { en: "" },
+    metaDescription: product.metaDescription || { en: "" },
+    metaImage: product.metaImage || { en: "/placeholder.svg" },
+    packageTiers: Array.isArray(product.packageTiers) ? product.packageTiers : [],
+    cardTypePrices: Array.isArray(product.cardTypePrices)
+      ? product.cardTypePrices.map((item) => ({ typeId: item.typeId || item.cardTypeId, price: Number(item.price || 0) }))
+      : [],
+    cardSettings: { ...DEFAULT_CARD_SETTINGS, ...(product.cardSettings || {}) },
+  };
+}
+
 const Products = () => {
   const { t } = useLanguage();
   const [products, setProducts] = useState([]);
   const [cardTypes, setCardTypes] = useState([]);
-  const [languageRecords, setLanguageRecords] = useState([]);
+  const [languages, setLanguages] = useState(DEFAULT_LANGUAGES);
+  const [langLabels, setLangLabels] = useState(DEFAULT_LANG_LABELS);
+  const [languageRows, setLanguageRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [cardTypeDialogOpen, setCardTypeDialogOpen] = useState(false);
   const [editingCardType, setEditingCardType] = useState(null);
   const [cardTypeForm, setCardTypeForm] = useState({ id: "", name: "", color: "#6b7280", image: "/placeholder.svg", active: true });
@@ -480,6 +520,7 @@ const Products = () => {
   const [slugManualEdits, setSlugManualEdits] = useState({});
   const [previewProduct, setPreviewProduct] = useState(null);
   const [activeTab, setActiveTab] = useState("products");
+  const [previewSide, setPreviewSide] = useState("front");
   const [form, setForm] = useState({
     slug: { en: "" },
     price: 0, active: true, image: "/placeholder.svg",
@@ -490,99 +531,116 @@ const Products = () => {
     metaImage: { en: "/placeholder.svg" },
     packageTiers: [],
     cardTypePrices: [],
+    cardSettings: { ...DEFAULT_CARD_SETTINGS },
   });
 
-  const loadData = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const [productsRes, cardTypesRes, languagesRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/products`, { credentials: "include" }),
-        fetch(`${apiBase}/api/superadmin/card-types`, { credentials: "include" }),
-        fetch(`${apiBase}/api/superadmin/language-settings`, { credentials: "include" }),
-      ]);
-
-      const [productsPayload, cardTypesPayload, languagesPayload] = await Promise.all([
-        productsRes.json().catch(() => ({})),
-        cardTypesRes.json().catch(() => ({})),
-        languagesRes.json().catch(() => ({})),
-      ]);
-
-      if (!productsRes.ok) throw new Error(productsPayload?.message || "Failed to load products");
-      if (!cardTypesRes.ok) throw new Error(cardTypesPayload?.message || "Failed to load card types");
-      if (!languagesRes.ok) throw new Error(languagesPayload?.message || "Failed to load languages");
-
-      setProducts(Array.isArray(productsPayload?.data) ? productsPayload.data : []);
-      setCardTypes(Array.isArray(cardTypesPayload?.data) ? cardTypesPayload.data : []);
-      setLanguageRecords(Array.isArray(languagesPayload?.data) ? languagesPayload.data : []);
-    } catch (err) {
-      setError(err.message || "Failed to load product settings");
-      setProducts([]);
-      setCardTypes([]);
-      setLanguageRecords([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    let cancelled = false;
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [productsResponse, cardTypesResponse, languagesResponse] = await Promise.all([
+          get("/api/superadmin/products"),
+          get("/api/superadmin/card-types"),
+          get("/api/superadmin/language-settings", { page: 1, limit: 100 }),
+        ]);
+
+        if (cancelled) return;
+
+        const loadedProducts = Array.isArray(productsResponse?.data)
+          ? productsResponse.data.map(normalizeProduct)
+          : [];
+        const loadedCardTypes = Array.isArray(cardTypesResponse?.data)
+          ? cardTypesResponse.data.map(normalizeCardType)
+          : [];
+        const languageRows = Array.isArray(languagesResponse?.data) ? languagesResponse.data : [];
+
+        setProducts(loadedProducts);
+        setCardTypes(loadedCardTypes);
+
+        if (languageRows.length > 0) {
+          const nextCodes = languageRows.map((lang) => lang.code);
+          const nextLabels = languageRows.reduce((acc, lang) => {
+            acc[lang.code] = lang.name || lang.native || lang.code.toUpperCase();
+            return acc;
+          }, {});
+          setLanguageRows(languageRows);
+          setLanguages(nextCodes);
+          setLangLabels(nextLabels);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "Products",
+            description: error?.message || error?.error || "Unable to load product settings.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     loadData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const buildTranslationsPayload = () => {
-    const entries = Object.keys(form.title)
-      .filter((lang) => form.title[lang]?.trim() && form.slug[lang]?.trim())
-      .map((lang) => {
-        const languageRecord = languageRecords.find((item) => item.code === lang);
-        if (!languageRecord) return null;
+  const buildTranslationsPayload = (productForm) => {
+    return Object.keys(productForm.title)
+      .filter((code) => productForm.title[code]?.trim())
+      .map((code) => {
+        const language = languageRows.find((entry) => entry.code === code);
         return {
-          langId: Number(languageRecord.id),
-          title: form.title[lang] || "",
-          slug: form.slug[lang] || "",
-          seoTitle: form.seoTitle[lang] || "",
-          metaDescription: form.metaDescription[lang] || "",
-          metaImage: form.metaImage[lang] || "",
+          langId: language?.id ?? null,
+          title: productForm.title[code] || "",
+          slug: productForm.slug[code] || titleToSlug(productForm.title[code] || ""),
+          seoTitle: productForm.seoTitle[code] || "",
+          metaDescription: productForm.metaDescription[code] || "",
+          metaImage: productForm.metaImage[code] || "/placeholder.svg",
         };
       })
-      .filter(Boolean);
-
-    return entries;
+      .filter((translation) => Number.isInteger(translation.langId) && translation.langId > 0);
   };
 
-  const buildProductPayload = () => ({
-    price: Number(form.price || 0),
-    active: Boolean(form.active),
-    image: form.image && form.image !== "/placeholder.svg" ? form.image : undefined,
-    gallery: form.gallery.map((item, index) => ({
+  const buildProductPayload = (productForm) => ({
+    price: Number(productForm.price || 0),
+    active: Boolean(productForm.active),
+    image: productForm.image && productForm.image !== "/placeholder.svg" ? productForm.image : undefined,
+    translations: buildTranslationsPayload(productForm),
+    gallery: (productForm.gallery || []).map((item, index) => ({
       url: item.url,
       type: item.type,
       poster: item.poster,
       position: index,
     })),
-    translations: buildTranslationsPayload(),
-    packageTiers: form.packageTiers.map((tier) => ({
-      qty: Number(tier.qty),
-      price: Number(tier.price),
+    packageTiers: (productForm.packageTiers || []).map((tier) => ({
+      qty: Number(tier.qty || 0),
+      price: Number(tier.price || 0),
     })),
-    cardTypePrices: form.cardTypePrices.map((item) => ({
+    cardTypePrices: (productForm.cardTypePrices || []).map((item) => ({
       cardTypeId: item.typeId,
-      price: Number(item.price),
+      price: Number(item.price || 0),
     })),
   });
 
   const openCreate = () => {
-    setEditing(null); setActiveLang("en"); setSlugManualEdits({});
-    setForm({ slug: { en: "" }, price: 0, active: true, image: "/placeholder.svg", gallery: [], title: { en: "" }, seoTitle: { en: "" }, metaDescription: { en: "" }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [] });
+    setEditing(null); setActiveLang("en"); setSlugManualEdits({}); setPreviewSide("front");
+    const platformTemplates = getTemplatesForPlatform("google");
+    setForm({ slug: { en: "" }, price: 0, active: true, image: "/placeholder.svg", gallery: [], title: { en: "" }, seoTitle: { en: "" }, metaDescription: { en: "" }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [], cardSettings: { ...DEFAULT_CARD_SETTINGS, availableTemplates: platformTemplates.map(t => t.id) } });
     setDialogOpen(true);
   };
 
   const openEdit = (p) => {
-    setEditing(p); setActiveLang("en");
+    setEditing(p); setActiveLang("en"); setPreviewSide("front");
     const manualEdits = {};
     Object.keys(p.slug).forEach(l => { if (p.slug[l]) manualEdits[l] = true; });
     setSlugManualEdits(manualEdits);
-    setForm({ slug: { ...p.slug }, price: p.price, active: p.active, image: p.image, gallery: [...p.gallery], title: { ...p.title }, seoTitle: { ...p.seoTitle }, metaDescription: { ...p.metaDescription }, metaImage: { ...p.metaImage }, packageTiers: [...p.packageTiers], cardTypePrices: [...p.cardTypePrices] });
+    const cs = { ...p.cardSettings, layouts: [...p.cardSettings.layouts], availableTemplates: [...(p.cardSettings.availableTemplates || [])], defaultTemplateId: p.cardSettings.defaultTemplateId || "" };
+    setForm({ slug: { ...p.slug }, price: p.price, active: p.active, image: p.image, gallery: [...p.gallery], title: { ...p.title }, seoTitle: { ...p.seoTitle }, metaDescription: { ...p.metaDescription }, metaImage: { ...p.metaImage }, packageTiers: [...p.packageTiers], cardTypePrices: [...p.cardTypePrices], cardSettings: cs });
     setDialogOpen(true);
   };
 
@@ -600,49 +658,45 @@ const Products = () => {
         return;
       }
     }
-    const payload = buildProductPayload();
-    if (payload.translations.length === 0) {
-      toast({ title: "Translation required", description: "At least one valid language version is required.", variant: "destructive" });
+
+    const payload = buildProductPayload(form);
+    if (!payload.translations.length) {
+      toast({ title: "Products", description: "At least one valid language translation is required.", variant: "destructive" });
       return;
     }
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/products${editing ? `/${editing.id}` : ""}`, {
-        method: editing ? "PUT" : "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result?.message || `Failed to ${editing ? "update" : "create"} product`);
+      if (editing) {
+        const response = await put(`/api/superadmin/products/${editing.id}`, payload);
+        const nextProduct = { ...normalizeProduct(response?.data), cardSettings: { ...form.cardSettings } };
+        setProducts(ps => ps.map(p => p.id === editing.id ? nextProduct : p));
+      } else {
+        const response = await post("/api/superadmin/products", payload);
+        const nextProduct = { ...normalizeProduct(response?.data), cardSettings: { ...form.cardSettings } };
+        setProducts(ps => [...ps, nextProduct]);
       }
-
-      await loadData();
       setDialogOpen(false);
-      toast({ title: editing ? "Product updated" : "Product created" });
-    } catch (err) {
-      toast({ title: "Save failed", description: err.message || "Unable to save product.", variant: "destructive" });
+      toast({ title: "Products", description: editing ? "Product updated." : "Product created." });
+    } catch (error) {
+      toast({
+        title: "Products",
+        description: error?.message || error?.error || "Unable to save product.",
+        variant: "destructive",
+      });
     }
   };
 
   const deleteProduct = async (id) => {
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/products/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result?.message || "Failed to delete product");
-      }
-
+      await remove(`/api/superadmin/products/${id}`);
       setProducts(ps => ps.filter(p => p.id !== id));
-      toast({ title: "Product deleted" });
-    } catch (err) {
-      toast({ title: "Delete failed", description: err.message || "Unable to delete product.", variant: "destructive" });
+      toast({ title: "Products", description: "Product deleted." });
+    } catch (error) {
+      toast({
+        title: "Products",
+        description: error?.message || error?.error || "Unable to delete product.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -665,48 +719,47 @@ const Products = () => {
       return;
     }
 
+    const payload = {
+      name: cardTypeForm.name,
+      color: cardTypeForm.color,
+      image: cardTypeForm.image && cardTypeForm.image !== "/placeholder.svg" ? cardTypeForm.image : undefined,
+      active: Boolean(cardTypeForm.active),
+    };
+
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/card-types${editingCardType ? `/${editingCardType.id}` : ""}`, {
-        method: editingCardType ? "PUT" : "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: cardTypeForm.name,
-          color: cardTypeForm.color,
-          image: cardTypeForm.image && cardTypeForm.image !== "/placeholder.svg" ? cardTypeForm.image : undefined,
-          active: Boolean(cardTypeForm.active),
-        }),
-      });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result?.message || `Failed to ${editingCardType ? "update" : "create"} card type`);
+      if (editingCardType) {
+        const response = await put(`/api/superadmin/card-types/${editingCardType.id}`, payload);
+        setCardTypes(cts => cts.map(ct => ct.id === editingCardType.id ? normalizeCardType(response?.data) : ct));
+      } else {
+        const response = await post("/api/superadmin/card-types", payload);
+        setCardTypes(cts => [...cts, normalizeCardType(response?.data)]);
       }
-
-      await loadData();
       setCardTypeDialogOpen(false);
-      toast({ title: editingCardType ? "Card type updated" : "Card type created" });
-    } catch (err) {
-      toast({ title: "Save failed", description: err.message || "Unable to save card type.", variant: "destructive" });
+      toast({ title: "Card Types", description: editingCardType ? "Card type updated." : "Card type created." });
+    } catch (error) {
+      toast({
+        title: "Card Types",
+        description: error?.message || error?.error || "Unable to save card type.",
+        variant: "destructive",
+      });
     }
   };
 
   const deleteCardType = async (id) => {
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/card-types/${id}`, {
-        method: "DELETE",
-        credentials: "include",
+      await remove(`/api/superadmin/card-types/${id}`);
+      setCardTypes(cts => cts.filter(ct => ct.id !== id));
+      setProducts(ps => ps.map(p => ({
+        ...p,
+        cardTypePrices: p.cardTypePrices.filter(ctp => ctp.typeId !== id)
+      })));
+      toast({ title: "Card Types", description: "Card type deleted." });
+    } catch (error) {
+      toast({
+        title: "Card Types",
+        description: error?.message || error?.error || "Unable to delete card type.",
+        variant: "destructive",
       });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result?.message || "Failed to delete card type");
-      }
-
-      await loadData();
-      toast({ title: "Card type deleted" });
-    } catch (err) {
-      toast({ title: "Delete failed", description: err.message || "Unable to delete card type.", variant: "destructive" });
     }
   };
 
@@ -716,12 +769,7 @@ const Products = () => {
         ? <Button onClick={openCreate}><Plus size={16} className="mr-1" /> {t("sa.prod_create")}</Button>
         : <Button onClick={openCreateCardType}><Plus size={16} className="mr-1" /> New Card Type</Button>
     }>
-      {error ? (
-        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
-          {error}
-        </div>
-      ) : null}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="products" className="flex items-center gap-1.5"><Package size={14} /> Products</TabsTrigger>
           <TabsTrigger value="card-types" className="flex items-center gap-1.5"><Palette size={14} /> Card Types</TabsTrigger>
@@ -735,15 +783,13 @@ const Products = () => {
                   <TableHead>{t("sa.prod_product")}</TableHead><TableHead>{t("sa.prod_slug")}</TableHead><TableHead>{t("sa.prod_price")}</TableHead><TableHead>{t("sa.prod_languages")}</TableHead><TableHead>{t("sa.prod_status")}</TableHead><TableHead className="w-12"></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading products...</TableCell></TableRow>
-                  ) : products.map(p => (
+                  {products.map(p => (
                     <TableRow key={p.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
                             {p.image && p.image !== "/placeholder.svg" ? (
-                              <img src={resolveMediaUrl(p.image)} alt="" className="h-full w-full object-cover" />
+                              <img src={p.image} alt="" className="h-full w-full object-cover" />
                             ) : (
                               <Package size={16} className="text-muted-foreground" />
                             )}
@@ -781,14 +827,12 @@ const Products = () => {
           <Card className="border-border/50 bg-card">
             <CardContent className="p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {loading ? (
-                  <div className="col-span-full rounded-xl border border-border/50 bg-secondary/20 p-6 text-sm text-muted-foreground">Loading card types...</div>
-                ) : cardTypes.map(ct => (
+                {cardTypes.map(ct => (
                   <div key={ct.id} className="relative group rounded-xl border border-border/50 bg-secondary/30 overflow-hidden transition-all hover:border-primary/30 hover:shadow-md">
                     {/* Card Image */}
                     <div className="aspect-[4/3] bg-secondary flex items-center justify-center overflow-hidden">
                       {ct.image && ct.image !== "/placeholder.svg" ? (
-                        <img src={resolveMediaUrl(ct.image)} alt={ct.name} className="w-full h-full object-cover" />
+                        <img src={ct.image} alt={ct.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                           <CreditCard size={32} />
@@ -859,7 +903,306 @@ const Products = () => {
               onChange={(items) => setForm(f => ({ ...f, gallery: items }))}
             />
 
-            {/* Package Quantity Pricing */}
+            {/* Card Settings */}
+            <div className="space-y-4 rounded-lg border border-border/50 p-4 bg-secondary/20">
+              <Label className="flex items-center gap-2 text-sm font-semibold"><Settings2 size={14} /> Card Settings</Label>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Dimensions */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Width (mm)</Label>
+                      <Input type="number" min={1} value={form.cardSettings.width} onChange={e => {
+                        let w = Math.max(1, parseInt(e.target.value) || 1);
+                        setForm(f => {
+                          const cs = { ...f.cardSettings, width: w };
+                          if (cs.layouts.includes("circle")) { cs.height = w; cs.cornerRadius = Math.round(w / 2); }
+                          if (cs.layouts.includes("square")) { cs.height = w; }
+                          if (cs.layouts.includes("landscape") && w < cs.height) { cs.height = w; }
+                          if (cs.layouts.includes("portrait") && w > cs.height) { cs.height = w; }
+                          return { ...f, cardSettings: cs };
+                        });
+                      }} className="h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Height (mm)</Label>
+                      <Input type="number" min={1} value={form.cardSettings.height} onChange={e => {
+                        let h = Math.max(1, parseInt(e.target.value) || 1);
+                        setForm(f => {
+                          const cs = { ...f.cardSettings, height: h };
+                          if (cs.layouts.includes("circle")) { cs.width = h; cs.cornerRadius = Math.round(h / 2); }
+                          if (cs.layouts.includes("square")) { cs.width = h; }
+                          if (cs.layouts.includes("landscape") && h > cs.width) { cs.width = h; }
+                          if (cs.layouts.includes("portrait") && h < cs.width) { cs.width = h; }
+                          return { ...f, cardSettings: cs };
+                        });
+                      }} className="h-8 text-sm" disabled={form.cardSettings.layouts.includes("circle")} />
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground bg-secondary/50 rounded px-2 py-1 font-mono">
+                    Aspect Ratio: {(form.cardSettings.width / form.cardSettings.height).toFixed(2)} ({form.cardSettings.width}×{form.cardSettings.height})
+                  </div>
+
+                  {/* Corner Radius */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Corner Radius</Label>
+                      <Switch
+                        checked={form.cardSettings.cornerRadiusEnabled}
+                        onCheckedChange={v => setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, cornerRadiusEnabled: v, cornerRadius: v ? 8 : 0 } }))}
+                        disabled={form.cardSettings.layouts.includes("circle")}
+                      />
+                    </div>
+                    {form.cardSettings.cornerRadiusEnabled && (
+                      <Input type="number" min={0} value={form.cardSettings.cornerRadius} onChange={e => {
+                        const r = Math.max(0, parseInt(e.target.value) || 0);
+                        setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, cornerRadius: r } }));
+                      }} className="h-8 text-sm" disabled={form.cardSettings.layouts.includes("circle")} />
+                    )}
+                  </div>
+
+                  {/* Layout Types */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Layout Types</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {LAYOUT_OPTIONS.map(opt => {
+                        const Icon = opt.icon;
+                        const isActive = form.cardSettings.layouts.includes(opt.value);
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setForm(f => {
+                                let layouts = [...f.cardSettings.layouts];
+                                let cs = { ...f.cardSettings };
+                                if (isActive) {
+                                  layouts = layouts.filter(l => l !== opt.value);
+                                  if (layouts.length === 0) layouts = ["landscape"];
+                                } else {
+                                  layouts.push(opt.value);
+                                }
+                                cs.layouts = layouts;
+                                if (opt.value === "circle" && !isActive) {
+                                  const maxDim = Math.max(cs.width, cs.height);
+                                  cs.width = maxDim;
+                                  cs.height = maxDim;
+                                  cs.cornerRadiusEnabled = true;
+                                  cs.cornerRadius = Math.round(maxDim / 2);
+                                }
+                                if (opt.value === "landscape" && !isActive) {
+                                  if (cs.height > cs.width) {
+                                    const tmp = cs.width; cs.width = cs.height; cs.height = tmp;
+                                  }
+                                }
+                                if (opt.value === "portrait" && !isActive) {
+                                  if (cs.width > cs.height) {
+                                    const tmp = cs.width; cs.width = cs.height; cs.height = tmp;
+                                  }
+                                }
+                                if (opt.value === "square" && !isActive) {
+                                  const maxDim = Math.max(cs.width, cs.height);
+                                  cs.width = maxDim;
+                                  cs.height = maxDim;
+                                }
+                                return { ...f, cardSettings: cs };
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                              isActive ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40"
+                            )}
+                          >
+                            <Icon size={12} /> {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {form.cardSettings.layouts.includes("landscape") && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <RectangleHorizontal size={10} /> Landscape lock: width ≥ height enforced
+                      </p>
+                    )}
+                    {form.cardSettings.layouts.includes("portrait") && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <RectangleVertical size={10} /> Portrait lock: height ≥ width enforced
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Review Platform */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Review Platform</Label>
+                    <Select value={form.cardSettings.reviewPlatform} onValueChange={(v) => {
+                      const platformTemplates = getTemplatesForPlatform(v);
+                      const firstId = platformTemplates[0]?.id || "";
+                      setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, reviewPlatform: v, defaultTemplateId: firstId, availableTemplates: platformTemplates.map(t => t.id) } }));
+                    }}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLATFORMS.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                              {p.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap gap-1">
+                      {PLATFORMS.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            const platformTemplates = getTemplatesForPlatform(p.id);
+                            const firstId = platformTemplates[0]?.id || "";
+                            setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, reviewPlatform: p.id, defaultTemplateId: firstId, availableTemplates: platformTemplates.map(t => t.id) } }));
+                          }}
+                          className={cn(
+                            "h-6 w-6 rounded-full border-2 transition-all shrink-0",
+                            form.cardSettings.reviewPlatform === p.id ? "border-primary scale-110 ring-2 ring-primary/30" : "border-transparent opacity-60 hover:opacity-100"
+                          )}
+                          style={{ background: p.color }}
+                          title={p.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Templates */}
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-xs font-semibold flex items-center gap-2"><Palette size={12} /> Card Templates ({getTemplatesForPlatform(form.cardSettings.reviewPlatform).length} available)</Label>
+                  <ScrollArea className="max-h-[180px]">
+                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 pr-2">
+                      {getTemplatesForPlatform(form.cardSettings.reviewPlatform).map(tmpl => {
+                        const isDefault = form.cardSettings.defaultTemplateId === tmpl.id;
+                        return (
+                          <button
+                            key={tmpl.id}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, defaultTemplateId: tmpl.id } }))}
+                            className={cn(
+                              "relative rounded-lg overflow-hidden border-2 transition-all aspect-[3/2]",
+                              isDefault ? "border-primary ring-2 ring-primary/30 scale-[1.02]" : "border-border/40 hover:border-primary/40"
+                            )}
+                          >
+                            <div className="absolute inset-0" style={{ background: gradientCSS(tmpl.gradient) }} />
+                            {tmpl.pattern && tmpl.pattern !== "none" && (
+                              <div className="absolute inset-0" style={{ background: tmpl.pattern }} />
+                            )}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 z-10">
+                              <Star size={10} fill={tmpl.accentColor} stroke="none" />
+                              <span className="text-[7px] font-medium px-1 truncate max-w-full" style={{ color: tmpl.textColor }}>{tmpl.name}</span>
+                            </div>
+                            {isDefault && (
+                              <div className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground rounded-full p-0.5 z-20">
+                                <Check size={8} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                {/* Live Preview with Front/Back toggle */}
+                <div className="space-y-2 col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Live Preview</Label>
+                    <div className="flex items-center gap-1.5 bg-secondary rounded-md p-0.5">
+                      {["front", "back"].map(side => (
+                        <button
+                          key={side}
+                          type="button"
+                          onClick={() => setPreviewSide(side)}
+                          className={cn(
+                            "px-2.5 py-1 rounded text-[10px] font-medium transition-colors capitalize",
+                            previewSide === side ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {side}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center bg-secondary/50 rounded-lg p-4 min-h-[200px]">
+                    {(() => {
+                      const { width, height, cornerRadius, cornerRadiusEnabled, reviewPlatform, defaultTemplateId } = form.cardSettings;
+                      const isCircle = form.cardSettings.layouts.includes("circle");
+                      const maxW = 200;
+                      const maxH = 200;
+                      const scale = Math.min(maxW / width, maxH / height);
+                      const displayW = Math.round(width * scale);
+                      const displayH = Math.round(height * scale);
+                      const displayRadius = isCircle ? "50%" : cornerRadiusEnabled ? `${Math.round(cornerRadius * scale)}px` : "0px";
+                      const platform = PLATFORMS.find(p => p.id === reviewPlatform);
+                      const template = getTemplateById(defaultTemplateId);
+                      const bg = template ? gradientCSS(template.gradient) : `linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--secondary)) 100%)`;
+                      const textCol = template?.textColor || "#fff";
+                      const accent = template?.accentColor || platform?.color || "#fff";
+                      const pattern = template?.pattern || "none";
+
+                      return (
+                        <div className="flex flex-col items-center gap-2">
+                          <div
+                            className="relative flex flex-col items-center justify-center gap-1 shadow-lg overflow-hidden transition-all duration-300"
+                            style={{
+                              width: displayW,
+                              height: displayH,
+                              borderRadius: displayRadius,
+                              background: bg,
+                              border: `2px solid ${platform?.color || 'hsl(var(--border))'}44`,
+                            }}
+                          >
+                            {pattern && pattern !== "none" && (
+                              <div className="absolute inset-0 pointer-events-none" style={{ background: pattern }} />
+                            )}
+                            <div className="relative z-10 flex flex-col items-center gap-0.5">
+                              {previewSide === "front" ? (
+                                <>
+                                  <div className="text-xl font-bold drop-shadow-sm" style={{ color: textCol }}>
+                                    {platform?.icon || "★"}
+                                  </div>
+                                  <span className="text-[8px] font-semibold drop-shadow-sm" style={{ color: textCol }}>{platform?.label}</span>
+                                  <div className="flex gap-0.5 mt-0.5">
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                      <Star key={s} size={8} fill={accent} stroke="none" className="drop-shadow-sm" />
+                                    ))}
+                                  </div>
+                                  <span className="text-[6px] mt-0.5 drop-shadow-sm" style={{ color: `${textCol}cc` }}>Tap to review</span>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center mb-0.5">
+                                    <span className="text-[10px] font-bold" style={{ color: textCol }}>QR</span>
+                                  </div>
+                                  <span className="text-[7px] font-medium drop-shadow-sm" style={{ color: textCol }}>Scan to review</span>
+                                  <span className="text-[5px] mt-0.5 drop-shadow-sm" style={{ color: `${textCol}99` }}>Powered by RedVanta</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground">{previewSide === "front" ? "Front Side" : "Back Side"}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground text-center space-y-0.5">
+                    <p>{form.cardSettings.width}×{form.cardSettings.height}mm · Ratio {(form.cardSettings.width / form.cardSettings.height).toFixed(2)}</p>
+                    <p>Radius: {form.cardSettings.cornerRadiusEnabled ? `${form.cardSettings.cornerRadius}mm` : "Sharp"} · {PLATFORMS.find(p => p.id === form.cardSettings.reviewPlatform)?.label}</p>
+                    <p className="font-medium">{getTemplateById(form.cardSettings.defaultTemplateId)?.name || "No template"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3 rounded-lg border border-border/50 p-4 bg-secondary/20">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-semibold"><Layers size={14} /> Package Pricing (Quantity Tiers)</Label>
@@ -1011,8 +1354,8 @@ const Products = () => {
             <div className="space-y-6">
               <ProductGallery
                 images={[
-                  previewProduct.image !== "/placeholder.svg" ? resolveMediaUrl(previewProduct.image) : null,
-                  ...previewProduct.gallery.map(g => ({ url: resolveMediaUrl(g.url), type: g.type, poster: resolveMediaUrl(g.poster) }))
+                  previewProduct.image !== "/placeholder.svg" ? previewProduct.image : null,
+                  ...previewProduct.gallery.map(g => ({ url: g.url, type: g.type, poster: g.poster }))
                 ].filter(Boolean)}
                 productName={previewProduct.title.en}
                 variant="compact"
@@ -1092,4 +1435,3 @@ const Products = () => {
 };
 
 export default Products;
-
