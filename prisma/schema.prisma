@@ -1,0 +1,1799 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique(map: "name") @db.VarChar(255)
+  createdAt      DateTime         @default(now()) @db.DateTime(0)
+  updatedAt      DateTime         @default(now()) @db.DateTime(0)
+  users       User[] 
+  companies       UserCompany[] 
+  rolepermission rolePermission[]
+}
+
+model User {
+  id               Int             @id @default(autoincrement()) @db.UnsignedInt
+  email            String          @unique
+  password         String
+  companyId        Int?     @db.UnsignedInt
+  name             String?
+  phone            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  isSuperadmin     Boolean         @default(false)
+  isAdmin     Boolean         @default(false)
+  superadminSince  DateTime?
+  superadminLastAt DateTime?
+  emailVerifiedAt  DateTime?
+  emailVerifyToken String?         @unique @db.VarChar(255)
+  emailVerifyExp   DateTime?
+  roleId           Int?
+  twoFa            Boolean?        @default(false)
+  lastLogin        DateTime?       @db.DateTime(0)
+  welcomeToken     String?         @unique @db.VarChar(255)
+  welcomeTokenExp  DateTime?
+  affiliates       Affiliate?
+  design           Design[]
+  orders Order[]
+  cartItems CartItem[]
+
+  logins           LoginActivity[]
+  role             Role?       @relation(fields: [roleId], references: [id])
+  companies        UserCompany[] 
+  refreshTokens RefreshToken[]
+  invoices     Invoice[]
+  payments    Payment[]
+  nfcCards NFCCard[]
+  locations    Location[] @relation("OwnerLocations")
+  auditLogs AuditLog[] @relation("AdminLogs")
+  changedStatuses OrderStatusHistory[] @relation("StatusChangedBy")
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(500)
+  userId    Int      @db.UnsignedInt
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model UserCompany {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @db.UnsignedInt
+  companyId Int
+  roleId    Int?                    // rôle dans CETTE company (peut differ du rôle global)
+  isOwner   Boolean  @default(true) // true = admin principal de la company
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      Role?    @relation(fields: [roleId],    references: [id], onDelete: SetNull)
+
+  @@unique([userId, companyId])   // un user ne peut être lié qu'une fois à une company
+  @@index([companyId])
+  @@index([userId])
+  @@map("user_companies")
+}
+
+model PlatformSetting {
+  id                   Int         @id @default(autoincrement()) @db.UnsignedInt
+  platform_name        String      @db.VarChar(150)
+  default_email_sender String      @db.VarChar(150)
+  sms_setting_id       Int?        @db.UnsignedInt
+  rate_limit           Int         @default(60)
+  is_maIntenance       Boolean     @default(false)
+  createdAt            DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime    @default(now()) @db.Timestamp(0)
+  smsSetting           SmsSetting? @relation(fields: [sms_setting_id], references: [id])
+  @@index([sms_setting_id])
+  @@map("platform_settings")
+}
+
+
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  companyId   Int              
+  ownerId     Int      @db.UnsignedInt 
+  name        String   @db.VarChar(255) // "Downtown Flagship"
+  address     String?  @db.VarChar(500) // "123 Main St, New York, NY 10001"
+  googlePlaceId   String?  @db.VarChar(255)
+  googleReviewUrl String?  @db.VarChar(500)
+  googleMapsUrl   String?  @db.VarChar(500)
+  googleRating     Float?
+  googleReviewCount Int?    @default(0)
+  cardCount   Int      @default(0)
+  city      String?
+  postal    String?
+  country   String?
+  phone     String?
+  email     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner       User     @relation("OwnerLocations", fields: [ownerId], references: [id], onDelete: Cascade)
+  nfcCards NFCCard[]
+  reviews   Review[]
+  feedbacks Feedback[]
+
+  @@index([companyId])
+  @@index([googlePlaceId])
+  @@index([active])
+  @@map("locations")
+}
+
+
+
+model Conversion {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  currency     String   @db.VarChar(10)
+  rate         Float
+  displayTotal Float
+  baseCurrency String   @default("EUR") @db.VarChar(10)
+  baseTotal    Float    // montant réel en EUR
+
+  createdAt    DateTime @default(now())
+
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("conversions")
+}
+
+
+model Review {
+  id            String       @id @default(uuid()) @db.Char(36)
+  locationId    Int
+  userId        String?
+  userName      String?
+  rating        Int
+  comment       String?
+  status        ReviewStatus @default(pending)
+  email         String?
+  phone         String?
+  locationSlug  String?
+  contact       String?
+  source        String?
+  notifiedOwner Boolean      @default(false)
+  postedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+  location      Location     @relation(fields: [locationId], references: [id])
+
+  @@index([locationId])
+  @@index([userId], map: "reviews_userId_fkey")
+  @@map("reviews")
+}
+
+
+
+
+model Order {
+ id            Int         @id @default(autoincrement())
+  userId        Int         @db.UnsignedInt
+  companyId     Int                          // ← company concernée
+  orderNumber   String      @unique
+  status        OrderStatus @default(pending)
+
+  subtotal      Float
+  shippingCost  Float       @default(0)
+  total         Float
+
+  methodPayment  String?
+  trackingNumber   String?
+  trackingUrl      String?
+  estimatedDelivery DateTime?
+  shippingFullName  String?
+  shippingAddress   String?
+  shippingCity      String?
+  shippingState     String?
+  shippingZip       String?
+  shippingCountry   String?  @default("United States")
+  shippingMethod    ShippingMethod @default(standard)
+
+  stripePaymentIntentId String? @unique
+  stripeClientSecret    String?
+  paidAt                DateTime?
+  confirmationEmailSentAt DateTime?
+
+  currency     String?  @default("EUR")
+  manualPaymentMethodId Int?
+  displayTotal Float?
+  exchangeRate Float?   @default(1)
+
+  invoice      Invoice?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User      @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  paymentMethod     ManualPaymentMethod?   @relation(fields: [manualPaymentMethodId], references: [id], onDelete: SetNull)
+  items       OrderItem[]
+  Conversions Conversion[]
+  payments    Payment[]
+  statusHistory OrderStatusHistory[]
+
+
+  @@index([userId, companyId])
+  @@index([status])
+  @@map("order")
+}
+
+model OrderStatusHistory {
+  id          Int         @id @default(autoincrement())
+  orderId     Int
+  status      OrderStatus
+  note        String?     @db.VarChar(500) // note interne du superadmin
+  changedBy   Int?        @db.UnsignedInt  // userId du superadmin qui a changé
+  changedAt   DateTime    @default(now())
+
+  order       Order       @relation(fields: [orderId],   references: [id], onDelete: Cascade)
+  admin       User?       @relation("StatusChangedBy", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([changedAt])
+  @@map("order_status_history")
+}
+
+
+model Payment {
+  id              Int               @id @default(autoincrement())
+  // Références
+  orderId         Int?              // lié à une commande (null si paiement manuel)
+  invoiceId       Int?              // lié à une facture
+  companyId       Int
+  userId          Int               @db.UnsignedInt
+
+  // Montants en EUR
+  amount          Float
+  currency        String            @default("EUR") @db.VarChar(10)
+  exchangeRate    Float             @default(1)
+  displayAmount   Float?            // montant dans la devise du client
+
+  // Stripe
+  stripePaymentIntentId String?     @db.VarChar(255)
+  stripeChargeId        String?     @db.VarChar(255)
+  stripeRefundId        String?     @db.VarChar(255)
+
+  // Méthode de paiement
+  method          PaymentMethodType @default(card)
+  methodLabel     String?           @db.VarChar(100) // "Visa •••• 4242"
+  last4           String?           @db.VarChar(4)
+  brand           String?           @db.VarChar(30)  // "visa", "mastercard"...
+  transactionId   String?           @db.VarChar(255) // ID externe (pour virement, chèque)
+
+  // Statut
+  status          PaymentStatus     @default(completed)
+  failureMessage  String?           @db.Text
+
+  // Notes
+  notes           String?           @db.Text
+
+  // Dates
+  paidAt          DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  order           Order?            @relation(fields: [orderId],    references: [id], onDelete: SetNull)
+  invoice         Invoice?          @relation(fields: [invoiceId],  references: [id], onDelete: SetNull)
+  company         Company           @relation(fields: [companyId],  references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId],     references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([invoiceId])
+  @@index([companyId])
+  @@index([status])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+
+model Affiliate {
+  id              String              @id @default(uuid()) @db.Char(36)
+  userId          Int?                @unique @db.UnsignedInt
+  name            String?
+  email           String?
+  refCode         String              @unique
+  revenue         Float               @default(0)
+  stripeAccountId String?
+  iban            String?
+  createdAt       DateTime            @default(now())
+  tracking        AffiliateTracking[]
+  user            User?               @relation(fields: [userId], references: [id], onDelete: Cascade, map: "affiliates_userId_key")
+  click           click[]
+  payoutrequest   payoutrequest[]
+
+  @@map("affiliates")
+}
+
+model AffiliateTracking {
+  id          String    @id @default(uuid()) @db.Char(36)
+  affiliateId String
+  orderId     String?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId], map: "affiliate_tracking_affiliateId_fkey")
+  @@index([orderId])
+  @@map("affiliate_tracking")
+}
+
+model NotificationLog {
+  id         String           @id @default(uuid()) @db.Char(36)
+  type       NotificationType
+  userId     String?
+  locationId Int?
+  status     String
+  payload    String?
+  error      String?
+  createdAt  DateTime         @default(now())
+
+  @@map("notification_logs")
+}
+
+model JobLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  name      String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@map("job_logs")
+}
+
+model bundle {
+  id            Int             @id @default(autoincrement())
+  title         String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now())
+  bundleproduct bundleproduct[]
+}
+
+model bundleproduct {
+  id        Int     @id @default(autoincrement())
+  bundleId  Int
+  productId Int
+  bundle    bundle  @relation(fields: [bundleId], references: [id], map: "BundleProduct_bundleId_fkey")
+  product   Product @relation(fields: [productId], references: [id], map: "BundleProduct_productId_fkey")
+
+  @@unique([bundleId, productId], map: "BundleProduct_bundleId_productId_key")
+  @@index([productId], map: "BundleProduct_productId_fkey")
+}
+
+model click {
+  id          String    @id
+  affiliateId String
+  ip          String?
+  userAgent   String?
+  referer     String?
+  cookie      String?
+  createdAt   DateTime  @default(now())
+  affiliates  Affiliate @relation(fields: [affiliateId], references: [id], map: "Click_affiliateId_fkey")
+
+  @@index([affiliateId], map: "Click_affiliateId_fkey")
+}
+
+model customization {
+  id        String   @id
+  orderId   String   @unique(map: "Customization_orderId_key")
+  frontData String   @db.Text
+  backData  String   @db.Text
+  costCents Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model dashboardstat {
+  id        String   @id
+  key       String   @unique(map: "dashboardStat_key_key")
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+
+  model Design {
+    id          Int             @id @default(autoincrement())
+    userId      Int             @db.UnsignedInt
+    companyId   Int
+    productId   Int
+    status      DesignStatus    @default(draft)
+
+    // ── Step 1 : Business ─────────────────────────────────────
+    businessName    String?
+    slogan          String?
+    callToAction    String?  @default("Powered by RedVanta")
+    ctaPaddingTop   Int?     @default(8)          // ← NOUVEAU : espacement CTA en px
+    googlePlaceId   String?
+    googleReviewUrl String?
+
+    // ── Step 2 : Orientation & Logo ───────────────────────────
+    orientation   DesignOrientation @default(landscape)
+    logoUrl       String?
+    logoPosition  String?  @default("left")       // ← NOUVEAU : "left"|"right"|"top-center"|"top-left"...
+    logoSize      Int?     @default(32)            // ← NOUVEAU : hauteur logo en px
+
+    // ── Step 2 : Couleurs ─────────────────────────────────────
+    colorMode   String?  @default("single")        // "single" | "template"
+    bgColor     String?  @default("#0B0D0F")
+    textColor   String?  @default("#FFFFFF")
+    accentColor String?  @default("#E10600")       // = qrColor côté front
+    starColor   String?  @default("#F59E0B")
+    iconsColor  String?  @default("#22C55E")        // ← NOUVEAU : couleur checkmarks/icônes
+
+    // ── Step 2 : Template & Bandes ───────────────────────────
+    templateName    String?
+    gradient1       String?  @default("#0B0D0F")   // ← NOUVEAU : couleur gradient 1 du template
+    gradient2       String?  @default("#1A1A1A")   // ← NOUVEAU : couleur gradient 2 du template
+    accentBand1     String?  @default("#E10600")   // ← NOUVEAU : couleur bande 1
+    accentBand2     String?  @default("#FF4444")   // ← NOUVEAU : couleur bande 2
+    bandPosition    String?  @default("bottom")    // ← NOUVEAU : "top"|"bottom"|"hidden"
+    frontBandHeight Int?     @default(22)          // ← NOUVEAU : hauteur bande avant (%)
+    backBandHeight  Int?     @default(12)          // ← NOUVEAU : hauteur bande arrière (%)
+
+    // ── Step 2 : Icônes ──────────────────────────────────────
+    showNfcIcon    Boolean  @default(true)          // ← NOUVEAU
+    showGoogleIcon Boolean  @default(true)          // ← NOUVEAU
+    nfcIconSize    Int?     @default(16)
+    googleLogoSize Int?     @default(20)
+
+    // ── Step 2 : Typographie — Nom ───────────────────────────
+    businessFont          String?  @default("Space Grotesk")
+    businessFontSize      Int?     @default(16)
+    businessFontWeight    String?  @default("Bold")
+    businessFontSpacing   String?  @default("Normal")   // id : "tight"|"normal"|"wide"|"wider"
+    businessLineHeight    String?  @default("1.2")
+    businessAlign         String?  @default("Left")
+    businessTextTransform String?  @default("none")      // ← NOUVEAU : "none"|"uppercase"|"capitalize"
+
+    // ── Step 2 : Typographie — Slogan ────────────────────────
+    sloganFont          String?  @default("Inter")
+    sloganFontSize      Int?     @default(12)
+    sloganFontWeight    String?  @default("Regular")
+    sloganFontSpacing   String?  @default("Normal")
+    sloganLineHeight    String?  @default("1.4")
+    sloganAlign         String?  @default("Left")
+    sloganTextTransform String?  @default("none")        // ← NOUVEAU
+
+    // ── Step 2 : Texte d'ombre ───────────────────────────────
+    textShadow  String?  @default("None")              // "None"|"Subtle"|"Medium"|"Strong"|"Outline"
+
+    // ── Step 2 : Instructions ────────────────────────────────
+    frontInstruction1  String?  @default("Approach the phone to the card")
+    frontInstruction2  String?  @default("Tap to leave a review")
+    backInstruction1   String?
+    backInstruction2   String?
+
+    instrFont           String?  @default("Space Grotesk")
+    instrFontSize       Int?     @default(10)
+    instrFontWeight     String?  @default("Regular")
+    instrFontSpacing    String?  @default("Normal")
+    instrLineHeight     String?  @default("1.4")
+    instrAlign          String?  @default("Left")
+    instrCheckboxStyle  String?  @default("checkmark")
+    checkStrokeWidth    Decimal? @default(3.5) @db.Decimal(3,1)  // ← NOUVEAU : 1.0 à 5.0
+
+    // ── Step 2 : QR Code ─────────────────────────────────────
+    qrCodeStyle  String?  @default("Left")            // position : "top"|"bottom"|"left"|"right"
+    qrCodeSize   Int?     @default(60)
+
+    // ── Step 2 : Modèle de carte ─────────────────────────────
+    cardModel  CardModel  @default(classic)
+
+    // ── Step 2 : Positions drag-and-drop ─────────────────────
+    // JSON complet des offsets par orientation/face/élément
+    // Format : { "landscape": { "front": { "businessInfo": {x,y}, "instructions": {x,y}, ... }, "back": {...} }, "portrait": {...} }
+    elementOffsets  Json?                               // ← NOUVEAU                            // ← NOUVEAU
+
+    // ── Step 3 : Review ──────────────────────────────────────
+    version       Int       @default(1)
+    lastAutoSave  DateTime?
+    validatedAt   DateTime?
+
+    createdAt  DateTime  @default(now())
+    updatedAt  DateTime  @updatedAt
+
+    // Relations
+    user        User        @relation(fields: [userId],    references: [id], onDelete: Cascade)
+    company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+    cartItem    CartItem[]
+    orderItem   OrderItem[]
+    versions    DesignVersion[]
+    nfcCards  NFCCard[]
+
+    @@index([userId, companyId])
+    @@index([status])
+    @@map("designs")
+  }
+
+
+
+model GooglePlaceCache {
+  id              Int      @id @default(autoincrement())
+
+  // Clé du cache — ce qui a été recherché
+  placeId         String   @unique @db.VarChar(255)  // Google Place ID (stable)
+
+  // Données retournées par Google Places Details
+  name            String?  @db.VarChar(255)
+  formattedAddress String? @db.VarChar(500)
+  phone           String?  @db.VarChar(50)
+  website         String?  @db.VarChar(500)
+  // Coordonnées GPS
+  lat             Float?
+  lng             Float?
+  // Notes et avis
+  rating          Float?
+  userRatingsTotal Int?
+  // URL directe pour laisser un avis (lien QR code)
+  // Format : https://search.google.com/local/writereview?placeid=ChIJxxx
+  reviewUrl       String?  @db.VarChar(500)
+  // Photo principale (reference pour l'API Photos)
+  photoReference  String?  @db.Text
+  photoUrl        String?  @db.VarChar(500)
+  // Catégorie principale
+  types           Json?    // tableau de types Google Places
+
+  // Cache metadata
+  cachedAt        DateTime @default(now())
+  expiresAt       DateTime // cachedAt + 30 jours
+
+  @@index([placeId])
+  @@index([expiresAt])  // pour la purge automatique
+  @@map("google_place_cache")
+}
+
+
+model DesignVersion {
+  id        Int      @id @default(autoincrement())
+  designId  Int
+  version   Int
+  snapshot  Json
+  savedAt   DateTime @default(now())
+  design    Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@index([designId])
+  @@map("design_versions")
+}
+
+model emailQueue {
+  id          String    @id
+  to          String
+  subject     String
+  html        String    @db.Text
+  text        String?   @db.Text
+  processed   Boolean   @default(false)
+  attempts    Int       @default(0)
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+  @@map("emailqueue")
+}
+
+
+
+
+model NFCTag {
+  id          Int          @id @default(autoincrement())
+
+  // Identifiant physique de la puce (lu lors du scan NFC hardware)
+  // Optionnel car pas toujours lisible (ex: iPhone)
+  tagSerial   String?      @unique @db.VarChar(64)
+
+  // Type de puce (optionnel — gestion de stock multi-puces)
+  // ex: "NTAG213", "NTAG215", "NTAG216"
+  chipType    String?      @db.VarChar(50)
+
+  // Statut physique de la puce
+  status      NfcTagStatus @default(NEW)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relation : une puce peut être associée à une carte métier
+  card        NFCCard?
+
+  @@index([status])
+  @@map("nfc_tags")
+}
+
+
+// NFCCard — Logique métier (carte vendue + utilisée)
+// Représente la carte telle que le client la reçoit et l'utilise
+// Contient TOUT ce qui est business : user, location, design, product
+// ─────────────────────────────────────────────────────────────
+model NFCCard {
+  id          Int           @id @default(autoincrement())
+
+  // uid : identifiant UUID unique stable — utilisé dans l'URL /r/{uid}
+  // C'est cet uid qui est encodé dans le payload (QR + puce NFC)
+  uid         String        @unique @db.VarChar(36)
+
+  // Relation vers la puce hardware (optionnel au moment de la création,
+  // assigné lors de la production physique)
+  tagId       Int?          @unique
+  tag         NFCTag?       @relation(fields: [tagId], references: [id], onDelete: SetNull)
+
+  // ── Logique métier ──────────────────────────────────────────
+  companyId   Int           // company propriétaire
+  userId      Int           @db.UnsignedInt  // admin/user qui a commandé
+  locationId  Int?          // établissement associé
+  designId    Int?          // design utilisé pour l'impression
+  orderItemId Int?
+
+  // ── Payload (URL encodée dans QR + puce NFC) ────────────────
+  // Format : https://app.redvanta.com/r/{uid}
+  // JAMAIS le lien Google directement
+  payload     String?       @db.VarChar(500)
+
+  // URL du fichier image QR code généré
+  qrCodeUrl   String?       @db.VarChar(500)
+
+  // ── Données Google (destination finale) ─────────────────────
+  googlePlaceId   String?   @db.VarChar(255)
+  googleReviewUrl String?   @db.VarChar(500)
+  locationName    String?   @db.VarChar(255)
+  locationAddress String?   @db.VarChar(500)
+
+  // ── Cycle de vie ────────────────────────────────────────────
+  status      NfcCardStatus @default(NOT_PROGRAMMED)
+  active      Boolean       @default(false)  // false jusqu'à DELIVERED
+  used        Boolean       @default(false)  // a été scannée au moins une fois
+
+  // ── Analytics dénormalisés (performance) ────────────────────
+  scanCount           Int       @default(0)
+  googleRedirectCount Int       @default(0)
+  lastScannedAt       DateTime?
+
+  // ── Dates métier ────────────────────────────────────────────
+  generatedAt  DateTime?   // = date paiement
+  activatedAt  DateTime?   // = date livraison
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // ── Relations Prisma ────────────────────────────────────────
+  company     Company       @relation(fields: [companyId],  references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId],     references: [id], onDelete: Cascade)
+  location    Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  design      Design?       @relation(fields: [designId],   references: [id], onDelete: SetNull)
+ orderItem   OrderItem?     @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  scans       NfcScan[]
+  events      AnalyticsEvent[]
+
+  @@index([companyId])
+  @@index([locationId])
+  @@index([status])
+  @@index([active])
+  @@map("nfc_cards")
+}
+
+
+// ─── Scans NFC / QR ──────────────────────────────────────────
+// Chaque fois qu'un client scanne la carte → on enregistre le scan
+// Permet de savoir : combien de scans, d'où ils viennent, à quelle heure
+model NfcScan {
+  id         Int      @id @default(autoincrement())
+  cardUid    String   @db.VarChar(36)   // NFCCard.uid
+  companyId  Int
+
+  scanType   String   @default("qr") @db.VarChar(10) // "nfc" | "qr"
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(500)
+  deviceType String?  @db.VarChar(20)
+  country    String?  @db.VarChar(100)
+
+  scannedAt  DateTime @default(now())
+
+  card       NFCCard  @relation(fields: [cardUid],   references: [uid], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id],  onDelete: Cascade)
+
+  @@index([cardUid])
+  @@index([companyId])
+  @@index([scannedAt])
+  @@map("nfc_scans")
+}
+
+
+model PushSubscription {
+  id              Int      @id @default(autoincrement())
+  endpoint        String   @unique @db.VarChar(500)
+  p256dh          String   @db.VarChar(255)
+  auth            String   @db.VarChar(100)
+  fingerprintHash String?  @db.VarChar(64)
+  expirationTime  BigInt?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([fingerprintHash])
+  @@map("push_subscriptions")
+}
+
+
+
+
+model OrderItem {
+  id              Int      @id @default(autoincrement())
+  orderId         Int
+  productId       Int
+  packageTierId   Int?     // snapshot du tier choisi
+  totalCards      Int      // nombre de cartes commandées
+  quantity        Int      // = totalCards (alias afichage)
+  unitPrice       Float    // prix/carte (snapshot)
+  totalPrice      Float    // lineTotal (snapshot)
+  designId        Int?     
+  cardTypeId      String?
+
+  order       Order              @relation(fields: [orderId],        references: [id], onDelete: Cascade)
+  product     Product            @relation(fields: [productId],      references: [id], onDelete: Restrict)
+  packageTier ProductPackageTier? @relation(fields: [packageTierId], references: [id], onDelete: SetNull)
+  design      Design?            @relation(fields: [designId],       references: [id], onDelete: SetNull)
+  cardType    CardType?          @relation(fields: [cardTypeId],     references: [id], onDelete: SetNull)
+  nfcCards  NFCCard[]
+  @@index([orderId])
+  @@index([designId])
+  @@map("order_items")
+}
+
+
+
+model AnalyticsEvent {
+  id          Int                @id @default(autoincrement())
+  cardUid     String             @db.VarChar(36)
+  companyId   Int
+  type        AnalyticsEventType
+  stars       Int?
+  ipAddress       String?  @db.VarChar(45)
+  userAgent       String?  @db.VarChar(500)
+  deviceType      String?  @db.VarChar(20)
+  country         String?  @db.VarChar(100)
+  city            String?  @db.VarChar(100)
+  referrer        String?  @db.VarChar(500)
+  fingerprintHash String?  @db.VarChar(64)
+
+  occurredAt  DateTime @default(now())
+
+  card        NFCCard  @relation(fields: [cardUid],   references: [uid], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id],  onDelete: Cascade)
+
+  @@index([cardUid])
+  @@index([companyId])
+  @@index([type])
+  @@index([occurredAt])
+  @@map("analytics_events")
+}
+
+// ─── Feedback (avis négatif interne — 1-3 étoiles) ───────────
+// Le scénario : "Cas négatif → affichage d'un formulaire interne"
+model Feedback {
+  id         Int      @id @default(autoincrement())
+  cardUid    String   @db.VarChar(36)
+  companyId  Int
+  locationId Int?
+  status      FeedbackStatus @default(PENDING)
+  internalNotes String?      @db.Text
+  adminReply    String?      @db.Text
+  repliedAt     DateTime?
+  source        String?      @db.VarChar(10)  // "NFC" | "QR"
+  customerName  String?      @db.VarChar(255)
+  stars      Int      // 1-3
+  message    String?  @db.Text
+  email      String?  @db.VarChar(255)
+  notifiedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  company    Company   @relation(fields: [companyId],  references: [id],  onDelete: Cascade)
+  location   Location? @relation(fields: [locationId], references: [id],  onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([cardUid])
+  @@map("feedbacks")
+}
+
+
+
+model payoutrequest {
+  id               String    @id
+  affiliateId      String
+  amountCents      Int
+  currency         String    @default("EUR")
+  status           String    @default("pending")
+  stripeTransferId String?
+  stripePayoutId   String?
+  note             String?
+  requestedAt      DateTime  @default(now())
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+  affiliates       Affiliate @relation(fields: [affiliateId], references: [id], map: "PayoutRequest_affiliateId_fkey")
+
+  @@index([affiliateId], map: "PayoutRequest_affiliateId_fkey")
+}
+
+model ShippingRate {
+  id          Int            @id @default(autoincrement())
+  method      ShippingMethod @unique
+  label       String
+  description String?
+  price       Float
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  @@map("shipping_rates")
+}
+
+
+
+
+
+model scanlog {
+  id       String   @id
+  nfcTagId Int
+  ip       String?
+  agent    String?
+  lat      Float?
+  lon      Float?
+  country  String?
+  city     String?
+  at       DateTime @default(now())
+  
+}
+
+model setting {
+  id        String   @id
+  key       String   @unique(map: "Setting_key_key")
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+}
+
+model SmsRegion {
+  id          Int          @id @default(autoincrement()) @db.UnsignedInt
+  name        String       @db.VarChar(100)
+  createdAt   DateTime     @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime     @default(now()) @db.Timestamp(0)
+  smsSettings SmsSetting[]
+
+  @@map("sms_regions")
+}
+
+model SmsSupplier {
+  id          Int          @id @default(autoincrement()) @db.UnsignedInt
+  name        String       @db.VarChar(100)
+  createdAt   DateTime     @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime     @default(now()) @db.Timestamp(0)
+  smsSettings SmsSetting[]
+
+  @@map("sms_suppliers")
+}
+
+model SmsSetting {
+  id               Int               @id @default(autoincrement()) @db.UnsignedInt
+  supplier_id      Int               @db.UnsignedInt
+  region_id        Int               @db.UnsignedInt
+  api_key          String?           @db.VarChar(255)
+  auth_token       String?           @db.VarChar(255)
+  phone_number     String?           @db.VarChar(50)
+  set_default      Boolean?          @default(false)
+  status           Boolean?          @default(true)
+  createdAt        DateTime          @default(now()) @db.Timestamp(0)
+  updatedAt        DateTime          @default(now()) @db.Timestamp(0)
+  platformSettings PlatformSetting[]
+  region           SmsRegion         @relation(fields: [region_id], references: [id], onDelete: Cascade, map: "fk_sms_region")
+  supplier         SmsSupplier       @relation(fields: [supplier_id], references: [id], onDelete: Cascade, map: "fk_sms_supplier")
+
+  @@index([region_id], map: "fk_sms_region")
+  @@index([supplier_id], map: "fk_sms_supplier")
+  @@map("sms_settings")
+}
+
+
+model SuperAdminSetting {
+  id        Int      @id @default(autoincrement())
+  module    String   @unique @db.VarChar(100)
+  settings  String?  @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("super_admin_settings")
+}
+
+
+model EmailServerConfig {
+  id        String   @id @db.VarChar(191)
+  name      String   @db.VarChar(150)
+  value     String   @db.VarChar(100)
+  sid       String   @db.VarChar(30)
+  region    String?  @db.VarChar(100)
+  status    String   @default("Active") @db.VarChar(30)
+  isDefault Boolean  @default(false)
+  config    String?  @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("email_server_config")
+}
+
+model stripeproduct {
+  id             String   @id
+  stripeId       String   @unique(map: "StripeProduct_stripeId_key")
+  localProductId Int?
+  createdAt      DateTime @default(now())
+}
+
+
+
+model template {
+  id          String   @id
+  name        String
+  filename    String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model upsell {
+  id        String   @id
+  productId Int
+  title     String
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], map: "Upsell_productId_fkey")
+
+  @@index([productId], map: "Upsell_productId_fkey")
+}
+
+model webhooklog {
+  id          String            @id
+  provider    String
+  payload     String            @db.Text
+  status      webhooklog_status @default(pending)
+  error       String?
+  createdAt   DateTime          @default(now())
+  processedAt DateTime?
+}
+
+model LoginActivity {
+  id         Int       @id @default(autoincrement())
+  userId     Int?      @db.UnsignedInt
+  admin_name String?
+  userAgent String? @db.VarChar(500)
+  ip         String?
+  status     String?   @db.VarChar(50)
+  createdAt  DateTime? @default(now()) @db.DateTime(0)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "loginActivity_user_id_foreign")
+
+  @@index([userId], map: "loginActivity_user_id_foreign")
+  @@map("login_activities")
+}
+
+model TokenBlacklist {
+  id        Int      @id @default(autoincrement())
+  token     String   @db.Text   
+  expiresAt DateTime                
+  createdAt DateTime @default(now())
+  @@map("token_blacklist")
+}
+
+model AddonSetting {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String
+  price       String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  @@map("addonsetting")
+}
+
+
+model FeatureFlag {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique(map: "feature_flags_name_unique")
+  description String?  @db.Text
+  scope       String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.DateTime(0)
+  updatedAt   DateTime @default(now()) @db.DateTime(0)
+  @@map("featureflag")
+}
+
+model module {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique(map: "name") @db.VarChar(255)
+  createdAt      DateTime         @default(now()) @db.DateTime(0)
+  rolepermission rolePermission[]
+}
+
+model permission {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique(map: "name") @db.VarChar(255)
+  rolepermission rolePermission[]
+}
+
+model PlanSetting {
+  id            Int      @id @default(autoincrement())
+  name          String
+  price         Int
+  annual        Int
+  apiLimit      String
+  smsLimit      String
+  locationLimit Int
+  trialDays     Int
+  trialFeatures String   @db.LongText
+  features      String   @db.LongText
+  status        String   @default("Active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  companies     Company[]
+  @@map("plansetting")
+}
+
+
+model rolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  moduleId     Int
+  permissionId Int
+  module       module     @relation(fields: [moduleId], references: [id], onDelete: Cascade, map: "fk_rolepermission_module")
+  permission   permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, map: "fk_rolepermission_permission")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, map: "fk_rolepermission_role")
+
+  @@unique([roleId, moduleId, permissionId], map: "unique_role_module_permission")
+  @@index([moduleId], map: "fk_rolepermission_module")
+  @@index([permissionId], map: "fk_rolepermission_permission")
+}
+
+model securitypolicie {
+  id            Int       @id @default(autoincrement())
+  enforce2FA    Boolean?  @default(false)
+  ipRestriction String?
+  updatedAt     DateTime? @default(now()) @db.DateTime(0)
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int?     // optionnel si admin supprimé
+  action    String
+  target    String?
+  metadata  String?
+  ip        String
+  createdAt DateTime @default(now())
+  admin     User?    @relation("AdminLogs", fields: [adminId], references: [id])
+  @@map("audit_logs")
+}
+
+model Language {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  native    String
+  flag      String?
+  rtl       Boolean  @default(false)
+  status    LanguageStatus @default(Draft)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  translations Translation[]
+  translationEmails EmailTemplateTranslation[]
+  prodTranslations ProductTranslation[]
+  companies Company[]
+  @@map("languages")
+}
+
+model TranslationKey {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  translations Translation[]
+  @@map("translation_keys")
+}
+
+model Translation {
+  id         Int      @id @default(autoincrement())
+  keyId      Int
+  languageId Int
+  value      String?
+  updatedAt  DateTime @updatedAt
+  key       TranslationKey @relation(fields: [keyId], references: [id])
+  language  Language       @relation(fields: [languageId], references: [id])
+  @@unique([keyId, languageId])
+  @@map("translations")
+}
+
+
+model GlobalCurrency {
+  id Int @id @default(autoincrement())
+  code String @unique
+  name String
+  symbol String
+  rate Float @default(1)
+  status CurrencyStatus @default(Active)
+  isDefault Boolean @default(false)
+  symbolPosition SymbolPosition @default(left_no_space)
+  gateway Gateway @default(stripe)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("global_currencies")
+}
+enum ConversionMethod {
+  manual
+  online
+}
+
+model GlobalCurrencySettings {
+  id Int @id @default(autoincrement())
+  conversionMethod ConversionMethod @default(manual)
+  rateProvider String?
+  apiKey String?
+  showSelector Boolean @default(true)
+  showBoth Boolean @default(false)
+  rounding Int @default(2)
+  lastRateUpdate DateTime?
+  @@map("global_currency_settings")
+}
+
+enum GatewayMode {
+  test
+  live
+}
+
+enum GatewayStatus {
+  Active
+  Inactive
+}
+
+model PaymentGateway {
+  id Int @id @default(autoincrement())
+  provider String
+  apiKey String?
+  secretKey String?
+  webhookSecret String?
+  mode GatewayMode @default(test)
+  status GatewayStatus @default(Active)
+  isDefault Boolean @default(false)
+  currencies String? @default("all")
+  fees String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("payment_gateways")
+}
+
+
+model ManualPaymentMethod {
+
+  id Int @id @default(autoincrement())
+  name String
+  instructions String?
+  verificationRequired Boolean @default(true)
+  supportedCurrencies String? @default("all")
+  status GatewayStatus @default(Active)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders          Order[]
+
+  @@map("manual_payment_methods")
+}
+
+model PaymentSettings {
+
+  id Int @id @default(autoincrement())
+  allowMultiple Boolean @default(true)
+  autoRetry Boolean @default(true)
+  timeout Int @default(300)
+  autoInvoices Boolean @default(true)
+  receiptEmails Boolean @default(true)
+  invoicePrefix String @default("INV-")
+  @@map("payment_settings")
+}
+
+model SmsTemplate {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(150)
+  slug         String   @unique @db.VarChar(150)
+  category     SmsCategory @default(Notification)
+  active       Boolean  @default(true)
+  translations SmsTemplateTranslation[]
+  createdAt    DateTime? @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt    DateTime? @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  @@map("sms_templates")
+}
+
+model SmsTemplateTranslation {
+  id         Int        @id @default(autoincrement())
+  templateId Int        @map("template_id")
+  language   String     @db.VarChar(5)
+  body       String     @db.Text
+  createdAt  DateTime?  @default(now()) @map("created_at") @db.DateTime(0)
+  template   SmsTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, language])
+
+  @@map("sms_template_translations")
+}
+
+
+model EmailTemplate {
+  id           Int                        @id @default(autoincrement())
+  name         String                     @db.VarChar(150)
+  slug         String                     @unique @db.VarChar(150)
+  category     TemplateCategory           @default(Notification)
+  active       Boolean                    @default(true)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  translations EmailTemplateTranslation[]
+
+  @@map("email_templates")
+}
+
+model EmailTemplateTranslation {
+  id         Int           @id @default(autoincrement())
+  templateId Int
+  languageId Int
+  subject    String        @default("") @db.VarChar(255)
+  body       String        @default("") @db.LongText
+  createdAt  DateTime      @default(now())
+  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  language   Language      @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  @@unique([templateId, languageId])
+  @@map("email_template_translations")
+}
+
+
+model Invoice {
+  id              Int           @id @default(autoincrement())
+  invoiceNumber   String        @unique  // INV-2026-000001
+  orderId         Int?          @unique  // lié à une commande (nullable si manuel)
+  companyId       Int
+  userId          Int           @db.UnsignedInt
+
+  // Statut
+  status          InvoiceStatus @default(paid)
+
+  // Montants (toujours en EUR — devise de base)
+  subtotal        Float
+  taxAmount       Float         @default(0)
+  shippingCost    Float         @default(0)
+  total           Float
+  paidAmount      Float         @default(0)
+
+  // Devise d'affichage (si le client a payé dans une autre devise)
+  currency        String        @default("EUR") @db.VarChar(10)
+  exchangeRate    Float         @default(1)
+  displayTotal    Float?        // total dans la devise du client
+
+  // Paiement
+  paymentMethod   String?       @db.VarChar(100)  // "Visa •••• 4242"
+  stripePaymentIntentId String? @db.VarChar(255)
+  paidAt          DateTime?
+
+  // Adresse de facturation
+  billingName     String?
+  billingEmail    String?
+  billingPhone    String?
+  billingAddress  String?       @db.Text
+  billingVat      String?       @db.VarChar(50)
+
+  // Notes et conditions
+  notes           String?       @db.Text
+  terms           String?       @db.Text
+  reference       String?       @db.VarChar(100)
+
+  // Récurrence (pour les abonnements)
+  isRecurring     Boolean       @default(false)
+  recurringInterval String?     // "monthly" | "yearly"
+  nextBillingDate DateTime?
+
+  // Dates
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  order           Order?        @relation(fields: [orderId],    references: [id], onDelete: SetNull)
+  company         Company       @relation(fields: [companyId],  references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId],     references: [id], onDelete: Cascade)
+  items           InvoiceItem[]
+  refunds         Refund[]
+  payments    Payment[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  service     String                   // nom du service/produit
+  description String?  @db.VarChar(500)
+  quantity    Int      @default(1)
+  unit        String   @default("pcs") // "month", "year", "pcs", "hour"
+  unitPrice   Float
+  discount    Float    @default(0)
+  taxRate     Float    @default(0)     // %
+  taxAmount   Float    @default(0)
+  subtotal    Float                    // qty * unitPrice - discount
+  total       Float                    // subtotal + taxAmount
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Refund {
+  id              Int      @id @default(autoincrement())
+  invoiceId       Int
+  amount          Float
+  reason          String?  @db.Text
+  stripeRefundId  String?  @db.VarChar(255)
+  processedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("refunds")
+}
+
+
+model Webhook {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(100)
+  url            String    @db.VarChar(255)
+  secret         String    @unique @db.VarChar(100)
+  events         Json      // Stocke le tableau ["user.login", "invoice.paid"]
+  active         Boolean   @default(true)
+  retryEnabled   Boolean   @default(true)
+  maxRetries     Int       @default(3)
+  lastTriggered  DateTime?
+  successCount   Int       @default(0)
+  failureCount   Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@map("webhooks")
+}
+
+
+model Company {
+  id             Int      @id @default(autoincrement())
+  name           String
+  logo        String?
+  googlePlaceId        String?
+  googleReviewUrl        String?
+  logoScale      Int      @default(100)
+  vatNumber      String?
+  tradeNumber    String?
+  email          String   @unique
+  phone          String?
+  country        String?
+  address        String?  @db.Text
+  type              CompanyType?
+  planId           Int?   
+  status            CompanyStatus   @default(active)
+  defaultLanguageId Int?  
+  primaryColor   String   @default("#E10600")
+  
+  captchaEnabled Boolean  @default(false)
+  captchaSiteKey String?
+  captchaSecret  String?
+  mapsEnabled    Boolean  @default(false)
+  mapsApiKey     String?
+  
+  googleLink     String?
+  facebookLink   String?
+  yelpLink       String?
+  tripadvisorLink String?
+
+  billingAmount     String?
+  billingDate       DateTime?
+  billingNextDate   DateTime?
+
+  mrr               Int             @default(0)
+  apiUsageCount     Int             @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  package           PlanSetting?    @relation(fields: [planId], references: [id], onDelete: SetNull, map: "companies_planId_foreign")
+  defaulLanguage    Language?       @relation(fields: [defaultLanguageId], references: [id], onDelete: SetNull, map: "companies_defaultLanguageId_foreign")
+  members           UserCompany[]
+  settings          CompanySettings?
+  subscription      Subscription?
+  cartItems  CartItem[]
+  designs    Design[]
+  orders     Order[]
+  invoices     Invoice[]
+  payments    Payment[]
+  locations   Location[]
+
+ cards    NFCCard[]
+ scans    NfcScan[]
+
+  feedbacks   Feedback[]  // Tous les feedbacks reçus par l'entreprise
+  analytics   AnalyticsEvent[]
+  @@map("companies")
+}
+
+
+model CompanySettings {
+  id                Int      @id @default(autoincrement())
+  companyId         Int?      @unique
+  timezone          String   @default("UTC")
+  currency          String   @default("USD")
+  notificationEmail Boolean  @default(true)
+  maxLocations      Int      @default(1)
+  maxApiCalls       Int      @default(1000)
+  maxSmsCalls       Int      @default(100)
+  allowCustomColor  Boolean  @default(false)
+  company           Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@map("company_settings")
+}
+
+
+model Subscription {
+  id           Int      @id @default(autoincrement())
+  companyId    Int?      @unique
+  
+  planName     String   @default("Starter")
+  status       String   @default("active") // active, trialing, canceled
+  amount       Float
+  Interval     String   @default("monthly") // monthly, yearly
+  nextBilling  DateTime
+  createdAt    DateTime @default(now())
+  company      Company?  @relation(fields: [companyId], references: [id])
+  @@map("subscriptions")
+}
+
+model CardType {
+  id        String  @id @default(cuid())
+  name      String
+  color     String   @default("#6b7280")
+  image     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cardTypePrices CardTypePrice[]
+  orderItems OrderItem[] // Pour la relation avec OrderItem
+  cartItems  CartItem[]  // Pour la relation avec CartItem
+  @@map("card_type")
+}
+
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  price     Float
+  active    Boolean  @default(true)
+  image     String?  // primary image URL / base64
+
+  // Relations
+  translations    ProductTranslation[]
+  galleryItems    ProductGalleryItem[]
+  packageTiers    ProductPackageTier[]
+  cardTypePrices  CardTypePrice[]
+  bundleProducts  bundleproduct[]      // Pour l'erreur sur bundleproduct
+  orderItems      OrderItem[]          // Pour l'erreur sur orderitem
+  cartItems CartItem[]
+  upsells         upsell[]
+  designs Design[]
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product")
+}
+
+model ProductTranslation {
+  id              Int     @id @default(autoincrement())
+  productId       Int
+  langId          Int
+  title           String
+  slug            String
+  seoTitle        String?
+  metaDescription String?
+  metaImage       String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  language        Language @relation(fields: [langId],    references: [id], onDelete: Restrict)
+
+  @@unique([productId, langId])
+  @@unique([langId, slug])          // slug must be unique per language
+  @@map("product_translation")
+}
+
+
+ model ProductGalleryItem {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  url       String                  // image/video data URL or YouTube embed URL
+  type      GalleryItemType         // "image" | "video" | "youtube"
+  poster    String?                 // thumbnail for video / YouTube HQ default
+  position  Int     @default(0)     // order in the gallery (0 = primary)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_gallery_item")
+}
+
+model ProductPackageTier {
+  id        Int   @id @default(autoincrement())
+  productId Int
+  qty       Int   // number of cards
+  price     Float // price per card at this qty
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+  @@unique([productId, qty])
+  @@map("product_package_tier")
+}
+
+model CartItem {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @db.UnsignedInt
+  companyId     Int
+  productId     Int
+  packageTierId Int?
+  quantity      Int
+  totalCards    Int      // = packageTier.qty (snapshot)
+  unitPrice     Float    // prix/carte au moment de l'ajout (snapshot)
+  lineTotal     Float    // totalCards x unitPrice
+  // Options
+  cardTypeId    String?
+  designId      Int?     @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User                @relation(fields: [userId],       references: [id], onDelete: Cascade)
+  company     Company             @relation(fields: [companyId],    references: [id], onDelete: Cascade)
+  product     Product             @relation(fields: [productId],    references: [id], onDelete: Cascade)
+  packageTier ProductPackageTier?  @relation(fields: [packageTierId], references: [id], onDelete: Restrict)
+  design      Design?             @relation(fields: [designId],     references: [id], onDelete: SetNull)
+  cardType    CardType?           @relation(fields: [cardTypeId],   references: [id], onDelete: SetNull)
+
+  @@index([userId, companyId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+
+model CardTypePrice {
+  id         Int    @id @default(autoincrement())
+  productId  Int
+  cardTypeId String
+  price      Float  @default(0)  // additional price on top of base
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cardType CardType @relation(fields: [cardTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, cardTypeId])
+  @@map("card_type_price")
+}
+
+
+enum GalleryItemType {
+  image
+  video
+  youtube
+}
+
+enum TemplateCategory {
+  Onboarding
+  Review
+  Billing
+  Auth
+  Notification
+  Marketing
+  System
+}
+
+enum SmsCategory {
+  Review
+  Notification
+  Auth
+  Marketing
+  System
+}
+
+
+enum ReviewStatus {
+  pending
+  alerted
+  posted
+  rejected
+  archived
+}
+
+enum NotificationType {
+  email
+  sms
+  whatsapp
+}
+
+enum webhooklog_status {
+  pending
+  processed
+  failed
+}
+
+enum users_role {
+  user
+  admin
+  owner
+  manager
+  superadmin
+}
+
+enum LanguageStatus {
+  Active
+  Draft
+  Inactive
+}
+
+enum CurrencyStatus {
+  Active
+  Draft
+  Inactive
+}
+
+enum SymbolPosition {
+  left_space
+  left_no_space
+  right_space
+  right_no_space
+}
+
+enum Gateway {
+  stripe
+  paypal
+  mollie
+  manual
+}
+
+enum CompanyStatus {
+  active
+  trial
+  suspended
+  cancelled
+}
+
+enum CompanyType {
+  direct
+  agency
+}
+
+enum AccountStatus {
+  active
+  trial
+  suspended
+  cancelled
+}
+
+enum DesignOrientation {
+  landscape
+  portrait
+}
+
+enum DesignStatus {
+  draft
+  validated
+  locked
+  archived
+}
+
+enum CardModel {
+  classic
+  premium
+  metal
+  transparent
+}
+
+enum OrderStatus {
+  pending      // PaymentIntent créé, pas encore payé
+  paid         // Paiement confirmé par Stripe webhook
+  production   // En cours de fabrication
+  printed      // Imprimé + contrôle qualité
+  shipped      // Expédié — tracking number disponible
+  delivered    // Livré
+  cancelled    // Annulé
+  refunded     // Remboursé
+  partially_paid
+  unpaid
+}
+
+enum ShippingMethod {
+  standard    // 5-7 jours
+  express     // 2-3 jours
+  international // 10-14 jours
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+  cancelled
+  refunded
+  unpaid
+}
+
+enum PaymentStatus {
+  completed
+  failed
+  refunded
+  pending
+}
+
+enum PaymentMethodType {
+  card
+  wire
+  check
+  other
+  manual
+  cash
+}
+
+enum FeedbackStatus {
+  PENDING    // en attente de traitement
+  PUBLIC     // visible publiquement (positif redirigé Google)
+  PRIVATE    // feedback interne négatif (1-3 étoiles)
+  RESOLVED   // traité / résolu par l'admin
+}
+
+
+enum NfcCardStatus {
+  NOT_PROGRAMMED  // tag associé, pas encore encodé physiquement
+  PRINTED         // carte imprimée
+  SHIPPED         // expédiée
+  DELIVERED       // livrée (mais pas encore activée par l'utilisateur)
+  ACTIVE          // activée — peut recevoir des scans
+  DISABLED        // désactivée manuellement
+}
+
+
+enum NfcTagStatus {
+  NEW          // puce en stock, jamais programmée
+  PROGRAMMED   // puce encodée avec une URL
+  DEFECTIVE    // puce défectueuse
+}
+
+enum AnalyticsEventType {
+  SCAN
+  PAGE_VIEW
+  RATING_SELECTED
+  GOOGLE_REDIRECT
+  FEEDBACK_SUBMITTED
+}
+

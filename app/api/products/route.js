@@ -34,12 +34,12 @@ export async function GET(request) {
   return forward(request, `/api/products${search}`);
 }
 
-export async function POST(request) {
-  // support both /api/products and /api/products/bundle or others
-  const url = new URL(request.url);
-  const rel = url.pathname.replace("/api/products", "") || "";
-  return forward(request, `/api/products${rel}`);
-}
+// export async function POST(request) {
+//   // support both /api/products and /api/products/bundle or others
+//   const url = new URL(request.url);
+//   const rel = url.pathname.replace("/api/products", "") || "";
+//   return forward(request, `/api/products${rel}`);
+// }
 
 export async function PUT(request) {
   const url = new URL(request.url);

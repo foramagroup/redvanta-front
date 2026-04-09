@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
-    "@prisma/client": "^7.0.1",
+    "@prisma/client": "^5.22.0",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -58,6 +58,7 @@
     "next": "13.5.8",
     "pdf-lib": "^1.17.1",
     "playwright": "^1.57.0",
+    "prisma": "^5.22.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.1",
