@@ -35,6 +35,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PK
 
 const CHECKOUT_AUTOSTART_KEY = "krootal_checkout_autostart";
 const CHECKOUT_DRAFT_KEY = "krootal_checkout_draft";
+const CHECKOUT_SUCCESS_KEY = "krootal_checkout_success";
 
 function resolvePaymentFlow(method) {
   const normalizedName = String(method?.name || "").trim().toLowerCase();
@@ -48,6 +49,12 @@ function resolvePaymentFlow(method) {
   }
 
   return null;
+}
+
+function storeCheckoutSuccessSnapshot(snapshot) {
+  try {
+    sessionStorage.setItem(CHECKOUT_SUCCESS_KEY, JSON.stringify(snapshot));
+  } catch {}
 }
 
 const INITIAL_ADDRESS = {
@@ -284,6 +291,32 @@ const Checkout = () => {
         paymentMethodId: selectedPaymentFlow === "manual" ? selectedMethodData.id : null,
       });
 
+      storeCheckoutSuccessSnapshot({
+        status: selectedPaymentFlow,
+        orderNumber: payload?.data?.orderNumber || null,
+        invoiceNumber: payload?.invoiceNumber || null,
+        total: typeof payload?.amounts?.displayTotal === "number" ? payload.amounts.displayTotal : null,
+        currency: payload?.amounts?.currency || null,
+        createdAt: new Date().toISOString(),
+        shippingMethod: shipping,
+        email: profile?.email || user?.email || "",
+        message:
+          selectedPaymentFlow === "manual"
+            ? "Votre commande a ete enregistree. Vous paierez sur place."
+            : null,
+        items: Array.isArray(items)
+          ? items.map((item) => ({
+              id: item?.id || null,
+              productId: item?.productId || null,
+              productName: item?.productName || "Product",
+              model: item?.model || null,
+              quantity: Number(item?.quantity) || 1,
+              unitPrice: Number(item?.unitPrice) || 0,
+              cardType: item?.cardType || null,
+            }))
+          : [],
+      });
+
       if (selectedPaymentFlow === "stripe") {
         if (!payload?.stripeClientSecret) {
           throw new Error("Stripe n'a pas renvoye de client secret.");
@@ -294,7 +327,6 @@ const Checkout = () => {
       } else {
         const params = new URLSearchParams({
           status: "manual",
-          message: "Votre commande a ete enregistree. Vous paierez sur place.",
         });
 
         if (payload?.data?.orderNumber) {

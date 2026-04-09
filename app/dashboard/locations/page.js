@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/hooks/use-toast";
 import { get, patch, post, put, remove } from "@/lib/api";
@@ -27,7 +28,7 @@ const EMPTY_LOCATION_FORM = {
   name: "",
   address: "",
   placeId: "",
-  cards: 0,
+  selectedCardId: "",
 };
 
 
@@ -50,6 +51,23 @@ const EMPTY_ANALYTICS = {
   cardCount: 0,
 };
 
+const formatCardLabel = (card) => {
+  if (!card) return "";
+  const tagSerial = card.tagSerial || card.tag?.tagSerial;
+  return `${card.uid}${tagSerial ? ` • ${tagSerial}` : ""}`;
+};
+
+const buildCardOptions = (assignedCard, availableCards) => {
+  const mergedCards = assignedCard ? [assignedCard, ...availableCards] : availableCards;
+  const seen = new Set();
+
+  return mergedCards.filter((card) => {
+    if (!card?.id || seen.has(card.id)) return false;
+    seen.add(card.id);
+    return true;
+  });
+};
+
 const Locations = () => {
   const { t } = useLanguage();
   const [locations, setLocations] = useState([]);
@@ -64,6 +82,7 @@ const Locations = () => {
   const [submitting, setSubmitting] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_LOCATION_FORM);
   const [editForm, setEditForm] = useState(EMPTY_LOCATION_FORM);
+  const [availableCards, setAvailableCards] = useState([]);
 
   const loadLocations = async () => {
     const response = await get("/api/admin/locations");
@@ -75,10 +94,20 @@ const Locations = () => {
     return response?.data || EMPTY_STATS;
   };
 
+  const loadAvailableCards = async () => {
+    const response = await get("/api/admin/locations/list-company-card");
+    return Array.isArray(response?.data) ? response.data : [];
+  };
+
   const refreshDashboard = async () => {
-    const [nextLocations, nextStats] = await Promise.all([loadLocations(), loadStats()]);
+    const [nextLocations, nextStats, nextCards] = await Promise.all([
+      loadLocations(),
+      loadStats(),
+      loadAvailableCards(),
+    ]);
     setLocations(nextLocations);
     setStats(nextStats);
+    setAvailableCards(nextCards);
   };
 
   useEffect(() => {
@@ -87,10 +116,15 @@ const Locations = () => {
     const boot = async () => {
       try {
         setLoading(true);
-        const [nextLocations, nextStats] = await Promise.all([loadLocations(), loadStats()]);
+        const [nextLocations, nextStats, nextCards] = await Promise.all([
+          loadLocations(),
+          loadStats(),
+          loadAvailableCards(),
+        ]);
         if (cancelled) return;
         setLocations(nextLocations);
         setStats(nextStats);
+        setAvailableCards(nextCards);
       } catch (error) {
         if (!cancelled) {
           toast({
@@ -115,12 +149,13 @@ const Locations = () => {
     try {
       const response = await get(`/api/admin/locations/${loc.id}`);
       const nextLoc = response?.data || loc;
+      const assignedCard = nextLoc.assignedCard || nextLoc.assignedCards?.[0] || null;
       setEditLocation(nextLoc);
       setEditForm({
         name: nextLoc.name || "",
         address: nextLoc.address || "",
         placeId: nextLoc.googlePlaceId || "",
-        cards: nextLoc.cards || 0,
+        selectedCardId: assignedCard?.id ? String(assignedCard.id) : "",
       });
     } catch (error) {
       toast({
@@ -139,14 +174,15 @@ const Locations = () => {
         name: editForm.name,
         address: editForm.address,
         placeId: editForm.placeId || undefined,
-        cards: Number(editForm.cards || 0),
       });
-      const updated = response?.data;
-      if (updated) {
-        setLocations((prev) => prev.map((loc) => (loc.id === updated.id ? updated : loc)));
+
+      if (editForm.selectedCardId) {
+        await post(`/api/admin/locations/${editLocation.id}/assign-card`, {
+          cardId: Number(editForm.selectedCardId),
+        });
       }
-      const nextStats = await loadStats();
-      setStats(nextStats);
+
+      await refreshDashboard();
       setEditLocation(null);
       toast({ title: "Locations", description: "Location updated." });
     } catch (error) {
@@ -167,13 +203,15 @@ const Locations = () => {
         name: addForm.name,
         address: addForm.address,
         placeId: addForm.placeId || undefined,
-        cards: Number(addForm.cards || 0),
       });
-      if (response?.data) {
-        setLocations((prev) => [...prev, response.data]);
+
+      if (response?.data?.id && addForm.selectedCardId) {
+        await post(`/api/admin/locations/${response.data.id}/assign-card`, {
+          cardId: Number(addForm.selectedCardId),
+        });
       }
-      const nextStats = await loadStats();
-      setStats(nextStats);
+
+      await refreshDashboard();
       setAddForm(EMPTY_LOCATION_FORM);
       setShowAdd(false);
       toast({ title: "Locations", description: "Location created." });
@@ -270,6 +308,7 @@ const Locations = () => {
     { label: "Cards", value: stats.totalCards, icon: CreditCard },
     { label: "Avg Rating", value: stats.avgRating || "—", icon: Star },
   ];
+  const editCardOptions = buildCardOptions(editLocation?.assignedCard, availableCards);
 
   return (
     <DashboardLayout
@@ -443,13 +482,25 @@ const Locations = () => {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs text-muted-foreground">{t("loc.assign_cards")}</label>
-                <Input
-                  className="border-border/50 bg-secondary/50"
-                  type="number"
-                  placeholder="0"
-                  value={addForm.cards}
-                  onChange={(e) => setAddForm((prev) => ({ ...prev, cards: Number(e.target.value || 0) }))}
-                />
+                <Select
+                  value={addForm.selectedCardId}
+                  onValueChange={(value) => setAddForm((prev) => ({ ...prev, selectedCardId: value }))}
+                >
+                  <SelectTrigger className="border-border/50 bg-secondary/50">
+                    <SelectValue placeholder="Select an available NFC card" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCards.length > 0 ? (
+                      availableCards.map((card) => (
+                        <SelectItem key={card.id} value={String(card.id)}>
+                          {card.uid}{card.tag?.tagSerial ? ` • ${card.tag.tagSerial}` : ""}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-card" disabled>No available NFC cards</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <Button className="w-full glow-red-hover" onClick={createLocation} disabled={submitting}>
                 {t("loc.add")}
@@ -504,12 +555,30 @@ const Locations = () => {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs text-muted-foreground">{t("loc.assign_cards")}</label>
-                <Input
-                  className="border-border/50 bg-secondary/50"
-                  type="number"
-                  value={editForm.cards}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, cards: Number(e.target.value || 0) }))}
-                />
+                <Select
+                  value={editForm.selectedCardId}
+                  onValueChange={(value) => setEditForm((prev) => ({ ...prev, selectedCardId: value }))}
+                >
+                  <SelectTrigger className="border-border/50 bg-secondary/50">
+                    <SelectValue placeholder="Assign an available NFC card" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editLocation?.assignedCard && !availableCards.some((card) => card.id === editLocation.assignedCard.id) && (
+                      <SelectItem value={String(editLocation.assignedCard.id)}>
+                        {formatCardLabel(editLocation.assignedCard)}
+                      </SelectItem>
+                    )}
+                    {availableCards.length > 0 ? (
+                      availableCards.map((card) => (
+                        <SelectItem key={card.id} value={String(card.id)}>
+                          {card.uid}{card.tag?.tagSerial ? ` • ${card.tag.tagSerial}` : ""}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-card" disabled>No available NFC cards</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <Button className="w-full glow-red-hover" onClick={saveEdit} disabled={submitting}>
                 {t("loc.save_changes")}
