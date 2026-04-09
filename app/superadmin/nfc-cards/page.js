@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,89 +8,153 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Search, Link2, Unlink, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { Search, Link2, Unlink, ExternalLink, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { get, patch, post } from "@/lib/api";
 
-const MOCK_TAGS = [
-  { id: "tag-1", tagSerial: "NFC-A1B2C3D4", status: "NEW", createdAt: "2026-03-20" },
-  { id: "tag-2", tagSerial: "NFC-E5F6G7H8", status: "NEW", createdAt: "2026-03-21" },
-  { id: "tag-3", tagSerial: "NFC-I9J0K1L2", status: "NEW", createdAt: "2026-03-22" },
-  { id: "tag-4", tagSerial: "NFC-M3N4O5P6", status: "ASSIGNED", createdAt: "2026-03-18", assignedCardId: "card-1" },
-  { id: "tag-5", tagSerial: "NFC-Q7R8S9T0", status: "PROGRAMMED", createdAt: "2026-03-15", assignedCardId: "card-2" },
-  { id: "tag-6", tagSerial: "NFC-U1V2W3X4", status: "DEFECTIVE", createdAt: "2026-03-10" },
-  { id: "tag-7", tagSerial: "NFC-Y5Z6A7B8", status: "NEW", createdAt: "2026-03-25" },
-];
-
-const MOCK_CARDS = [
-  { id: "card-1", uid: "rv-card-001", userId: "u1", userName: "Bella's Kitchen", locationId: "l1", locationName: "Downtown", designId: "d1", designName: "Minimal Dark", productId: "p1", productName: "Classic NFC Card", tagId: "tag-4", payload: "https://review.redvanta.com/rv-card-001", active: true, createdAt: "2026-03-15" },
-  { id: "card-2", uid: "rv-card-002", userId: "u2", userName: "Mario's Pizza", locationId: "l2", locationName: "Main St", designId: "d2", designName: "Bold Red", productId: "p2", productName: "Premium NFC Card", tagId: "tag-5", payload: "https://review.redvanta.com/rv-card-002", active: true, createdAt: "2026-03-16" },
-  { id: "card-3", uid: "rv-card-003", userId: "u3", userName: "Zen Spa", locationId: "l3", locationName: "Uptown", designId: "d3", designName: "Corporate", productId: "p1", productName: "Classic NFC Card", tagId: null, payload: "https://review.redvanta.com/rv-card-003", active: true, createdAt: "2026-03-18" },
-  { id: "card-4", uid: "rv-card-004", userId: "u1", userName: "Bella's Kitchen", locationId: "l4", locationName: "Airport", designId: "d1", designName: "Minimal Dark", productId: "p3", productName: "Metal NFC Card", tagId: null, payload: "https://review.redvanta.com/rv-card-004", active: false, createdAt: "2026-03-20" },
-  { id: "card-5", uid: "rv-card-005", userId: "u4", userName: "Cloud Café", locationId: "l5", locationName: "Tech Park", designId: "d4", designName: "Light", productId: "p2", productName: "Premium NFC Card", tagId: null, payload: "https://review.redvanta.com/rv-card-005", active: true, createdAt: "2026-03-22" },
-];
+const EMPTY_STATS = {
+  total: 0,
+  assigned: 0,
+  unassigned: 0,
+  active: 0,
+};
 
 const NFCCardsPage = () => {
-  const [cards, setCards] = useState(MOCK_CARDS);
-  const [tags, setTags] = useState(MOCK_TAGS);
+  const [cards, setCards] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [assignModal, setAssignModal] = useState(null);
   const [selectedTagId, setSelectedTagId] = useState("");
   const [unassignModal, setUnassignModal] = useState(null);
 
-  const availableTags = useMemo(() => tags.filter(t => t.status === "NEW"), [tags]);
+  const availableTags = useMemo(() => tags.filter((tag) => tag.status === "NEW"), [tags]);
 
-  const filtered = useMemo(() => {
-    let list = cards;
-    if (filter === "assigned") list = list.filter(c => c.tagId);
-    if (filter === "unassigned") list = list.filter(c => !c.tagId);
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(c =>
-        c.uid.toLowerCase().includes(q) ||
-        c.userName.toLowerCase().includes(q) ||
-        c.locationName.toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [cards, filter, search]);
-
-  const getLinkedTag = (tagId) => tags.find((t) => t.id === tagId);
-
-  const handleAssign = () => {
-    if (!assignModal || !selectedTagId) return;
-    const tag = tags.find(t => t.id === selectedTagId);
-    if (!tag || tag.status !== "NEW") {
-      toast.error("Tag is not available for assignment");
-      return;
-    }
-    setCards(prev => prev.map(c => c.id === assignModal.id ? { ...c, tagId: selectedTagId } : c));
-    setTags(prev => prev.map(t => t.id === selectedTagId ? { ...t, status: "ASSIGNED", assignedCardId: assignModal.id } : t));
-    toast.success(`Tag ${tag.tagSerial} assigned to ${assignModal.uid}`);
-    setAssignModal(null);
-    setSelectedTagId("");
+  const loadCards = async () => {
+    const response = await get("/api/superadmin/nfc-cards", {
+      filter,
+      search,
+      page: 1,
+      limit: 100,
+    });
+    return Array.isArray(response?.data) ? response.data : [];
   };
 
-  const handleUnassign = () => {
-    if (!unassignModal || !unassignModal.tagId) return;
-    const tagId = unassignModal.tagId;
-    setCards(prev => prev.map(c => c.id === unassignModal.id ? { ...c, tagId: null } : c));
-    setTags(prev => prev.map(t => t.id === tagId ? { ...t, status: "NEW", assignedCardId: null } : t));
-    toast.success("Tag unassigned successfully");
-    setUnassignModal(null);
+  const loadStats = async () => {
+    const response = await get("/api/superadmin/nfc-cards/stats");
+    return response?.data || EMPTY_STATS;
+  };
+
+  const loadTags = async () => {
+    const response = await get("/api/superadmin/nfc-tags", {
+      status: "NEW",
+      page: 1,
+      limit: 100,
+    });
+    return Array.isArray(response?.data) ? response.data : [];
+  };
+
+  const refreshData = async () => {
+    const [nextCards, nextStats, nextTags] = await Promise.all([loadCards(), loadStats(), loadTags()]);
+    setCards(nextCards);
+    setStats(nextStats);
+    setTags(nextTags);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const boot = async () => {
+      try {
+        setLoading(true);
+        const [nextCards, nextStats, nextTags] = await Promise.all([loadCards(), loadStats(), loadTags()]);
+        if (cancelled) return;
+        setCards(nextCards);
+        setStats(nextStats);
+        setTags(nextTags);
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "NFC Cards",
+            description: error?.message || error?.error || "Unable to load NFC cards.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    boot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, search]);
+
+  const handleAssign = async () => {
+    if (!assignModal || !selectedTagId) return;
+
+    try {
+      setSubmitting(true);
+      await post("/api/superadmin/nfc-cards/assign", {
+        cardId: assignModal.id,
+        tagId: Number(selectedTagId),
+      });
+      await refreshData();
+      toast({
+        title: "NFC Cards",
+        description: "Tag assigned successfully.",
+      });
+      setAssignModal(null);
+      setSelectedTagId("");
+    } catch (error) {
+      toast({
+        title: "NFC Cards",
+        description: error?.message || error?.error || "Unable to assign tag.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUnassign = async () => {
+    if (!unassignModal) return;
+
+    try {
+      setSubmitting(true);
+      await patch(`/api/superadmin/nfc-cards/${unassignModal.id}/unassign`);
+      await refreshData();
+      toast({
+        title: "NFC Cards",
+        description: "Tag unassigned successfully.",
+      });
+      setUnassignModal(null);
+    } catch (error) {
+      toast({
+        title: "NFC Cards",
+        description: error?.message || error?.error || "Unable to unassign tag.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <SuperAdminLayout title="NFC Cards" subtitle="Manage digital cards and tag assignments">
       <div className="space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by UID, user, location..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -106,23 +170,21 @@ const NFCCardsPage = () => {
           </Select>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: "Total Cards", value: cards.length, color: "text-foreground" },
-            { label: "Assigned", value: cards.filter(c => c.tagId).length, color: "text-yellow-500" },
-            { label: "Unassigned", value: cards.filter(c => !c.tagId).length, color: "text-red-500" },
-            { label: "Active", value: cards.filter(c => c.active).length, color: "text-green-500" },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl border border-border/50 bg-card p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            { label: "Total Cards", value: stats.total, color: "text-foreground" },
+            { label: "Assigned", value: stats.assigned, color: "text-yellow-500" },
+            { label: "Unassigned", value: stats.unassigned, color: "text-red-500" },
+            { label: "Active", value: stats.active, color: "text-green-500" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-border/50 bg-card p-4">
+              <p className="text-xs text-muted-foreground">{item.label}</p>
+              <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Table */}
-        <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -137,28 +199,40 @@ const NFCCardsPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(card => {
-                const linkedTag = getLinkedTag(card.tagId);
-                return (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                    <Loader2 size={18} className="mx-auto mb-2 animate-spin" />
+                    Loading cards...
+                  </TableCell>
+                </TableRow>
+              ) : cards.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                    No cards found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                cards.map((card) => (
                   <TableRow key={card.id}>
                     <TableCell className="font-mono text-xs">{card.uid}</TableCell>
                     <TableCell className="font-medium">{card.userName}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{card.locationName}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">{card.designName}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">{card.productName}</TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">{card.locationName}</TableCell>
+                    <TableCell className="hidden text-muted-foreground lg:table-cell">{card.designName}</TableCell>
+                    <TableCell className="hidden text-muted-foreground lg:table-cell">{card.productName}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${card.active ? "bg-green-500" : "bg-red-500"}`} />
+                        <span className={`h-2 w-2 rounded-full ${card.active ? "bg-green-500" : "bg-red-500"}`} />
                         <span className="text-xs">{card.active ? "Active" : "Inactive"}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {linkedTag ? (
+                      {card.tagSerial ? (
                         <Badge variant="secondary" className="font-mono text-[10px]">
-                          {linkedTag.tagSerial}
+                          {card.tagSerial}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-red-500 border-red-500/30 text-[10px]">
+                        <Badge variant="outline" className="border-red-500/30 text-[10px] text-red-500">
                           Unassigned
                         </Badge>
                       )}
@@ -169,7 +243,10 @@ const NFCCardsPage = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => { setAssignModal(card); setSelectedTagId(""); }}
+                            onClick={() => {
+                              setAssignModal(card);
+                              setSelectedTagId("");
+                            }}
                             className="gap-1 text-xs"
                           >
                             <Link2 size={14} /> Assign
@@ -184,28 +261,29 @@ const NFCCardsPage = () => {
                             <Unlink size={14} /> Unassign
                           </Button>
                         )}
-                        <Button size="icon" variant="ghost" className="h-8 w-8" title="View payload">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          title="View payload"
+                          onClick={() => window.open(card.payload, "_blank", "noopener,noreferrer")}
+                        >
                           <ExternalLink size={14} />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                    No cards found
-                  </TableCell>
-                </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {/* Assign Modal */}
-      <Dialog open={!!assignModal} onOpenChange={() => { setAssignModal(null); setSelectedTagId(""); }}>
+      <Dialog open={!!assignModal} onOpenChange={() => {
+        setAssignModal(null);
+        setSelectedTagId("");
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Assign NFC Tag</DialogTitle>
@@ -215,21 +293,21 @@ const NFCCardsPage = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Card Owner</p>
-              <p className="font-medium">{assignModal?.userName} — {assignModal?.locationName}</p>
+              <p className="mb-1 text-sm text-muted-foreground">Card Owner</p>
+              <p className="font-medium">{assignModal?.userName} - {assignModal?.locationName}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground mb-2">Available Tags ({availableTags.length})</p>
+              <p className="mb-2 text-sm text-muted-foreground">Available Tags ({availableTags.length})</p>
               {availableTags.length > 0 ? (
                 <Select value={selectedTagId} onValueChange={setSelectedTagId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a tag..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableTags.map(tag => (
-                      <SelectItem key={tag.id} value={tag.id}>
+                    {availableTags.map((tag) => (
+                      <SelectItem key={tag.id} value={String(tag.id)}>
                         <span className="font-mono">{tag.tagSerial}</span>
-                        <span className="text-muted-foreground ml-2 text-xs">Added {tag.createdAt}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">Added {tag.createdAt}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -241,12 +319,11 @@ const NFCCardsPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignModal(null)}>Cancel</Button>
-            <Button onClick={handleAssign} disabled={!selectedTagId}>Assign Tag</Button>
+            <Button onClick={handleAssign} disabled={!selectedTagId || submitting}>Assign Tag</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Unassign Confirmation */}
       <Dialog open={!!unassignModal} onOpenChange={() => setUnassignModal(null)}>
         <DialogContent>
           <DialogHeader>
@@ -257,13 +334,12 @@ const NFCCardsPage = () => {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUnassignModal(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleUnassign}>Unassign</Button>
+            <Button variant="destructive" onClick={handleUnassign} disabled={submitting}>Unassign</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </SuperAdminLayout>
   );
 };
-
 
 export default NFCCardsPage;

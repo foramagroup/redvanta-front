@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { fadeUp } from "@/lib/animations";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import DesignDetailModal from "@/components/designs/DesignDetailModal";
 import {
   Search, Grid3X3, List, MoreVertical, Pencil, Copy, Trash2, Eye,
   Palette, Clock, CheckCircle2, FileText, Archive, Plus, ExternalLink,
@@ -21,78 +21,19 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import { useDesigns } from "@/contexts/DesignsContext";
-import { get, post } from "@/lib/api";
+import { get, patch, post, remove } from "@/lib/api";
 
 const STATUS_CONFIG = {
   active: { label: "Active", className: "bg-green-500/15 text-green-400 border-green-500/30" },
   draft: { label: "Draft", className: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
   archived: { label: "Archived", className: "bg-muted/50 text-muted-foreground border-border/50" },
 };
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-function formatDate(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toISOString().split("T")[0];
-}
-
-function mapApiStatus(status) {
-  if (status === "draft") return "draft";
-  if (status === "archived") return "archived";
-  return "active";
-}
-
-function mapCardsToDesigns(cards = []) {
-  const grouped = new Map();
-
-  cards.forEach((card) => {
-    const design = card?.designSummary;
-    if (!design?.id) return;
-
-    const existing = grouped.get(design.id);
-    if (existing) {
-      existing.cardCount += 1;
-      existing.linkedCard = existing.cardCount > 1 ? `${existing.cardCount} cards` : card.uid;
-      existing.updatedAt = formatDate(card.activatedAt || card.generatedAt);
-      return;
-    }
-
-    const businessName = design.businessName || card.locationName || "Unnamed business";
-    const model = design.cardModel || "Classic";
-
-    grouped.set(design.id, {
-      id: String(design.id),
-      name: `${businessName} Design`,
-      businessName,
-      template: card.productName || "NFC Card",
-      templateColor1: design.bgColor || "#111827",
-      templateColor2: design.accentColor || "#E10600",
-      orientation: design.orientation || "landscape",
-      model,
-      status: mapApiStatus(design.status),
-      linkedCard: card.uid || null,
-      primaryCardUid: card.uid || null,
-      cardCount: 1,
-      createdAt: formatDate(card.generatedAt),
-      updatedAt: formatDate(card.activatedAt || card.generatedAt),
-      frontInstructions: "Tap your phone here",
-      backInstructions: "Scan QR to leave a review",
-    });
-  });
-
-  return Array.from(grouped.values()).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-}
 
 const MyDesigns = () => {
   const { t } = useLanguage();
   const router = useRouter();
   const { designs, setDesigns, addDesign, updateDesign } = useDesigns();
-  const [loadingDesigns, setLoadingDesigns] = useState(true);
-  const [cardActionLoading, setCardActionLoading] = useState(false);
-  const [nfcStats, setNfcStats] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
@@ -100,29 +41,41 @@ const MyDesigns = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0 });
+  const [loading, setLoading] = useState(true);
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadDesigns = async () => {
       try {
-        setLoadingDesigns(true);
-        const [cardsResponse, statsResponse] = await Promise.all([
-          get("/api/admin/nfc/cards", { limit: 100 }),
-          get("/api/admin/nfc/stats"),
+        setLoading(true);
+
+        const [statsResponse, designsResponse] = await Promise.all([
+          get("/api/admin/my-design/stats"),
+          get("/api/admin/my-design", {
+            status: statusFilter,
+            search,
+            page: 1,
+            limit: 100,
+          }),
         ]);
+
         if (cancelled) return;
-        setDesigns(mapCardsToDesigns(cardsResponse?.data || []));
-        setNfcStats(statsResponse?.data || null);
+
+        setStats(statsResponse?.data || { total: 0, active: 0, draft: 0, archived: 0 });
+        setDesigns(Array.isArray(designsResponse?.data) ? designsResponse.data : []);
       } catch (error) {
-        if (cancelled) return;
-        toast({
-          title: "Designs",
-          description: error?.error || "Unable to load designs.",
-          variant: "destructive",
-        });
+        if (!cancelled) {
+          toast({
+            title: "Designs",
+            description: error?.message || error?.error || "Unable to load designs.",
+            variant: "destructive",
+          });
+        }
       } finally {
-        if (!cancelled) setLoadingDesigns(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -131,183 +84,142 @@ const MyDesigns = () => {
     return () => {
       cancelled = true;
     };
-  }, [setDesigns]);
+  }, [search, setDesigns, statusFilter]);
 
-  const reloadFromApi = async () => {
-    const [cardsResponse, statsResponse] = await Promise.all([
-      get("/api/admin/nfc/cards", { limit: 100 }),
-      get("/api/admin/nfc/stats"),
-    ]);
-    const nextDesigns = mapCardsToDesigns(cardsResponse?.data || []);
-    setDesigns(nextDesigns);
-    setNfcStats(statsResponse?.data || null);
-    return nextDesigns;
+  const refreshStats = async () => {
+    const response = await get("/api/admin/my-design/stats");
+    setStats(response?.data || { total: 0, active: 0, draft: 0, archived: 0 });
   };
-
-  const handlePreviewOpen = async (design) => {
-    setPreviewDesign(design);
-    if (!design?.primaryCardUid) return;
-
-    try {
-      const response = await get(`/api/admin/nfc/cards/${design.primaryCardUid}`);
-      const detailedDesign = mapCardsToDesigns([response?.data])[0];
-      if (!detailedDesign) return;
-      const merged = { ...design, ...detailedDesign };
-      setPreviewDesign(merged);
-      setDesigns((current) => current.map((item) => (item.id === design.id ? { ...item, ...merged } : item)));
-    } catch (error) {
-      toast({
-        title: "Designs",
-        description: error?.error || "Unable to load design details.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDownloadCardExport = async (design, format = "pdf") => {
-    if (!design?.primaryCardUid) {
-      toast({ title: "Designs", description: "No linked card available for export.", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_URL}/api/admin/nfc/cards/${design.primaryCardUid}/export?format=${format}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) {
-        let payload = {};
-        try { payload = await response.json(); } catch {}
-        throw new Error(payload?.error || "Unable to export card.");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${design.name || "design-card"}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      toast({
-        title: "Designs",
-        description: error?.message || "Unable to export card.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRegenerateCard = async (design) => {
-    if (!design?.primaryCardUid) {
-      toast({ title: "Designs", description: "No linked card available to regenerate.", variant: "destructive" });
-      return;
-    }
-
-    try {
-      setCardActionLoading(true);
-      await post(`/api/admin/nfc/cards/${design.primaryCardUid}/regenerate`);
-      const nextDesigns = await reloadFromApi();
-      const refreshed = nextDesigns.find((item) => item.id === design.id);
-      if (refreshed) setPreviewDesign(refreshed);
-      toast({ title: "Designs", description: "Card exports regenerated." });
-    } catch (error) {
-      toast({
-        title: "Designs",
-        description: error?.error || "Unable to regenerate card exports.",
-        variant: "destructive",
-      });
-    } finally {
-      setCardActionLoading(false);
-    }
-  };
-
-  const sourceDesigns = loadingDesigns ? [] : designs;
-
-  const filtered = sourceDesigns.filter((design) => {
-    const matchSearch =
-      design.name.toLowerCase().includes(search.toLowerCase()) ||
-      design.businessName.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || design.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
 
   const startRename = (design) => {
     setRenamingId(design.id);
     setRenameValue(design.name);
   };
 
-  const commitRename = () => {
+  const commitRename = async () => {
     if (renamingId && renameValue.trim()) {
-      updateDesign(renamingId, {
-        name: renameValue.trim(),
-        updatedAt: new Date().toISOString().split("T")[0],
-      });
-      toast({ title: "Design renamed", description: `Renamed to "${renameValue.trim()}"` });
+      try {
+        const response = await patch(`/api/admin/my-design/${renamingId}/rename`, {
+          name: renameValue.trim(),
+        });
+        if (response?.data) {
+          updateDesign(renamingId, response.data);
+        }
+        toast({ title: "Design renamed", description: `Renamed to "${renameValue.trim()}"` });
+      } catch (error) {
+        toast({
+          title: "Designs",
+          description: error?.message || error?.error || "Unable to rename design.",
+          variant: "destructive",
+        });
+      }
     }
     setRenamingId(null);
   };
 
-  const handleDuplicate = (design) => {
-    const copy = {
-      ...design,
-      id: `d-${Date.now()}`,
-      name: `${design.name} (Copy)`,
-      status: "draft",
-      linkedCard: null,
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
-    };
-    addDesign(copy);
-    toast({ title: "Design duplicated", description: `"${copy.name}" created as draft.` });
+  const handleDuplicate = async (design) => {
+    try {
+      const response = await post(`/api/admin/my-design/${design.id}/duplicate`);
+      if (response?.data) {
+        addDesign(response.data);
+      }
+      await refreshStats();
+      toast({
+        title: "Design duplicated",
+        description: `"${response?.data?.name || `${design.name} (Copy)`}" created as draft.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to duplicate design.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDesigns(designs.filter((design) => design.id !== deleteTarget.id));
-    toast({ title: "Design deleted", description: `"${deleteTarget.name}" has been removed.` });
-    setDeleteTarget(null);
+    try {
+      await remove(`/api/admin/my-design/${deleteTarget.id}`);
+      setDesigns(designs.filter(d => d.id !== deleteTarget.id));
+      await refreshStats();
+      toast({ title: "Design deleted", description: `"${deleteTarget.name}" has been removed.` });
+      setDeleteTarget(null);
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to delete design.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleArchive = (design) => {
-    setDesigns(designs.map((item) => (
-      item.id === design.id
-        ? { ...item, status: "archived", updatedAt: new Date().toISOString().split("T")[0] }
-        : item
-    )));
-    toast({ title: "Design archived" });
+  const handleArchive = async (design) => {
+    try {
+      const response = await patch(`/api/admin/my-design/${design.id}/archive`);
+      if (response?.data) {
+        updateDesign(design.id, response.data);
+      }
+      await refreshStats();
+      toast({ title: "Design archived" });
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to archive design.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRestore = (design) => {
-    setDesigns(designs.map((item) => (
-      item.id === design.id
-        ? { ...item, status: "draft", updatedAt: new Date().toISOString().split("T")[0] }
-        : item
-    )));
-    toast({ title: "Design restored as draft" });
+  const handleRestore = async (design) => {
+    try {
+      const response = await patch(`/api/admin/my-design/${design.id}/restore`);
+      if (response?.data) {
+        updateDesign(design.id, response.data);
+      }
+      await refreshStats();
+      toast({ title: "Design restored as draft" });
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to restore design.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const stats = {
-    total: sourceDesigns.length,
-    active: sourceDesigns.filter((design) => design.status === "active").length,
-    draft: sourceDesigns.filter((design) => design.status === "draft").length,
-    archived: sourceDesigns.filter((design) => design.status === "archived").length,
+  const openPreview = async (design) => {
+    setPreviewDesign(design);
+    setPreviewLoadingId(design.id);
+    try {
+      const response = await get(`/api/admin/my-design/${design.id}`);
+      if (response?.data) {
+        setPreviewDesign(response.data);
+      }
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to load design details.",
+        variant: "destructive",
+      });
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   const DesignCard = ({ design }) => {
     const statusCfg = STATUS_CONFIG[design.status];
-
     return (
       <motion.div variants={fadeUp} className="rounded-xl border border-border/50 bg-gradient-card overflow-hidden group hover:border-primary/30 transition-all">
+        {/* Visual preview */}
         <div
           className="relative h-36 flex items-center justify-center cursor-pointer"
           style={{ background: `linear-gradient(135deg, ${design.templateColor1}, ${design.templateColor2})` }}
-          onClick={() => handlePreviewOpen(design)}
+          onClick={() => openPreview(design)}
         >
           <div className="text-center px-4">
             <div className="flex justify-center mb-1">
-              {[...Array(5)].map((_, index) => <Star key={index} size={10} fill="#FBBF24" stroke="none" />)}
+              {[...Array(5)].map((_, i) => <Star key={i} size={10} fill="#FBBF24" stroke="none" />)}
             </div>
             <p className="text-[10px] font-semibold truncate" style={{ color: design.templateColor1 === "#FFFFFF" ? "#0D0D0D" : "#FFFFFF" }}>
               {design.businessName}
@@ -315,9 +227,7 @@ const MyDesigns = () => {
           </div>
           <div className="absolute top-2 right-2 flex gap-1">
             <Badge variant="outline" className="text-[10px] bg-background/80 backdrop-blur-sm border-border/50">
-              {design.orientation === "landscape"
-                ? <Monitor size={10} className="mr-1" />
-                : <Smartphone size={10} className="mr-1" />}
+              {design.orientation === "landscape" ? <Monitor size={10} className="mr-1" /> : <Smartphone size={10} className="mr-1" />}
               {design.orientation}
             </Badge>
           </div>
@@ -326,6 +236,7 @@ const MyDesigns = () => {
           </div>
         </div>
 
+        {/* Info */}
         <div className="p-4 space-y-3">
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -334,28 +245,21 @@ const MyDesigns = () => {
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") commitRename();
-                    if (e.key === "Escape") setRenamingId(null);
-                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
                   className="h-6 text-sm px-1 py-0"
                   autoFocus
                 />
               ) : (
-                <h4 className="font-medium text-sm truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>
-                  {design.name}
-                </h4>
+                <h4 className="font-medium text-sm truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>{design.name}</h4>
               )}
               <p className="text-xs text-muted-foreground truncate">{design.template} · {design.model}</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0">
-                  <MoreVertical size={14} />
-                </button>
+                <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"><MoreVertical size={14} /></button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={() => handlePreviewOpen(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openPreview(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(`/customize/edit-${design.id}`)}><Pencil size={14} className="mr-2" />Edit Design</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => startRename(design)}><Type size={14} className="mr-2" />Rename</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleDuplicate(design)}><Copy size={14} className="mr-2" />Duplicate</DropdownMenuItem>
@@ -373,10 +277,7 @@ const MyDesigns = () => {
           <div className="flex items-center justify-between">
             <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
             {design.linkedCard && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <ExternalLink size={10} />
-                {design.linkedCard}
-              </span>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1"><ExternalLink size={10} />{design.linkedCard}</span>
             )}
           </div>
 
@@ -390,13 +291,12 @@ const MyDesigns = () => {
 
   const DesignRow = ({ design }) => {
     const statusCfg = STATUS_CONFIG[design.status];
-
     return (
       <div className="flex items-center gap-4 rounded-lg border border-border/50 bg-gradient-card p-3 hover:border-primary/30 transition-all">
         <div
           className="w-16 h-10 rounded-lg shrink-0 cursor-pointer"
           style={{ background: `linear-gradient(135deg, ${design.templateColor1}, ${design.templateColor2})` }}
-          onClick={() => handlePreviewOpen(design)}
+          onClick={() => openPreview(design)}
         />
         <div className="min-w-0 flex-1">
           {renamingId === design.id ? (
@@ -404,17 +304,12 @@ const MyDesigns = () => {
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitRename();
-                if (e.key === "Escape") setRenamingId(null);
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
               className="h-6 text-sm px-1 py-0 max-w-[200px]"
               autoFocus
             />
           ) : (
-            <p className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>
-              {design.name}
-            </p>
+            <p className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>{design.name}</p>
           )}
           <p className="text-xs text-muted-foreground">{design.businessName} · {design.template}</p>
         </div>
@@ -424,12 +319,10 @@ const MyDesigns = () => {
         <span className="text-xs text-muted-foreground hidden lg:block shrink-0">{design.updatedAt}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0">
-              <MoreVertical size={14} />
-            </button>
+            <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"><MoreVertical size={14} /></button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => handlePreviewOpen(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPreview(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/customize/edit-${design.id}`)}><Pencil size={14} className="mr-2" />Edit</DropdownMenuItem>
             <DropdownMenuItem onClick={() => startRename(design)}><Type size={14} className="mr-2" />Rename</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleDuplicate(design)}><Copy size={14} className="mr-2" />Duplicate</DropdownMenuItem>
@@ -449,23 +342,26 @@ const MyDesigns = () => {
   return (
     <DashboardLayout title={t("designs.my_title")} subtitle={t("designs.my_subtitle")}>
       <motion.div initial="hidden" animate="visible" className="space-y-6">
+
+        {/* Stats */}
         <motion.div variants={fadeUp} custom={0} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: "Total", value: stats.total, icon: Palette, color: "text-primary" },
             { label: "Active", value: stats.active, icon: CheckCircle2, color: "text-green-400" },
             { label: "Drafts", value: stats.draft, icon: FileText, color: "text-yellow-400" },
             { label: "Archived", value: stats.archived, icon: Archive, color: "text-muted-foreground" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border/50 bg-gradient-card p-4">
+          ].map(s => (
+            <div key={s.label} className="rounded-xl border border-border/50 bg-gradient-card p-4">
               <div className="flex items-center gap-2 mb-2">
-                <stat.icon size={16} className={stat.color} />
-                <span className="text-xs text-muted-foreground">{stat.label}</span>
+                <s.icon size={16} className={s.color} />
+                <span className="text-xs text-muted-foreground">{s.label}</span>
               </div>
-              <p className="font-display text-2xl font-bold">{stat.value}</p>
+              <p className="font-display text-2xl font-bold">{s.value}</p>
             </div>
           ))}
         </motion.div>
 
+        {/* Toolbar */}
         <motion.div variants={fadeUp} custom={1} className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="relative flex-1 w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -477,13 +373,13 @@ const MyDesigns = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            {["all", "active", "draft", "archived"].map((status) => (
+            {["all", "active", "draft", "archived"].map(s => (
               <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === status ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === s ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
               >
-                {status === "all" ? "All" : STATUS_CONFIG[status].label}
+                {s === "all" ? "All" : STATUS_CONFIG[s].label}
               </button>
             ))}
             <div className="h-6 w-px bg-border/50 mx-1" />
@@ -496,20 +392,14 @@ const MyDesigns = () => {
           </div>
         </motion.div>
 
-        {nfcStats && (
-          <motion.div variants={fadeUp} custom={1} className="rounded-xl border border-border/50 bg-gradient-card p-3 text-xs text-muted-foreground">
-            Synced with NFC API: {nfcStats.total} cards, {nfcStats.active} active, {nfcStats.printed} printed, {nfcStats.shipped} shipped.
-          </motion.div>
-        )}
-
+        {/* Design list */}
         <motion.div variants={fadeUp} custom={2}>
-          {loadingDesigns ? (
+          {loading ? (
             <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
-              <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4 animate-pulse" />
+              <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4" />
               <h3 className="font-display text-lg font-semibold mb-1">Loading designs...</h3>
-              <p className="text-sm text-muted-foreground">Fetching your latest NFC design data.</p>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : designs.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
               <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4" />
               <h3 className="font-display text-lg font-semibold mb-1">No designs found</h3>
@@ -520,28 +410,68 @@ const MyDesigns = () => {
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map((design) => <DesignCard key={design.id} design={design} />)}
+              {designs.map(d => <DesignCard key={d.id} design={d} />)}
             </div>
           ) : (
             <div className="space-y-2">
-              {filtered.map((design) => <DesignRow key={design.id} design={design} />)}
+              {designs.map(d => <DesignRow key={d.id} design={d} />)}
             </div>
           )}
         </motion.div>
       </motion.div>
 
-      <DesignDetailModal
-        design={previewDesign}
-        onClose={() => setPreviewDesign(null)}
-        onEdit={(design) => {
-          setPreviewDesign(null);
-          router.push(`/customize/edit-${design?.id}`);
-        }}
-        onDownloadCardExport={handleDownloadCardExport}
-        onRegenerateCard={handleRegenerateCard}
-        cardActionLoading={cardActionLoading}
-      />
+      {/* Preview Dialog */}
+      <Dialog open={!!previewDesign} onOpenChange={() => setPreviewDesign(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{previewDesign?.name}</DialogTitle>
+            <DialogDescription>{previewDesign?.businessName} · {previewDesign?.template}</DialogDescription>
+          </DialogHeader>
+          {previewDesign && (
+            <div className="space-y-4">
+              {previewLoadingId === previewDesign.id && (
+                <p className="text-xs text-muted-foreground">Loading design details...</p>
+              )}
+              <div
+                className="w-full rounded-xl overflow-hidden flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${previewDesign.templateColor1}, ${previewDesign.templateColor2})`,
+                  aspectRatio: previewDesign.orientation === "landscape" ? "16/10" : "10/16",
+                  maxHeight: "320px",
+                }}
+              >
+                <div className="text-center px-6">
+                  <div className="flex justify-center mb-2">
+                    {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="#FBBF24" stroke="none" />)}
+                  </div>
+                  <p className="text-sm font-bold" style={{ color: previewDesign.templateColor1 === "#FFFFFF" ? "#0D0D0D" : "#FFFFFF" }}>
+                    {previewDesign.businessName}
+                  </p>
+                  <p className="text-[10px] mt-1 opacity-70" style={{ color: previewDesign.templateColor1 === "#FFFFFF" ? "#0D0D0D" : "#FFFFFF" }}>
+                    {previewDesign.frontInstructions || previewDesign.callToAction || "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground text-xs">Model</span><p className="font-medium">{previewDesign.model}</p></div>
+                <div><span className="text-muted-foreground text-xs">Orientation</span><p className="font-medium capitalize">{previewDesign.orientation}</p></div>
+                <div><span className="text-muted-foreground text-xs">Status</span><Badge variant="outline" className={STATUS_CONFIG[previewDesign.status].className}>{STATUS_CONFIG[previewDesign.status].label}</Badge></div>
+                <div><span className="text-muted-foreground text-xs">Linked Card</span><p className="font-medium">{previewDesign.linkedCard || "—"}</p></div>
+                <div className="col-span-2"><span className="text-muted-foreground text-xs">Front Instructions</span><p className="text-xs">{previewDesign.frontInstructions || previewDesign.callToAction || "—"}</p></div>
+                <div className="col-span-2"><span className="text-muted-foreground text-xs">Back Instructions</span><p className="text-xs">{previewDesign.backInstructions || previewDesign.googleReviewUrl || "—"}</p></div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewDesign(null)}>Close</Button>
+            <Button onClick={() => { setPreviewDesign(null); router.push(`/customize/edit-${previewDesign?.id}`); }} className="gap-2">
+              <Pencil size={14} /> Edit Design
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Delete Confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

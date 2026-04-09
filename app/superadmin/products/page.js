@@ -23,6 +23,7 @@ import { PLATFORMS, ALL_CARD_TEMPLATES, getTemplatesForPlatform, getTemplateById
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { get, post, put, remove } from "@/lib/api";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const DEFAULT_LANGUAGES = ["en", "fr", "de", "es"];
 const DEFAULT_LANG_LABELS = { en: "English", fr: "French", de: "German", es: "Spanish" };
 
@@ -472,12 +473,19 @@ function titleToSlug(title) {
   return title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
+function resolveAssetUrl(value) {
+  if (!value || value === "/placeholder.svg") return "/placeholder.svg";
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) return value;
+  if (value.startsWith("/uploads/")) return `${API_URL}${value}`;
+  return value;
+}
+
 function normalizeCardType(cardType) {
   return {
     id: cardType.id,
     name: cardType.name,
     color: cardType.color || "#6b7280",
-    image: cardType.image || "/placeholder.svg",
+    image: resolveAssetUrl(cardType.image),
     active: Boolean(cardType.active),
   };
 }
@@ -488,12 +496,20 @@ function normalizeProduct(product) {
     slug: product.slug || { en: "" },
     price: Number(product.price || 0),
     active: Boolean(product.active),
-    image: product.image || "/placeholder.svg",
-    gallery: Array.isArray(product.gallery) ? product.gallery : [],
+    image: resolveAssetUrl(product.image),
+    gallery: Array.isArray(product.gallery)
+      ? product.gallery.map((item) => ({
+          ...item,
+          url: resolveAssetUrl(item.url),
+          poster: item.poster ? resolveAssetUrl(item.poster) : item.poster,
+        }))
+      : [],
     title: product.title || { en: "" },
     seoTitle: product.seoTitle || { en: "" },
     metaDescription: product.metaDescription || { en: "" },
-    metaImage: product.metaImage || { en: "/placeholder.svg" },
+    metaImage: Object.fromEntries(
+      Object.entries(product.metaImage || { en: "/placeholder.svg" }).map(([key, value]) => [key, resolveAssetUrl(value)])
+    ),
     packageTiers: Array.isArray(product.packageTiers) ? product.packageTiers : [],
     cardTypePrices: Array.isArray(product.cardTypePrices)
       ? product.cardTypePrices.map((item) => ({ typeId: item.typeId || item.cardTypeId, price: Number(item.price || 0) }))
@@ -1435,3 +1451,4 @@ const Products = () => {
 };
 
 export default Products;
+
