@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, Upload, CheckCircle2, AlertTriangle, QrCode, Palette, Type, Image as ImageIcon, Smartphone, RotateCcw, Check, Star, Layers, Move, Save, Pencil, History, Clock, Eye, Lock, } from "lucide-react";
+import { Search, Upload, CheckCircle2, AlertTriangle, QrCode, Palette, Type, Image as ImageIcon, Smartphone, RotateCcw, Check, Star, Layers, Move, Save, Pencil, History, Clock, Eye, Lock, Loader2, } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,16 @@ import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDesigns } from "@/contexts/DesignsContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const resolveAssetUrl = (value) => {
+    if (!value)
+        return null;
+    if (/^(https?:|data:|blob:)/i.test(value))
+        return value;
+    if (value.startsWith("/"))
+        return `${API_BASE_URL}${value}`;
+    return `${API_BASE_URL}/${value}`;
+};
 const PLATFORM_STEP_CONFIGS = {
     google: {
         title: "Find Your Business",
@@ -255,11 +265,6 @@ const CARD_TEMPLATES = [
     { id: "layer-airbnb", label: "Host Layers", gradient1: "#FF5A5F", gradient2: "#E31C5F", accentBand1: "#FFB8B8", accentBand2: "#FFFFFF", textColor: "#FFFFFF", qrColor: "#FFB8B8", pattern: "chevrons", badge: "Depth", category: "premium" },
 ];
 // ── Constants & Helpers ─────────────────────────────────────
-const MOCK_BUSINESSES = [
-    { name: "Bella's Italian Kitchen", address: "123 Main St, New York, NY", placeId: "ChIJ_mock1", reviewLink: "https://g.page/r/mock1/review" },
-    { name: "Summit Dental Care", address: "456 Oak Ave, Los Angeles, CA", placeId: "ChIJ_mock2", reviewLink: "https://g.page/r/mock2/review" },
-    { name: "Elite Auto Service", address: "789 Elm Blvd, Chicago, IL", placeId: "ChIJ_mock3", reviewLink: "https://g.page/r/mock3/review" },
-];
 const MODELS = ["classic", "premium", "metal", "transparent"];
 const defaultDesign = (model) => ({
     id: crypto.randomUUID(),
@@ -707,7 +712,8 @@ const CardPreview = ({ design, orientation, side, frontLine1, frontLine2, backLi
         : { background: `linear-gradient(160deg, ${gradient2} 0%, ${gradient1} 100%)`, color: design.textColor };
     const aspectClass = orientation === "landscape" ? "aspect-[1.6/1]" : "aspect-[1/1.6]";
     const isLandscape = orientation === "landscape";
-    const logoImage = design.logoUrl ? (<img src={design.logoUrl} alt="Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-auto object-contain select-none pointer-events-none" style={{ height: `${logoSize}px` }}/>) : null;
+    const resolvedLogoUrl = resolveAssetUrl(design.logoUrl);
+    const logoImage = resolvedLogoUrl ? (<img src={resolvedLogoUrl} alt="Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-auto object-contain select-none pointer-events-none" style={{ height: `${logoSize}px` }}/>) : null;
     if (side === "front") {
         if (isLandscape) {
             const isLogoLeft = logoPosition === "left";
@@ -838,9 +844,10 @@ const Customize = () => {
     const router = useRouter();
     const itemId = Array.isArray(params?.orderId) ? params.orderId[0] : params?.orderId;
     const navigate = (path) => router.push(path);
-    const { items, updateDesign, updateQuantity } = useCart();
+    const { items, updateDesign, updateQuantity, isCartReady } = useCart();
     const { t } = useLanguage();
-    const { addDesign, updateDesign: updateSavedDesign, getDesignById, pushVersion, getVersionHistory, restoreVersion } = useDesigns();
+    const { getDesignById } = useDesigns();
+    const shopApiBase = `${API_BASE_URL}/api/client/shop`;
     // Detect edit mode: itemId like "edit-d-1" means editing saved design "d-1"
     const isEditMode = itemId?.startsWith("edit-") ?? false;
     const editDesignId = isEditMode ? itemId.replace("edit-", "") : null;
@@ -870,7 +877,13 @@ const Customize = () => {
     });
     const [searchQuery, setSearchQuery] = useState("");
     const [showResults, setShowResults] = useState(false);
+    const [businessResults, setBusinessResults] = useState([]);
+    const [isSearchingBusinesses, setIsSearchingBusinesses] = useState(false);
     const [logoFile, setLogoFile] = useState(design.logoUrl);
+    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+    const [remoteDesignId, setRemoteDesignId] = useState(() => item?.design?.id || null);
+    const [isSyncingRemoteDesign, setIsSyncingRemoteDesign] = useState(false);
+    const [isSavingDesignStep, setIsSavingDesignStep] = useState(false);
     const [orientation, setOrientation] = useState(() => editingDesign?.orientation || "landscape");
     const [currentStep, setCurrentStep] = useState(0);
     const [previewSide, setPreviewSide] = useState("front");
@@ -998,8 +1011,183 @@ const Customize = () => {
     // ── Auto-save draft every 30 seconds + version history ──────
     const [lastAutoSave, setLastAutoSave] = useState(null);
     const [showHistoryDialog, setShowHistoryDialog] = useState(false);
-    const autoSaveRef = useRef(false);
-    const autoSaveNewIdRef = useRef(null);
+    const [remoteVersionHistory, setRemoteVersionHistory] = useState([]);
+    const [isLoadingVersionHistory, setIsLoadingVersionHistory] = useState(false);
+    const autoSaveInFlightRef = useRef(false);
+    const placesSessionRef = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-places`);
+    const initializedCartItemRef = useRef(null);
+
+    const syncCartDesignSummary = useCallback((remoteDesign) => {
+        if (!item || !remoteDesign)
+            return;
+        updateDesign(item.id, {
+            ...(item.design || {}),
+            id: remoteDesign.id,
+            businessName: remoteDesign.businessName,
+            cardModel: remoteDesign.cardModel,
+            orientation: remoteDesign.orientation,
+            status: remoteDesign.status,
+            validatedAt: remoteDesign.validatedAt,
+            version: remoteDesign.version,
+        });
+    }, [item, updateDesign]);
+
+    const applyRemoteDesignData = useCallback((remoteDesign) => {
+        if (!remoteDesign)
+            return;
+        setRemoteDesignId(remoteDesign.id);
+        setDesign((prev) => ({
+            ...prev,
+            id: remoteDesign.id ?? prev.id,
+            businessName: remoteDesign.businessName ?? prev.businessName,
+            slogan: remoteDesign.slogan ?? prev.slogan,
+            cta: remoteDesign.callToAction ?? prev.cta,
+            googlePlaceId: remoteDesign.googlePlaceId ?? prev.googlePlaceId,
+            googleReviewLink: remoteDesign.googleReviewUrl ?? prev.googleReviewLink,
+            logoUrl: remoteDesign.logoUrl ?? prev.logoUrl,
+            bgColor: remoteDesign.bgColor ?? prev.bgColor,
+            textColor: remoteDesign.textColor ?? prev.textColor,
+            qrColor: remoteDesign.accentColor ?? prev.qrColor,
+            model: remoteDesign.cardModel ?? prev.model,
+            status: remoteDesign.status ?? prev.status,
+            errors: [],
+        }));
+        if (remoteDesign.businessName)
+            setSearchQuery(remoteDesign.businessName);
+        if (remoteDesign.logoUrl)
+            setLogoFile(resolveAssetUrl(remoteDesign.logoUrl));
+        if (remoteDesign.orientation)
+            setOrientation(remoteDesign.orientation);
+        if (remoteDesign.templateName && CARD_TEMPLATES.some((tpl) => tpl.id === remoteDesign.templateName))
+            setSelectedTemplate(remoteDesign.templateName);
+        if (remoteDesign.gradient1)
+            setGradient1(remoteDesign.gradient1);
+        if (remoteDesign.gradient2)
+            setGradient2(remoteDesign.gradient2);
+        if (remoteDesign.accentBand1)
+            setAccentBand1(remoteDesign.accentBand1);
+        if (remoteDesign.accentBand2)
+            setAccentBand2(remoteDesign.accentBand2);
+        if (remoteDesign.bandPosition)
+            setBandPosition(remoteDesign.bandPosition);
+        if (remoteDesign.colorMode)
+            setColorMode(remoteDesign.colorMode);
+        if (remoteDesign.logoPosition)
+            setLogoPosition(remoteDesign.logoPosition);
+        if (remoteDesign.logoSize != null)
+            setLogoSize(remoteDesign.logoSize);
+        if (remoteDesign.businessFont)
+            setNameFont(remoteDesign.businessFont);
+        if (remoteDesign.businessFontSize != null)
+            setNameFontSize(remoteDesign.businessFontSize);
+        if (remoteDesign.businessFontWeight)
+            setNameFontWeight(String(remoteDesign.businessFontWeight));
+        if (remoteDesign.businessFontSpacing)
+            setNameLetterSpacing(remoteDesign.businessFontSpacing);
+        if (remoteDesign.businessLineHeight)
+            setNameLineHeight(String(remoteDesign.businessLineHeight));
+        if (remoteDesign.businessAlign)
+            setNameTextAlign(remoteDesign.businessAlign);
+        if (remoteDesign.businessTextTransform)
+            setNameTextTransform(remoteDesign.businessTextTransform);
+        if (remoteDesign.sloganFont)
+            setSloganFont(remoteDesign.sloganFont);
+        if (remoteDesign.sloganFontSize != null)
+            setSloganFontSize(remoteDesign.sloganFontSize);
+        if (remoteDesign.sloganFontWeight)
+            setSloganFontWeight(String(remoteDesign.sloganFontWeight));
+        if (remoteDesign.sloganFontSpacing)
+            setSloganLetterSpacing(remoteDesign.sloganFontSpacing);
+        if (remoteDesign.sloganLineHeight)
+            setSloganLineHeight(String(remoteDesign.sloganLineHeight));
+        if (remoteDesign.sloganAlign)
+            setSloganTextAlign(remoteDesign.sloganAlign);
+        if (remoteDesign.sloganTextTransform)
+            setSloganTextTransform(remoteDesign.sloganTextTransform);
+        if (remoteDesign.textShadow)
+            setTextShadow(remoteDesign.textShadow);
+        if (remoteDesign.frontInstruction1 != null)
+            setFrontLine1(remoteDesign.frontInstruction1);
+        if (remoteDesign.frontInstruction2 != null)
+            setFrontLine2(remoteDesign.frontInstruction2);
+        if (remoteDesign.backInstruction1 != null)
+            setBackLine1(remoteDesign.backInstruction1);
+        if (remoteDesign.backInstruction2 != null)
+            setBackLine2(remoteDesign.backInstruction2);
+        if (remoteDesign.instrFont)
+            setInstructionFont(remoteDesign.instrFont);
+        if (remoteDesign.instrFontSize != null)
+            setInstructionFontSize(remoteDesign.instrFontSize);
+        if (remoteDesign.instrFontWeight)
+            setInstructionFontWeight(String(remoteDesign.instrFontWeight));
+        if (remoteDesign.instrFontSpacing)
+            setInstructionLetterSpacing(remoteDesign.instrFontSpacing);
+        if (remoteDesign.instrLineHeight)
+            setInstructionLineHeight(String(remoteDesign.instrLineHeight));
+        if (remoteDesign.instrAlign)
+            setInstructionTextAlign(remoteDesign.instrAlign);
+        if (remoteDesign.checkStrokeWidth != null)
+            setCheckStrokeWidth(Number(remoteDesign.checkStrokeWidth));
+        if (remoteDesign.qrCodeSize != null)
+            setQrSize(remoteDesign.qrCodeSize);
+        if (remoteDesign.starColor)
+            setStarsColor(remoteDesign.starColor);
+        if (remoteDesign.iconsColor)
+            setIconsColor(remoteDesign.iconsColor);
+        if (remoteDesign.showNfcIcon != null)
+            setShowNfcIcon(remoteDesign.showNfcIcon);
+        if (remoteDesign.showGoogleIcon != null)
+            setShowGoogleIcon(remoteDesign.showGoogleIcon);
+        if (remoteDesign.nfcIconSize != null)
+            setNfcIconSize(remoteDesign.nfcIconSize);
+        if (remoteDesign.googleLogoSize != null)
+            setGoogleIconSize(remoteDesign.googleLogoSize);
+        if (remoteDesign.frontBandHeight != null)
+            setFrontBandHeight(remoteDesign.frontBandHeight);
+        if (remoteDesign.backBandHeight != null)
+            setBackBandHeight(remoteDesign.backBandHeight);
+        if (remoteDesign.ctaPaddingTop != null)
+            setCtaPaddingTop(remoteDesign.ctaPaddingTop);
+        if (remoteDesign.elementOffsets?.landscape && remoteDesign.elementOffsets?.portrait)
+            setAllOffsets(remoteDesign.elementOffsets);
+    }, []);
+
+    const ensureRemoteDesign = useCallback(async ({ forceReload = false } = {}) => {
+        if (isEditMode || !item?.id || !item?.productId)
+            return null;
+        if (remoteDesignId && !forceReload)
+            return remoteDesignId;
+        const existingResponse = await fetch(`${shopApiBase}/designs/cart-item/${item.id}`, {
+            credentials: "include",
+        });
+        const existingPayload = await existingResponse.json().catch(() => ({}));
+        if (!existingResponse.ok) {
+            throw new Error(existingPayload?.error || "Failed to load design");
+        }
+        let remoteDesign = existingPayload?.data || null;
+        if (!remoteDesign) {
+            const createResponse = await fetch(`${shopApiBase}/designs`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    cartItemId: item.id,
+                    productId: item.productId,
+                }),
+            });
+            const createPayload = await createResponse.json().catch(() => ({}));
+            if (!createResponse.ok) {
+                throw new Error(createPayload?.error || "Failed to create design");
+            }
+            remoteDesign = createPayload?.data || null;
+        }
+        if (remoteDesign) {
+            applyRemoteDesignData(remoteDesign);
+            syncCartDesignSummary(remoteDesign);
+            return remoteDesign.id;
+        }
+        return null;
+    }, [applyRemoteDesignData, isEditMode, item, remoteDesignId, shopApiBase, syncCartDesignSummary]);
     const buildDesignSnapshot = useCallback(() => {
         const now = new Date().toISOString().split("T")[0];
         return {
@@ -1016,59 +1204,90 @@ const Customize = () => {
             updatedAt: now,
         };
     }, [design.businessName, gradient1, gradient2, orientation, selectedTemplate, frontLine1, frontLine2, backLine1, backLine2, isEditMode, editingDesign, item]);
-    const versionDesignId = isEditMode && editDesignId ? editDesignId : autoSaveNewIdRef.current;
-    const versionHistory = versionDesignId ? getVersionHistory(versionDesignId) : [];
-    useEffect(() => {
-        if (!isDirty)
+    const activeRemoteDesignId = useMemo(() => {
+        const rawId = isEditMode ? editDesignId : remoteDesignId;
+        const parsedId = Number(rawId);
+        return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
+    }, [editDesignId, isEditMode, remoteDesignId]);
+    const normalizeVersionSnapshot = useCallback((snapshot) => ({
+        businessName: snapshot?.businessName || "",
+        template: CARD_TEMPLATES.find((tpl) => tpl.id === snapshot?.templateName)?.label || snapshot?.templateName || "Unknown",
+        templateColor1: snapshot?.gradient1 || "#111111",
+        templateColor2: snapshot?.gradient2 || "#333333",
+        orientation: snapshot?.orientation || "landscape",
+        frontInstructions: [snapshot?.frontInstruction1, snapshot?.frontInstruction2].filter(Boolean).join("\n"),
+        backInstructions: [snapshot?.backInstruction1, snapshot?.backInstruction2].filter(Boolean).join("\n"),
+    }), []);
+    const refreshRemoteVersions = useCallback(async () => {
+        if (!activeRemoteDesignId) {
+            setRemoteVersionHistory([]);
             return;
-        const timer = setInterval(() => {
-            const now = new Date().toISOString().split("T")[0];
-            const snapshot = buildDesignSnapshot();
-            if (isEditMode && editDesignId) {
-                // Push version before overwriting
-                pushVersion(editDesignId, snapshot);
-                updateSavedDesign(editDesignId, snapshot);
-            }
-            else if (!autoSaveRef.current) {
-                const newId = `d-${Date.now()}`;
-                autoSaveNewIdRef.current = newId;
-                addDesign({ id: newId, ...snapshot, linkedCard: null, createdAt: now });
-                pushVersion(newId, snapshot);
-                autoSaveRef.current = true;
-            }
-            else if (autoSaveNewIdRef.current) {
-                pushVersion(autoSaveNewIdRef.current, snapshot);
-                updateSavedDesign(autoSaveNewIdRef.current, snapshot);
-            }
-            const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            setLastAutoSave(time);
-            setIsDirty(false);
-        }, 30000);
-        return () => clearInterval(timer);
-    }, [isDirty, buildDesignSnapshot, isEditMode, editDesignId, addDesign, updateSavedDesign, pushVersion]);
-    const [compareVersion, setCompareVersion] = useState(null);
-    const handleRestoreVersion = (version) => {
-        const snap = version.snapshot;
-        setDesign(d => ({ ...d, businessName: snap.businessName }));
-        setGradient1(snap.templateColor1);
-        setGradient2(snap.templateColor2);
-        setOrientation(snap.orientation);
-        const matchTpl = CARD_TEMPLATES.find(tpl => tpl.label === snap.template);
-        if (matchTpl) {
-            setSelectedTemplate(matchTpl.id);
-            setAccentBand1(matchTpl.accentBand1);
-            setAccentBand2(matchTpl.accentBand2);
         }
-        const [fl1 = "", fl2 = ""] = snap.frontInstructions.split("\n");
-        const [bl1 = "", bl2 = ""] = snap.backInstructions.split("\n");
-        setFrontLine1(fl1);
-        setFrontLine2(fl2);
-        setBackLine1(bl1);
-        setBackLine2(bl2);
-        setCompareVersion(null);
-        setShowHistoryDialog(false);
-        setIsDirty(true);
-        toast({ title: t("customize.version_restored") || "Version restored", description: new Date(version.timestamp).toLocaleString() });
+        setIsLoadingVersionHistory(true);
+        try {
+            const response = await fetch(`${shopApiBase}/designs/${activeRemoteDesignId}/versions`, {
+                credentials: "include",
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload?.error || "Failed to load version history");
+            }
+            const normalized = Array.isArray(payload?.data)
+                ? payload.data.map((version) => ({
+                    ...version,
+                    timestamp: version.savedAt,
+                    snapshot: normalizeVersionSnapshot(version.snapshot),
+                }))
+                : [];
+            setRemoteVersionHistory(normalized);
+        }
+        catch {
+            setRemoteVersionHistory([]);
+        }
+        finally {
+            setIsLoadingVersionHistory(false);
+        }
+    }, [activeRemoteDesignId, normalizeVersionSnapshot, shopApiBase]);
+    const versionHistory = activeRemoteDesignId ? remoteVersionHistory : [];
+    useEffect(() => {
+        if (!activeRemoteDesignId)
+            return;
+        refreshRemoteVersions();
+    }, [activeRemoteDesignId, refreshRemoteVersions]);
+    const [compareVersion, setCompareVersion] = useState(null);
+    const handleRestoreVersion = async (version) => {
+        if (!activeRemoteDesignId || !version?.id)
+            return;
+        setIsSavingDesignStep(true);
+        try {
+            const response = await fetch(`${shopApiBase}/designs/${activeRemoteDesignId}/restore/${version.id}`, {
+                method: "POST",
+                credentials: "include",
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload?.error || "Failed to restore version");
+            }
+            if (payload?.data) {
+                applyRemoteDesignData(payload.data);
+                syncCartDesignSummary(payload.data);
+            }
+            await refreshRemoteVersions();
+            setCompareVersion(null);
+            setShowHistoryDialog(false);
+            setIsDirty(false);
+            toast({ title: t("customize.version_restored") || "Version restored", description: new Date(version.timestamp).toLocaleString() });
+        }
+        catch (error) {
+            toast({
+                title: t("customize.validation_failed"),
+                description: error?.message || "Failed to restore version.",
+                variant: "destructive",
+            });
+        }
+        finally {
+            setIsSavingDesignStep(false);
+        }
     };
     const safeNavigate = (path) => {
         if (isDirty) {
@@ -1093,20 +1312,121 @@ const Customize = () => {
         setAccentBand2(tpl.accentBand2);
         setDesign(d => ({ ...d, textColor: tpl.textColor, qrColor: tpl.qrColor }));
     };
-    const filteredBusinesses = useMemo(() => searchQuery.length > 1 ? MOCK_BUSINESSES.filter((b) => b.name.toLowerCase().includes(searchQuery.toLowerCase())) : [], [searchQuery]);
+    useEffect(() => {
+        if (currentStep !== 0 || platformConfig.searchMode !== "google-maps") {
+            return;
+        }
+        const query = searchQuery.trim();
+        if (query.length < 2) {
+            setBusinessResults([]);
+            setIsSearchingBusinesses(false);
+            return;
+        }
+        let active = true;
+        const timer = setTimeout(async () => {
+            setIsSearchingBusinesses(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/client/places/search?q=${encodeURIComponent(query)}&session=${encodeURIComponent(placesSessionRef.current)}&lang=fr`, {
+                    credentials: "include",
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!active)
+                    return;
+                if (!response.ok || !payload?.success) {
+                    throw new Error(payload?.error || "Failed to search businesses");
+                }
+                setBusinessResults(Array.isArray(payload.data)
+                    ? payload.data.map((place) => ({
+                        placeId: place.placeId,
+                        name: place.mainText || place.description || "",
+                        address: place.secondaryText || "",
+                        reviewLink: "",
+                    }))
+                    : []);
+            }
+            catch {
+                if (active) {
+                    setBusinessResults([]);
+                }
+            }
+            finally {
+                if (active) {
+                    setIsSearchingBusinesses(false);
+                }
+            }
+        }, 350);
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [currentStep, platformConfig.searchMode, searchQuery]);
+
+    useEffect(() => {
+        if (isEditMode || !isCartReady || !item?.id || !item?.productId)
+            return;
+        if (initializedCartItemRef.current === item.id)
+            return;
+        initializedCartItemRef.current = item.id;
+        let active = true;
+        (async () => {
+            setIsSyncingRemoteDesign(true);
+            try {
+                await ensureRemoteDesign({ forceReload: true });
+            }
+            catch (error) {
+                if (active) {
+                    toast({
+                        title: t("customize.load_failed") || "Failed to load design",
+                        description: error?.message || "Unable to load the current design.",
+                        variant: "destructive",
+                    });
+                }
+            }
+            finally {
+                if (active) {
+                    setIsSyncingRemoteDesign(false);
+                }
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, [ensureRemoteDesign, isCartReady, isEditMode, item?.id, item?.productId, t]);
+
     const designErrors = Array.isArray(design?.errors) ? design.errors : [];
-    if (!item && !isEditMode) {
-        return (<div className="flex min-h-screen items-center justify-center bg-gradient-dark pt-20">
-        <div className="text-center">
-          <h1 className="font-display text-2xl font-bold">{t("customize.not_found")}</h1>
-          <Button onClick={() => navigate("/cart")} className="mt-4">{t("customize.back_to_cart")}</Button>
-        </div>
-      </div>);
-    }
-    const selectBusiness = (biz) => {
-        setDesign((d) => ({ ...d, businessName: biz.name, address: biz.address, googlePlaceId: biz.placeId, googleReviewLink: biz.reviewLink }));
-        setSearchQuery(biz.name);
-        setShowResults(false);
+    const selectBusiness = async (biz) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/client/places/details/${encodeURIComponent(biz.placeId)}?session=${encodeURIComponent(placesSessionRef.current)}`, {
+                credentials: "include",
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.error || "Failed to load place details");
+            }
+            const place = payload.data || {};
+            setDesign((d) => ({
+                ...d,
+                businessName: place.name || biz.name,
+                address: place.formattedAddress || biz.address,
+                googlePlaceId: place.placeId || biz.placeId,
+                googleReviewLink: place.reviewUrl || biz.reviewLink || "",
+            }));
+            setSearchQuery(place.name || biz.name);
+        }
+        catch {
+            setDesign((d) => ({
+                ...d,
+                businessName: biz.name,
+                address: biz.address,
+                googlePlaceId: biz.placeId,
+                googleReviewLink: biz.reviewLink || "",
+            }));
+            setSearchQuery(biz.name);
+        }
+        finally {
+            setShowResults(false);
+            setBusinessResults([]);
+        }
     };
     const applyTheme = (themeId) => {
         const t = THEMES.find((t) => t.id === themeId);
@@ -1115,16 +1435,194 @@ const Customize = () => {
     };
     const handleLogoUpload = (e) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setLogoFile(url);
-            setDesign((d) => ({ ...d, logoUrl: url }));
-        }
+        if (!file)
+            return;
+        setIsUploadingLogo(true);
+        const reader = new FileReader();
+        reader.onload = () => {
+            const encodedLogo = typeof reader.result === "string" ? reader.result : null;
+            if (!encodedLogo) {
+                setIsUploadingLogo(false);
+                toast({
+                    title: t("customize.upload_logo"),
+                    description: "Unable to read the selected logo.",
+                    variant: "destructive",
+                });
+                return;
+            }
+            setLogoFile(encodedLogo);
+            setDesign((d) => ({ ...d, logoUrl: encodedLogo }));
+            toast({
+                title: t("customize.upload_logo"),
+                description: t("customize.logo_uploaded"),
+            });
+            setIsUploadingLogo(false);
+            if (e.target)
+                e.target.value = "";
+        };
+        reader.onerror = () => {
+            toast({
+                title: t("customize.upload_logo"),
+                description: "Unable to read the selected logo.",
+                variant: "destructive",
+            });
+            setIsUploadingLogo(false);
+            if (e.target)
+                e.target.value = "";
+        };
+        reader.readAsDataURL(file);
     };
     const changeModel = (model) => {
         setDesign((d) => ({ ...d, model }));
     };
-    const validateDesign = () => {
+
+    const buildStep1Payload = () => ({
+        businessName: design.businessName,
+        slogan: design.slogan,
+        callToAction: design.cta,
+        ctaPaddingTop,
+        googlePlaceId: design.googlePlaceId || undefined,
+        googleReviewUrl: design.googleReviewLink || undefined,
+    });
+    const getWritableRemoteDesignId = async () => {
+        if (activeRemoteDesignId)
+            return activeRemoteDesignId;
+        return ensureRemoteDesign();
+    };
+
+    const saveRemoteStep1 = async () => {
+        const designId = await getWritableRemoteDesignId();
+        if (!designId)
+            throw new Error("Design not ready");
+        const response = await fetch(`${shopApiBase}/designs/${designId}/step1`, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(buildStep1Payload()),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload?.error || "Failed to save business step");
+        }
+        if (payload?.data) {
+            applyRemoteDesignData(payload.data);
+            syncCartDesignSummary(payload.data);
+            return payload.data;
+        }
+        return null;
+    };
+
+    const buildStep2Payload = () => ({
+        orientation,
+        logo: typeof design.logoUrl === "string" && design.logoUrl.startsWith("data:image/") ? design.logoUrl : undefined,
+        logoUrl: typeof design.logoUrl === "string" && !design.logoUrl.startsWith("data:image/") ? design.logoUrl : undefined,
+        logoPosition,
+        logoSize,
+        colorMode,
+        bgColor: design.bgColor,
+        textColor: design.textColor,
+        qrColor: design.qrColor,
+        starColor: starsColor,
+        iconsColor,
+        templateName: selectedTemplate,
+        gradient1,
+        gradient2,
+        accentBand1,
+        accentBand2,
+        bandPosition,
+        frontBandHeight,
+        backBandHeight,
+        showNfcIcon,
+        showGoogleIcon,
+        nfcIconSize,
+        googleLogoSize: googleIconSize,
+        businessFont: nameFont,
+        businessFontSize: nameFontSize,
+        businessFontWeight: nameFontWeight,
+        businessFontSpacing: nameLetterSpacing,
+        businessLineHeight: nameLineHeight,
+        businessAlign: nameTextAlign,
+        businessTextTransform: nameTextTransform,
+        sloganFont,
+        sloganFontSize,
+        sloganFontWeight,
+        sloganFontSpacing: sloganLetterSpacing,
+        sloganLineHeight,
+        sloganAlign: sloganTextAlign,
+        sloganTextTransform,
+        textShadow,
+        frontInstruction1: frontLine1,
+        frontInstruction2: frontLine2,
+        backInstruction1: backLine1,
+        backInstruction2: backLine2,
+        instrFont: instructionFont,
+        instrFontSize: instructionFontSize,
+        instrFontWeight: instructionFontWeight,
+        instrFontSpacing: instructionLetterSpacing,
+        instrLineHeight: instructionLineHeight,
+        instrAlign: instructionTextAlign,
+        checkStrokeWidth,
+        qrCodeSize: qrSize,
+        cardModel: design.model,
+        elementOffsets: allOffsets,
+    });
+
+    const saveRemoteStep2 = async () => {
+        const designId = await getWritableRemoteDesignId();
+        if (!designId)
+            throw new Error("Design not ready");
+        const response = await fetch(`${shopApiBase}/designs/${designId}/step2`, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(buildStep2Payload()),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload?.error || "Failed to save design step");
+        }
+        if (payload?.data) {
+            applyRemoteDesignData(payload.data);
+            syncCartDesignSummary(payload.data);
+            return payload.data;
+        }
+        return null;
+    };
+    useEffect(() => {
+        if (!isDirty)
+            return;
+        const timer = setInterval(async () => {
+            if (autoSaveInFlightRef.current)
+                return;
+            autoSaveInFlightRef.current = true;
+            try {
+                await saveRemoteStep1();
+                if (currentStep >= 1) {
+                    await saveRemoteStep2();
+                }
+                await refreshRemoteVersions();
+                setLastAutoSave(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+                setIsDirty(false);
+            }
+            catch {
+                // Silent auto-save failure: the explicit actions already surface errors.
+            }
+            finally {
+                autoSaveInFlightRef.current = false;
+            }
+        }, 30000);
+        return () => clearInterval(timer);
+    }, [currentStep, isDirty, refreshRemoteVersions, saveRemoteStep1, saveRemoteStep2]);
+
+    const persistCurrentDesign = async () => {
+        const step1Response = await saveRemoteStep1();
+        const step2Response = currentStep >= 1 ? await saveRemoteStep2() : null;
+        await refreshRemoteVersions();
+        setIsDirty(false);
+        return step2Response || step1Response;
+    };
+
+    const validateDesign = async () => {
         const errors = [];
         if (!design.businessName)
             errors.push(t("customize.name_required"));
@@ -1135,12 +1633,43 @@ const Customize = () => {
             toast({ title: t("customize.validation_failed"), description: `${errors.length} ${t("customize.issues_found")}`, variant: "destructive" });
             return;
         }
-        const validated = { ...design, status: "validated", errors: [] };
-        setDesign(validated);
-        if (item)
-            updateDesign(item.id, validated);
-        toast({ title: t("customize.design_ok"), description: t("customize.design_ok_desc") });
-        setCurrentStep(2);
+        setIsSavingDesignStep(true);
+        try {
+            await saveRemoteStep2();
+            const designId = await getWritableRemoteDesignId();
+            if (!designId)
+                throw new Error("Design not ready");
+            const response = await fetch(`${shopApiBase}/designs/${designId}/validate`, {
+                method: "PUT",
+                credentials: "include",
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload?.error || "Failed to validate design");
+            }
+            if (payload?.data) {
+                applyRemoteDesignData(payload.data);
+                syncCartDesignSummary(payload.data);
+            } else {
+                const validated = { ...design, status: "validated", errors: [] };
+                setDesign(validated);
+                if (item)
+                    updateDesign(item.id, validated);
+            }
+            await refreshRemoteVersions();
+            toast({ title: t("customize.design_ok"), description: t("customize.design_ok_desc") });
+            setCurrentStep(2);
+        }
+        catch (error) {
+            toast({
+                title: t("customize.validation_failed"),
+                description: error?.message || "Failed to validate design.",
+                variant: "destructive",
+            });
+        }
+        finally {
+            setIsSavingDesignStep(false);
+        }
     };
     const saveAndContinue = () => {
         if (design.status !== "validated") {
@@ -1154,18 +1683,48 @@ const Customize = () => {
             setTimeout(() => navigate("/cross-sell"), 500);
         }
     };
-    const goToNextStep = () => {
+    const goToNextStep = async () => {
         if (currentStep === 0) {
             if (!design.businessName) {
                 toast({ title: t("customize.biz_required"), description: t("customize.biz_required_desc"), variant: "destructive" });
                 return;
             }
-            setCurrentStep(1);
+            if (platformConfig.searchMode === "google-maps" && !design.googlePlaceId) {
+                toast({
+                    title: t("customize.biz_required"),
+                    description: t("customize.select_google_business") || "Please select a business from Google Maps search results.",
+                    variant: "destructive",
+                });
+                return;
+            }
+            setIsSavingDesignStep(true);
+            try {
+                await saveRemoteStep1();
+                setCurrentStep(1);
+            }
+            catch (error) {
+                toast({
+                    title: t("customize.load_failed") || "Failed to save business step",
+                    description: error?.message || "Unable to save the business details.",
+                    variant: "destructive",
+                });
+            }
+            finally {
+                setIsSavingDesignStep(false);
+            }
         }
         else if (currentStep === 1) {
-            validateDesign();
+            await validateDesign();
         }
     };
+    if (!item && !isEditMode) {
+        return (<div className="flex min-h-screen items-center justify-center bg-gradient-dark pt-20">
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold">{t("customize.not_found")}</h1>
+          <Button onClick={() => navigate("/cart")} className="mt-4">{t("customize.back_to_cart")}</Button>
+        </div>
+      </div>);
+    }
     return (<div className="min-h-screen bg-gradient-dark pt-32 pb-20">
       <div className="container mx-auto px-6">
         <motion.div initial="hidden" animate="visible">
@@ -1216,11 +1775,16 @@ const Customize = () => {
                   {platformConfig.searchMode === "google-maps" ? (<>
                       <div className="relative mt-4">
                         <Input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setShowResults(true); }} placeholder={platformConfig.placeholder} className="bg-background border-border/50"/>
-                        {showResults && filteredBusinesses.length > 0 && (<div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-border/50 bg-secondary shadow-lg">
-                            {filteredBusinesses.map((b) => (<button key={b.placeId} onClick={() => selectBusiness(b)} className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0">
+                        {showResults && (isSearchingBusinesses || businessResults.length > 0 || searchQuery.trim().length >= 2) && (<div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-border/50 bg-secondary shadow-lg">
+                            {isSearchingBusinesses ? (<div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                                <Loader2 size={16} className="animate-spin text-primary"/>
+                                <span>{t("customize.searching_business") || "Searching Google Maps..."}</span>
+                              </div>) : businessResults.length > 0 ? (businessResults.map((b) => (<button key={b.placeId} onClick={() => selectBusiness(b)} className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0">
                                 <p className="text-sm font-medium">{b.name}</p>
                                 <p className="text-xs text-muted-foreground">{b.address}</p>
-                              </button>))}
+                              </button>))) : (<div className="px-4 py-3 text-sm text-muted-foreground">
+                                {t("customize.no_business_found") || "No business found."}
+                              </div>)}
                           </div>)}
                       </div>
                       {design.googlePlaceId && (<div className="mt-3 flex items-center gap-2 text-sm text-green-400">
@@ -1297,8 +1861,8 @@ const Customize = () => {
                   <p className="mt-1 text-sm text-muted-foreground">{t("customize.logo_format")}</p>
                   <label className="mt-4 flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border/50 bg-background p-8 hover:border-primary/30 transition-colors">
                     <Upload size={24} className="text-muted-foreground"/>
-                    <span className="text-sm text-muted-foreground">{logoFile ? t("customize.logo_uploaded") : t("customize.click_upload")}</span>
-                    <input type="file" accept="image/png,image/svg+xml" className="hidden" onChange={handleLogoUpload}/>
+                    <span className="text-sm text-muted-foreground">{isUploadingLogo ? "Uploading..." : logoFile ? t("customize.logo_uploaded") : t("customize.click_upload")}</span>
+                    <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={handleLogoUpload}/>
                   </label>
 
                   {/* Logo Position (Front card) */}
@@ -1831,6 +2395,10 @@ const Customize = () => {
                   <CheckCircle2 size={12} className="text-green-500"/>
                   {t("customize.auto_saved") || "Auto-saved"} {lastAutoSave}
                 </p>)}
+              {isLoadingVersionHistory && (<p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin"/>
+                  {t("customize.loading_versions") || "Loading versions..."}
+                </p>)}
               {versionHistory.length > 0 && (<button onClick={() => setShowHistoryDialog(true)} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                   <History size={12}/> {versionHistory.length} {t("customize.versions") || "versions"}
                 </button>)}
@@ -1842,75 +2410,52 @@ const Customize = () => {
               {currentStep > 0 && (<Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
                   {t("customize.btn_back")}
                 </Button>)}
-              {currentStep < 2 && (<Button onClick={goToNextStep} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90">
+              {currentStep < 2 && (<Button onClick={goToNextStep} disabled={isSavingDesignStep} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70">
+                  {isSavingDesignStep && <Loader2 size={16} className="mr-2 animate-spin"/>}
                   {currentStep === 1 ? t("customize.btn_validate") : t("customize.btn_next")}
                 </Button>)}
               {currentStep === 2 && (<Button onClick={saveAndContinue} className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90">
                   <CheckCircle2 size={16} className="mr-2"/> {t("customize.btn_save")}
                 </Button>)}
               {/* Save as Draft — always available */}
-              <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground" onClick={() => {
-            const now = new Date().toISOString().split("T")[0];
-            const designData = {
-                name: design.businessName ? `${design.businessName} Design` : "Untitled Design",
-                businessName: design.businessName || "Untitled",
-                template: activeTemplate.label,
-                templateColor1: gradient1,
-                templateColor2: gradient2,
-                orientation,
-                model: isEditMode && editingDesign ? editingDesign.model : MODEL_LABELS[item?.model || "classic"],
-                frontInstructions: [frontLine1, frontLine2].filter(Boolean).join("\n"),
-                backInstructions: [backLine1, backLine2].filter(Boolean).join("\n"),
-                updatedAt: now,
-            };
-            if (isEditMode && editDesignId) {
-                updateSavedDesign(editDesignId, { ...designData, status: "draft" });
+              <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground" disabled={isSavingDesignStep} onClick={async () => {
+            setIsSavingDesignStep(true);
+            try {
+                await persistCurrentDesign();
+                toast({ title: t("customize.draft_saved") || "Draft saved!", description: t("customize.draft_saved_desc") || "Your progress has been saved as a draft." });
+                setTimeout(() => navigate("/dashboard/designs"), 500);
             }
-            else {
-                addDesign({
-                    id: `d-${Date.now()}`,
-                    ...designData,
-                    status: "draft",
-                    linkedCard: null,
-                    createdAt: now,
+            catch (error) {
+                toast({
+                    title: t("customize.validation_failed"),
+                    description: error?.message || "Unable to save draft.",
+                    variant: "destructive",
                 });
             }
-            setIsDirty(false);
-            toast({ title: t("customize.draft_saved") || "Draft saved!", description: t("customize.draft_saved_desc") || "Your progress has been saved as a draft." });
-            setTimeout(() => navigate("/dashboard/designs"), 500);
+            finally {
+                setIsSavingDesignStep(false);
+            }
         }}>
                 <Save size={16}/> {t("customize.save_draft") || "Save as Draft"}
               </Button>
               {/* Save / Update (from step 1+) */}
-              {currentStep >= 1 && (<Button variant="outline" className="gap-2 border-border/50" onClick={() => {
-                const now = new Date().toISOString().split("T")[0];
-                const designData = {
-                    name: design.businessName ? `${design.businessName} Design` : "Untitled Design",
-                    businessName: design.businessName || "Untitled",
-                    template: activeTemplate.label,
-                    templateColor1: gradient1,
-                    templateColor2: gradient2,
-                    orientation,
-                    model: isEditMode && editingDesign ? editingDesign.model : MODEL_LABELS[item?.model || "classic"],
-                    frontInstructions: [frontLine1, frontLine2].filter(Boolean).join("\n"),
-                    backInstructions: [backLine1, backLine2].filter(Boolean).join("\n"),
-                    updatedAt: now,
-                };
-                if (isEditMode && editDesignId) {
-                    updateSavedDesign(editDesignId, designData);
+              {currentStep >= 1 && (<Button variant="outline" className="gap-2 border-border/50" disabled={isSavingDesignStep} onClick={async () => {
+                setIsSavingDesignStep(true);
+                try {
+                    await persistCurrentDesign();
+                    toast({ title: t("customize.saved_design") || "Design saved!", description: t("customize.saved_design_desc") || "Your design has been saved to My Designs for later editing." });
+                    setTimeout(() => navigate("/dashboard/designs"), 500);
                 }
-                else {
-                    addDesign({
-                        id: `d-${Date.now()}`,
-                        ...designData,
-                        status: "draft",
-                        linkedCard: null,
-                        createdAt: now,
+                catch (error) {
+                    toast({
+                        title: t("customize.validation_failed"),
+                        description: error?.message || "Unable to save design.",
+                        variant: "destructive",
                     });
                 }
-                setIsDirty(false);
-                toast({ title: t("customize.saved_design") || "Design saved!", description: t("customize.saved_design_desc") || "Your design has been saved to My Designs for later editing." });
-                setTimeout(() => navigate("/dashboard/designs"), 500);
+                finally {
+                    setIsSavingDesignStep(false);
+                }
             }}>
                   <Save size={16}/> {isEditMode ? (t("customize.update_design") || "Update Design") : (t("customize.save_as_design") || "Save as Design")}
                 </Button>)}

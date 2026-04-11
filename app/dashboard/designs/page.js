@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import DesignDetailModal from "@/components/designs/DesignDetailModal";
 import {
   Search, Grid3X3, List, MoreVertical, Pencil, Copy, Trash2, Eye,
   Palette, Clock, CheckCircle2, FileText, Archive, Plus, ExternalLink,
@@ -30,6 +31,8 @@ const STATUS_CONFIG = {
   archived: { label: "Archived", className: "bg-muted/50 text-muted-foreground border-border/50" },
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 const MyDesigns = () => {
   const { t } = useLanguage();
   const router = useRouter();
@@ -43,7 +46,7 @@ const MyDesigns = () => {
   const [renameValue, setRenameValue] = useState("");
   const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0 });
   const [loading, setLoading] = useState(true);
-  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+  const [cardActionLoading, setCardActionLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,14 +84,90 @@ const MyDesigns = () => {
 
     loadDesigns();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [search, setDesigns, statusFilter]);
 
   const refreshStats = async () => {
     const response = await get("/api/admin/my-design/stats");
     setStats(response?.data || { total: 0, active: 0, draft: 0, archived: 0 });
+  };
+
+  const openPreview = async (design) => {
+    setPreviewDesign(design);
+    try {
+      const response = await get(`/api/admin/my-design/${design.id}`);
+      if (response?.data) {
+        setPreviewDesign(response.data);
+        updateDesign(design.id, response.data);
+      }
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || error?.error || "Unable to load design details.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadCardExport = async (design, format = "pdf") => {
+    if (!design?.primaryCardUid) {
+      toast({ title: "Designs", description: "No linked card available for export.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/admin/nfc/cards/${design.primaryCardUid}/export?format=${format}`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        let payload = {};
+        try { payload = await response.json(); } catch {}
+        throw new Error(payload?.error || "Unable to export card.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${design.name || "design-card"}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.message || "Unable to export card.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRegenerateCard = async (design) => {
+    if (!design?.primaryCardUid) {
+      toast({ title: "Designs", description: "No linked card available to regenerate.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setCardActionLoading(true);
+      await post(`/api/admin/nfc/cards/${design.primaryCardUid}/regenerate`);
+      const refreshed = await get(`/api/admin/my-design/${design.id}`);
+      if (refreshed?.data) {
+        setPreviewDesign(refreshed.data);
+        updateDesign(design.id, refreshed.data);
+      }
+      toast({ title: "Designs", description: "Card exports regenerated." });
+    } catch (error) {
+      toast({
+        title: "Designs",
+        description: error?.error || "Unable to regenerate card exports.",
+        variant: "destructive",
+      });
+    } finally {
+      setCardActionLoading(false);
+    }
   };
 
   const startRename = (design) => {
@@ -141,7 +220,7 @@ const MyDesigns = () => {
     if (!deleteTarget) return;
     try {
       await remove(`/api/admin/my-design/${deleteTarget.id}`);
-      setDesigns(designs.filter(d => d.id !== deleteTarget.id));
+      setDesigns(designs.filter((d) => d.id !== deleteTarget.id));
       await refreshStats();
       toast({ title: "Design deleted", description: `"${deleteTarget.name}" has been removed.` });
       setDeleteTarget(null);
@@ -188,30 +267,11 @@ const MyDesigns = () => {
     }
   };
 
-  const openPreview = async (design) => {
-    setPreviewDesign(design);
-    setPreviewLoadingId(design.id);
-    try {
-      const response = await get(`/api/admin/my-design/${design.id}`);
-      if (response?.data) {
-        setPreviewDesign(response.data);
-      }
-    } catch (error) {
-      toast({
-        title: "Designs",
-        description: error?.message || error?.error || "Unable to load design details.",
-        variant: "destructive",
-      });
-    } finally {
-      setPreviewLoadingId(null);
-    }
-  };
-
   const DesignCard = ({ design }) => {
     const statusCfg = STATUS_CONFIG[design.status];
+
     return (
       <motion.div variants={fadeUp} className="rounded-xl border border-border/50 bg-gradient-card overflow-hidden group hover:border-primary/30 transition-all">
-        {/* Visual preview */}
         <div
           className="relative h-36 flex items-center justify-center cursor-pointer"
           style={{ background: `linear-gradient(135deg, ${design.templateColor1}, ${design.templateColor2})` }}
@@ -236,7 +296,6 @@ const MyDesigns = () => {
           </div>
         </div>
 
-        {/* Info */}
         <div className="p-4 space-y-3">
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -245,18 +304,25 @@ const MyDesigns = () => {
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={commitRename}
-                  onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
                   className="h-6 text-sm px-1 py-0"
                   autoFocus
                 />
               ) : (
-                <h4 className="font-medium text-sm truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>{design.name}</h4>
+                <h4 className="font-medium text-sm truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>
+                  {design.name}
+                </h4>
               )}
               <p className="text-xs text-muted-foreground truncate">{design.template} · {design.model}</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"><MoreVertical size={14} /></button>
+                <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0">
+                  <MoreVertical size={14} />
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onClick={() => openPreview(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
@@ -277,7 +343,10 @@ const MyDesigns = () => {
           <div className="flex items-center justify-between">
             <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
             {design.linkedCard && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1"><ExternalLink size={10} />{design.linkedCard}</span>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <ExternalLink size={10} />
+                {design.linkedCard}
+              </span>
             )}
           </div>
 
@@ -291,6 +360,7 @@ const MyDesigns = () => {
 
   const DesignRow = ({ design }) => {
     const statusCfg = STATUS_CONFIG[design.status];
+
     return (
       <div className="flex items-center gap-4 rounded-lg border border-border/50 bg-gradient-card p-3 hover:border-primary/30 transition-all">
         <div
@@ -304,12 +374,17 @@ const MyDesigns = () => {
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               onBlur={commitRename}
-              onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setRenamingId(null);
+              }}
               className="h-6 text-sm px-1 py-0 max-w-[200px]"
               autoFocus
             />
           ) : (
-            <p className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>{design.name}</p>
+            <p className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors" onDoubleClick={() => startRename(design)}>
+              {design.name}
+            </p>
           )}
           <p className="text-xs text-muted-foreground">{design.businessName} · {design.template}</p>
         </div>
@@ -319,7 +394,9 @@ const MyDesigns = () => {
         <span className="text-xs text-muted-foreground hidden lg:block shrink-0">{design.updatedAt}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"><MoreVertical size={14} /></button>
+            <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0">
+              <MoreVertical size={14} />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={() => openPreview(design)}><Eye size={14} className="mr-2" />Preview</DropdownMenuItem>
@@ -343,25 +420,23 @@ const MyDesigns = () => {
     <DashboardLayout title={t("designs.my_title")} subtitle={t("designs.my_subtitle")}>
       <motion.div initial="hidden" animate="visible" className="space-y-6">
 
-        {/* Stats */}
         <motion.div variants={fadeUp} custom={0} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: "Total", value: stats.total, icon: Palette, color: "text-primary" },
             { label: "Active", value: stats.active, icon: CheckCircle2, color: "text-green-400" },
             { label: "Drafts", value: stats.draft, icon: FileText, color: "text-yellow-400" },
             { label: "Archived", value: stats.archived, icon: Archive, color: "text-muted-foreground" },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl border border-border/50 bg-gradient-card p-4">
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-border/50 bg-gradient-card p-4">
               <div className="flex items-center gap-2 mb-2">
-                <s.icon size={16} className={s.color} />
-                <span className="text-xs text-muted-foreground">{s.label}</span>
+                <stat.icon size={16} className={stat.color} />
+                <span className="text-xs text-muted-foreground">{stat.label}</span>
               </div>
-              <p className="font-display text-2xl font-bold">{s.value}</p>
+              <p className="font-display text-2xl font-bold">{stat.value}</p>
             </div>
           ))}
         </motion.div>
 
-        {/* Toolbar */}
         <motion.div variants={fadeUp} custom={1} className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="relative flex-1 w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -373,7 +448,7 @@ const MyDesigns = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            {["all", "active", "draft", "archived"].map(s => (
+            {["all", "active", "draft", "archived"].map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -392,12 +467,12 @@ const MyDesigns = () => {
           </div>
         </motion.div>
 
-        {/* Design list */}
         <motion.div variants={fadeUp} custom={2}>
           {loading ? (
             <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
-              <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4" />
+              <Palette size={40} className="mx-auto text-muted-foreground/30 mb-4 animate-pulse" />
               <h3 className="font-display text-lg font-semibold mb-1">Loading designs...</h3>
+              <p className="text-sm text-muted-foreground">Fetching your latest design data.</p>
             </div>
           ) : designs.length === 0 ? (
             <div className="text-center py-16 rounded-xl border border-border/50 bg-gradient-card">
@@ -410,68 +485,28 @@ const MyDesigns = () => {
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {designs.map(d => <DesignCard key={d.id} design={d} />)}
+              {designs.map((d) => <DesignCard key={d.id} design={d} />)}
             </div>
           ) : (
             <div className="space-y-2">
-              {designs.map(d => <DesignRow key={d.id} design={d} />)}
+              {designs.map((d) => <DesignRow key={d.id} design={d} />)}
             </div>
           )}
         </motion.div>
       </motion.div>
 
-      {/* Preview Dialog */}
-      <Dialog open={!!previewDesign} onOpenChange={() => setPreviewDesign(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{previewDesign?.name}</DialogTitle>
-            <DialogDescription>{previewDesign?.businessName} · {previewDesign?.template}</DialogDescription>
-          </DialogHeader>
-          {previewDesign && (
-            <div className="space-y-4">
-              {previewLoadingId === previewDesign.id && (
-                <p className="text-xs text-muted-foreground">Loading design details...</p>
-              )}
-              <div
-                className="w-full rounded-xl overflow-hidden flex items-center justify-center"
-                style={{
-                  background: `linear-gradient(135deg, ${previewDesign.templateColor1}, ${previewDesign.templateColor2})`,
-                  aspectRatio: previewDesign.orientation === "landscape" ? "16/10" : "10/16",
-                  maxHeight: "320px",
-                }}
-              >
-                <div className="text-center px-6">
-                  <div className="flex justify-center mb-2">
-                    {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="#FBBF24" stroke="none" />)}
-                  </div>
-                  <p className="text-sm font-bold" style={{ color: previewDesign.templateColor1 === "#FFFFFF" ? "#0D0D0D" : "#FFFFFF" }}>
-                    {previewDesign.businessName}
-                  </p>
-                  <p className="text-[10px] mt-1 opacity-70" style={{ color: previewDesign.templateColor1 === "#FFFFFF" ? "#0D0D0D" : "#FFFFFF" }}>
-                    {previewDesign.frontInstructions || previewDesign.callToAction || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground text-xs">Model</span><p className="font-medium">{previewDesign.model}</p></div>
-                <div><span className="text-muted-foreground text-xs">Orientation</span><p className="font-medium capitalize">{previewDesign.orientation}</p></div>
-                <div><span className="text-muted-foreground text-xs">Status</span><Badge variant="outline" className={STATUS_CONFIG[previewDesign.status].className}>{STATUS_CONFIG[previewDesign.status].label}</Badge></div>
-                <div><span className="text-muted-foreground text-xs">Linked Card</span><p className="font-medium">{previewDesign.linkedCard || "—"}</p></div>
-                <div className="col-span-2"><span className="text-muted-foreground text-xs">Front Instructions</span><p className="text-xs">{previewDesign.frontInstructions || previewDesign.callToAction || "—"}</p></div>
-                <div className="col-span-2"><span className="text-muted-foreground text-xs">Back Instructions</span><p className="text-xs">{previewDesign.backInstructions || previewDesign.googleReviewUrl || "—"}</p></div>
-              </div>
-            </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPreviewDesign(null)}>Close</Button>
-            <Button onClick={() => { setPreviewDesign(null); router.push(`/customize/edit-${previewDesign?.id}`); }} className="gap-2">
-              <Pencil size={14} /> Edit Design
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DesignDetailModal
+        design={previewDesign}
+        onClose={() => setPreviewDesign(null)}
+        onEdit={(design) => {
+          setPreviewDesign(null);
+          router.push(`/customize/edit-${design?.id}`);
+        }}
+        onDownloadCardExport={handleDownloadCardExport}
+        onRegenerateCard={handleRegenerateCard}
+        cardActionLoading={cardActionLoading}
+      />
 
-      {/* Delete Confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -491,3 +526,5 @@ const MyDesigns = () => {
 };
 
 export default MyDesigns;
+
+

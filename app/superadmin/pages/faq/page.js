@@ -23,7 +23,7 @@ const langLabels = { en: "English", fr: "French", es: "Spanish", de: "German", p
 const faqCategories = ["General", "Pricing", "Features", "Integrations", "Security", "Support"];
 
 const initialFaqs = [
-  { id: 1, question: { en: "What is REDVANTA?", fr: "Qu'est-ce que REDVANTA?" }, answer: { en: "<p>REDVANTA is a comprehensive reputation management platform.</p>", fr: "<p>REDVANTA est une plateforme de gestion de réputation.</p>" }, category: "General", published: true, order: 1 },
+  { id: 1, question: { en: "What is Opinoor?", fr: "Qu'est-ce que Opinoor?" }, answer: { en: "<p>Opinoor is a comprehensive reputation management platform.</p>", fr: "<p>Opinoor est une plateforme de gestion de réputation.</p>" }, category: "General", published: true, order: 1 },
   { id: 2, question: { en: "Is there a free trial?" }, answer: { en: "<p>Yes, we offer a 14-day free trial on all plans.</p>" }, category: "Pricing", published: true, order: 2 },
   { id: 3, question: { en: "What platforms do you integrate with?" }, answer: { en: "<p>We integrate with Google Business, Trustpilot, Yelp, and 50+ platforms.</p>" }, category: "Integrations", published: true, order: 3 },
   { id: 4, question: { en: "How do you handle data security?" }, answer: { en: "<p>We use enterprise-grade AES-256 encryption and SOC 2 compliance.</p>" }, category: "Security", published: false, order: 4 },

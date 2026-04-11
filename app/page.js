@@ -119,7 +119,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* THE REDVANTA SYSTEM */}
+      {/* THE Opinoor SYSTEM */}
       <section className="section-spacing bg-secondary/30">
         <div className="container mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="mx-auto max-w-3xl text-center">

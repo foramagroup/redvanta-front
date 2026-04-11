@@ -1,8 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Package, Eye, Truck, Clock, CheckCircle2, XCircle, ShoppingBag, Filter, Search, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import {
+  Package,
+  Eye,
+  Truck,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  ShoppingBag,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -14,83 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { fadeUp } from "@/lib/animations";
-const mockOrders = [
-  {
-    id: "ORD-M8K2X1",
-    items: [
-      { name: "NFC Smart Card", model: "Premium", quantity: 2, unitPrice: 49, type: "product" },
-      { name: "QR Sticker Pack", model: "Classic", quantity: 1, unitPrice: 19, type: "product" },
-    ],
-    subtotal: 117,
-    shipping: 9.99,
-    total: 126.99,
-    status: "delivered",
-    trackingNumber: "TRK-2024-XYZ789",
-    createdAt: "2024-12-15T10:30:00Z",
-    shippingMethod: "standard",
-    paymentMethod: "Visa •••• 4242",
-  },
-  {
-    id: "ORD-P3N7Y4",
-    items: [
-      { name: "NFC Smart Card", model: "Metal", quantity: 1, unitPrice: 79, type: "product" },
-      { name: "Premium Table Stand", model: "Black", quantity: 1, unitPrice: 39, type: "product" },
-      { name: "API Access", model: "Monthly", quantity: 1, unitPrice: 79, type: "addon" },
-    ],
-    subtotal: 197,
-    shipping: 19.99,
-    total: 216.99,
-    status: "shipped",
-    trackingNumber: "TRK-2025-ABC123",
-    createdAt: "2025-02-20T14:15:00Z",
-    shippingMethod: "express",
-    paymentMethod: "Mastercard •••• 5555",
-  },
-  {
-    id: "ORD-R9W5T3",
-    items: [
-      { name: "NFC Smart Card", model: "Transparent", quantity: 3, unitPrice: 59, type: "product" },
-    ],
-    subtotal: 177,
-    shipping: 34.99,
-    total: 211.99,
-    status: "production",
-    trackingNumber: null,
-    createdAt: "2025-03-01T09:00:00Z",
-    shippingMethod: "international",
-    paymentMethod: "PayPal",
-  },
-  {
-    id: "ORD-K1L4M8",
-    items: [
-      { name: "Duplicate Card", model: "Classic", quantity: 5, unitPrice: 15, type: "product" },
-      { name: "Advanced Automation", model: "Monthly", quantity: 1, unitPrice: 49, type: "addon" },
-      { name: "Extra Locations", model: "x3", quantity: 3, unitPrice: 29, type: "addon" },
-    ],
-    subtotal: 211,
-    shipping: 9.99,
-    total: 220.99,
-    status: "paid",
-    trackingNumber: null,
-    createdAt: "2025-03-05T16:45:00Z",
-    shippingMethod: "standard",
-    paymentMethod: "Visa •••• 4242",
-  },
-  {
-    id: "ORD-Q6J2H9",
-    items: [
-      { name: "NFC + QR Bundle", model: "Premium", quantity: 1, unitPrice: 89, type: "product" },
-    ],
-    subtotal: 89,
-    shipping: 0,
-    total: 89,
-    status: "cancelled",
-    trackingNumber: null,
-    createdAt: "2025-01-10T11:20:00Z",
-    shippingMethod: "standard",
-    paymentMethod: "Visa •••• 4242",
-  },
-];
+import { get } from "@/lib/api";
 
 const statusConfig = {
   draft: { color: "bg-muted text-muted-foreground", icon: Clock, label: "Draft" },
@@ -104,35 +40,109 @@ const statusConfig = {
   refunded: { color: "bg-orange-500/20 text-orange-400 border-orange-500/30", icon: XCircle, label: "Refunded" },
 };
 
+const defaultMeta = { total: 0, page: 1, last_page: 1, limit: 20 };
+
 const MyOrders = () => {
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState(defaultMeta);
+  const [apiStats, setApiStats] = useState(null);
 
-  const filtered = mockOrders.filter((order) => {
-    if (search && !order.id.toLowerCase().includes(search.toLowerCase()) && !order.items.some(i => i.name.toLowerCase().includes(search.toLowerCase()))) return false;
-    if (statusFilter !== "all" && order.status !== statusFilter) return false;
-    if (typeFilter === "products" && !order.items.some(i => i.type === "product")) return false;
-    if (typeFilter === "addons" && !order.items.some(i => i.type === "addon")) return false;
-    return true;
-  });
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOrders = async () => {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const response = await get("/api/admin/orders", {
+          page,
+          limit: 20,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          search: search.trim() || undefined,
+        });
+
+        if (cancelled) return;
+
+        setOrders(Array.isArray(response?.data) ? response.data : []);
+        setMeta(response?.meta || defaultMeta);
+        setApiStats(response?.stats || null);
+      } catch (err) {
+        if (cancelled) return;
+
+        setOrders([]);
+        setMeta(defaultMeta);
+        setApiStats(null);
+        setError(err?.error || err?.message || "Failed to load orders.");
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, search, statusFilter]);
+
+  const filtered = useMemo(() => {
+    return orders.filter((order) => {
+      if (typeFilter === "products" && !order.items.some((item) => item.type === "product")) return false;
+      if (typeFilter === "addons" && !order.items.some((item) => item.type === "addon")) return false;
+      return true;
+    });
+  }, [orders, typeFilter]);
 
   const stats = {
-    total: mockOrders.length,
-    active: mockOrders.filter(o => ["paid", "production", "printed", "shipped"].includes(o.status)).length,
-    delivered: mockOrders.filter(o => o.status === "delivered").length,
-    totalSpent: mockOrders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0),
+    total: apiStats?.totalOrders ?? meta.total ?? filtered.length,
+    active:
+      apiStats?.activeOrders ??
+      orders.filter((order) => ["paid", "production", "printed", "shipped"].includes(order.status)).length,
+    delivered: apiStats?.deliveredOrders ?? orders.filter((order) => order.status === "delivered").length,
+    totalSpent:
+      apiStats?.totalRevenue ??
+      orders.filter((order) => order.status !== "cancelled").reduce((sum, order) => sum + Number(order.total || 0), 0),
+  };
+
+  const handleOpenOrder = async (order) => {
+    setSelectedOrder(order);
+    setIsLoadingDetails(true);
+    setError("");
+
+    try {
+      const response = await get(`/api/admin/orders/${encodeURIComponent(order.id)}`);
+      if (response?.data) {
+        setSelectedOrder(response.data);
+      }
+    } catch (err) {
+      setError(err?.error || err?.message || "Failed to load order details.");
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
   return (
     <DashboardLayout title="My Orders" subtitle="View and manage all your orders">
       <motion.div initial="hidden" animate="visible" className="space-y-6">
-        {/* Stats */}
-        <motion.div variants={fadeUp} custom={0} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div variants={fadeUp} custom={0} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             { label: "Total Orders", value: stats.total, icon: ShoppingBag },
             { label: "Active Orders", value: stats.active, icon: Package },
@@ -153,14 +163,18 @@ const MyOrders = () => {
           ))}
         </motion.div>
 
-        {/* Filters */}
-        <motion.div variants={fadeUp} custom={1} className="flex flex-col sm:flex-row gap-3">
+        <motion.div variants={fadeUp} custom={1} className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search by order ID or product..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card border-border/50" />
+            <Input
+              placeholder="Search by order ID or product..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-card pl-9 border-border/50"
+            />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[160px] bg-card border-border/50">
+            <SelectTrigger className="w-full bg-card border-border/50 sm:w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -173,7 +187,7 @@ const MyOrders = () => {
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[160px] bg-card border-border/50">
+            <SelectTrigger className="w-full bg-card border-border/50 sm:w-[160px]">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -184,8 +198,7 @@ const MyOrders = () => {
           </Select>
         </motion.div>
 
-        {/* Orders Table */}
-        <motion.div variants={fadeUp} custom={2} className="rounded-xl border border-border/50 bg-card overflow-hidden">
+        <motion.div variants={fadeUp} custom={2} className="overflow-hidden rounded-xl border border-border/50 bg-card">
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
@@ -194,28 +207,54 @@ const MyOrders = () => {
                 <TableHead className="text-muted-foreground">Items</TableHead>
                 <TableHead className="text-muted-foreground">Total</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground text-right">Actions</TableHead>
+                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={6} className="py-12">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Loading orders...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-12 text-center text-destructive">
+                    {error}
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                     No orders found matching your filters.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((order) => {
-                  const sc = statusConfig[order.status];
+                  const sc = statusConfig[order.status] || statusConfig.draft;
                   const isExpanded = expandedOrder === order.id;
+
                   return (
-                    <TableRow key={order.id} className="border-border/50 cursor-pointer" onClick={() => setExpandedOrder(isExpanded ? null : order.id)}>
+                    <TableRow
+                      key={order.id}
+                      className="cursor-pointer border-border/50"
+                      onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                    >
                       <TableCell className="font-mono font-medium text-foreground">{order.id}</TableCell>
                       <TableCell className="text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span className="text-foreground">{order.items.length} item{order.items.length > 1 ? "s" : ""}</span>
-                          {isExpanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                          <span className="text-foreground">
+                            {order.items.length} item{order.items.length > 1 ? "s" : ""}
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp size={14} className="text-muted-foreground" />
+                          ) : (
+                            <ChevronDown size={14} className="text-muted-foreground" />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="font-medium text-foreground">{formatPrice(order.total)}</TableCell>
@@ -227,7 +266,7 @@ const MyOrders = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)} className="text-muted-foreground hover:text-foreground">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenOrder(order)} className="text-muted-foreground hover:text-foreground">
                             <Eye size={14} className="mr-1" /> View
                           </Button>
                           {order.trackingNumber && (
@@ -246,48 +285,86 @@ const MyOrders = () => {
             </TableBody>
           </Table>
 
-          {/* Expanded row details */}
-          {filtered.map((order) => expandedOrder === order.id && (
-            <div key={`exp-${order.id}`} className="border-t border-border/50 bg-secondary/20 px-6 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-md ${item.type === "addon" ? "bg-purple-500/10" : "bg-primary/10"}`}>
-                      {item.type === "addon" ? <Package size={14} className="text-purple-400" /> : <ShoppingBag size={14} className="text-primary" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.model} × {item.quantity}</p>
-                    </div>
-                    <p className="text-sm font-medium text-foreground">{formatPrice(item.unitPrice * item.quantity)}</p>
-                  </div>
-                ))}
+          {meta.last_page > 1 && (
+            <div className="flex items-center justify-between border-t border-border/50 px-4 py-3">
+              <p className="text-sm text-muted-foreground">
+                Page {meta.page} of {meta.last_page}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage((prev) => Math.max(prev - 1, 1))}>
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= meta.last_page || isLoading}
+                  onClick={() => setPage((prev) => Math.min(prev + 1, meta.last_page))}
+                >
+                  Next
+                </Button>
               </div>
             </div>
-          ))}
+          )}
+
+          {filtered.map(
+            (order) =>
+              expandedOrder === order.id && (
+                <div key={`exp-${order.id}`} className="border-t border-border/50 bg-secondary/20 px-6 py-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-md ${item.type === "addon" ? "bg-purple-500/10" : "bg-primary/10"}`}>
+                          {item.type === "addon" ? <Package size={14} className="text-purple-400" /> : <ShoppingBag size={14} className="text-primary" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.model} x {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">{formatPrice(item.totalPrice ?? item.unitPrice * item.quantity)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+          )}
         </motion.div>
       </motion.div>
 
-      {/* Order Detail Modal */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="sm:max-w-lg bg-card border-border/50">
+        <DialogContent className="border-border/50 bg-card sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-display">Order {selectedOrder?.id}</DialogTitle>
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-6">
+              {isLoadingDetails && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Loading order details...</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Placed on</p>
-                  <p className="font-medium">{new Date(selectedOrder.createdAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+                  <p className="font-medium">
+                    {new Date(selectedOrder.createdAt).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
                 </div>
-                <Badge className={`${statusConfig[selectedOrder.status].color}`}>
-                  {statusConfig[selectedOrder.status].label}
+                <Badge className={`${(statusConfig[selectedOrder.status] || statusConfig.draft).color}`}>
+                  {(statusConfig[selectedOrder.status] || statusConfig.draft).label}
                 </Badge>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Items</h4>
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Items</h4>
                 {selectedOrder.items.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/20 p-3">
                     <div className="flex items-center gap-3">
@@ -296,10 +373,12 @@ const MyOrders = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.model} — Qty: {item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.model} - Qty: {item.quantity}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-sm font-semibold">{formatPrice(item.unitPrice * item.quantity)}</p>
+                    <p className="text-sm font-semibold">{formatPrice(item.totalPrice ?? item.unitPrice * item.quantity)}</p>
                   </div>
                 ))}
               </div>
@@ -313,7 +392,7 @@ const MyOrders = () => {
                   <span className="text-muted-foreground">Shipping ({selectedOrder.shippingMethod})</span>
                   <span>{formatPrice(selectedOrder.shipping)}</span>
                 </div>
-                <div className="flex justify-between font-display font-bold text-lg pt-2 border-t border-border/50">
+                <div className="flex justify-between border-t border-border/50 pt-2 font-display text-lg font-bold">
                   <span>Total</span>
                   <span>{formatPrice(selectedOrder.total)}</span>
                 </div>
@@ -331,7 +410,7 @@ const MyOrders = () => {
                 {selectedOrder.trackingNumber && (
                   <div className="col-span-2">
                     <p className="text-muted-foreground">Tracking Number</p>
-                    <p className="font-medium font-mono">{selectedOrder.trackingNumber}</p>
+                    <p className="font-mono font-medium">{selectedOrder.trackingNumber}</p>
                   </div>
                 )}
               </div>

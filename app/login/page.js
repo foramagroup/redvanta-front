@@ -120,7 +120,7 @@ export default function LoginPage() {
       <motion.div initial="hidden" animate="visible" className="relative w-full max-w-md">
         <motion.div variants={fadeUp} custom={0} className="text-center">
           <Link href="/" className="font-display text-3xl font-bold tracking-tight">
-            RED<span className="text-gradient-red">VANTA</span>
+            OPI<span className="text-gradient-red">NOOR</span>
           </Link>
           <h1 className="mt-6 font-display text-2xl font-bold">{t("login.welcome_back")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{t("login.subtitle")}</p>

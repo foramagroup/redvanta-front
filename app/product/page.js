@@ -45,7 +45,7 @@ const benefits = [
   { icon: Shield, title: "Protect Your Reputation", desc: "Negative feedback is intercepted privately before it goes public." },
   { icon: Star, title: "Boost 5-Star Reviews", desc: "Satisfied customers are redirected straight to Google, Yelp, and more." },
   { icon: CreditCard, title: "Elegant Physical Design", desc: "Premium matte black magnetic card that elevates your brand image." },
-  { icon: MapPin, title: "Multi-Location Compatible", desc: "Each card links to a specific location in your REDVANTA dashboard." },
+  { icon: MapPin, title: "Multi-Location Compatible", desc: "Each card links to a specific location in your Opinoor dashboard." },
 ];
 
 const steps = [
@@ -56,7 +56,7 @@ const steps = [
 
 const testimonials = [
   { name: "Marcus Chen", role: "Owner, 3 Locations", quote: "We went from 3.8 to 4.7 stars in 4 months. The NFC cards make it effortless for customers.", stars: 5 },
-  { name: "Sarah Williams", role: "Marketing Director", quote: "The review volume tripled after deploying REDVANTA cards at our front desk. Game changer.", stars: 5 },
+  { name: "Sarah Williams", role: "Marketing Director", quote: "The review volume tripled after deploying Opinoor cards at our front desk. Game changer.", stars: 5 },
   { name: "James Rodriguez", role: "Franchise Operator", quote: "Managing reviews across 12 locations used to be chaos. Now it's fully automated.", stars: 5 },
   { name: "Dr. Emily Park", role: "Dental Practice Owner", quote: "Patients love the simplicity. One tap and they leave a review before even reaching their car.", stars: 5 },
 ];
@@ -64,11 +64,11 @@ const testimonials = [
 const faqs = [
   { q: "Do I need an app?", a: "No. The NFC tap or QR scan opens a mobile-optimized review page directly in your customer's browser. No downloads required." },
   { q: "Is NFC compatible with all phones?", a: "NFC works on all iPhones (iPhone 7 and later) and virtually all modern Android devices. For older phones, the QR code provides the same experience." },
-  { q: "What if a customer doesn't have NFC enabled?", a: "Every REDVANTA card includes a QR code as a fallback. Customers simply scan it with their phone camera for the exact same experience." },
+  { q: "What if a customer doesn't have NFC enabled?", a: "Every Opinoor card includes a QR code as a fallback. Customers simply scan it with their phone camera for the exact same experience." },
   { q: "Can I order multiple cards?", a: "Absolutely. We offer bulk pricing with significant discounts at 10, 25, and 50+ cards. Each card can be assigned to a different location." },
   { q: "Can I customize the card branding?", a: "Yes. Custom branding is available for orders of 25+ cards. Contact our team for design options and pricing." },
   { q: "How long does shipping take?", a: "Standard shipping takes 5-7 business days. Express shipping (2-3 days) is available at checkout for an additional fee." },
-  { q: "Is there a subscription required?", a: "Access to the REDVANTA dashboard is included with your card purchase. Your account remains active as long as you have active cards." },
+  { q: "Is there a subscription required?", a: "Access to the Opinoor dashboard is included with your card purchase. Your account remains active as long as you have active cards." },
   { q: "How do I connect the card to my location?", a: "After purchase, you'll receive a setup link. Simply log into your dashboard, scan the card's unique code, and assign it to your location in seconds." },
 ];
 
@@ -180,7 +180,7 @@ const Product = () => {
       >
         <div className="container mx-auto flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-4">
-            <img src={productImage} alt="REDVANTA Card" className="h-10 w-auto rounded" />
+            <img src={productImage} alt="Opinoor Card" className="h-10 w-auto rounded" />
             <div>
               <p className="text-sm font-semibold">{productTitle}</p>
               <p className="text-xs text-muted-foreground">{totalQty} {totalQty === 1 ? "card" : "cards"} — {formatPrice(totalPrice)}</p>
@@ -210,7 +210,7 @@ const Product = () => {
                 <span className="text-gradient-red">5-Star Opportunity.</span>
               </motion.h1>
               <motion.p variants={fadeUp} custom={2} className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-xl">
-                REDVANTA Smart Review Cards instantly open a feedback modal via NFC or QR scan — no apps, no friction.
+                Opinoor Smart Review Cards instantly open a feedback modal via NFC or QR scan — no apps, no friction.
               </motion.p>
 
               {products.length > 1 && (
@@ -307,7 +307,7 @@ const Product = () => {
               </div>
               <img
                 src={productImage}
-                alt="REDVANTA Smart Review Card — NFC-enabled magnetic card"
+                alt="Opinoor Smart Review Card — NFC-enabled magnetic card"
                 className="relative z-10 w-full max-w-lg rounded-2xl"
               />
             </motion.div>
@@ -323,7 +323,7 @@ const Product = () => {
               The Smartest Way to <span className="text-gradient-red">Capture Reviews.</span>
             </motion.h2>
             <motion.p variants={fadeUp} custom={1} className="mt-6 text-muted-foreground leading-relaxed">
-              The REDVANTA Smart Review Card is a premium, NFC-enabled magnetic card that works on all modern smartphones. No app download required. When a customer taps or scans, an intelligent review modal opens instantly in their browser — fully connected to your REDVANTA dashboard for real-time monitoring and control.
+              The Opinoor Smart Review Card is a premium, NFC-enabled magnetic card that works on all modern smartphones. No app download required. When a customer taps or scans, an intelligent review modal opens instantly in their browser — fully connected to your Opinoor dashboard for real-time monitoring and control.
             </motion.p>
           </motion.div>
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="mt-16 grid gap-8 md:grid-cols-3 max-w-4xl mx-auto">
@@ -348,7 +348,7 @@ const Product = () => {
       <section className="section-spacing border-t border-border/30">
         <div className="container mx-auto px-6">
           <motion.h2 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0} className="font-display text-3xl font-bold text-center md:text-4xl">
-            Why Businesses <span className="text-gradient-red">Choose REDVANTA</span>
+            Why Businesses <span className="text-gradient-red">Choose Opinoor</span>
           </motion.h2>
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
             {benefits.map((b, i) => (
@@ -444,7 +444,7 @@ const Product = () => {
               { title: "Product Demo", desc: "See the Smart Review Card in action" },
               { title: "NFC Scan Example", desc: "Watch how simple the tap experience is" },
               { title: "Dashboard Integration", desc: "How reviews flow into your dashboard" },
-              { title: "Client Testimonial", desc: "Real business results with REDVANTA" },
+              { title: "Client Testimonial", desc: "Real business results with Opinoor" },
             ].map((v, i) => (
               <motion.div key={i} variants={fadeUp} custom={i} className="group cursor-pointer rounded-xl border border-border/50 bg-gradient-card overflow-hidden transition-all hover:border-primary/30">
                 <div className="relative flex h-48 items-center justify-center bg-secondary">
@@ -498,7 +498,7 @@ const Product = () => {
               Access Is Activated By Purchase
             </motion.h2>
             <motion.p variants={fadeUp} custom={2} className="mt-4 text-muted-foreground leading-relaxed">
-              There is no free demo or trial. Your REDVANTA dashboard access is unlocked the moment you purchase your first Smart Review Card. The physical card is your entry point into the full reputation domination ecosystem.
+              There is no free demo or trial. Your Opinoor dashboard access is unlocked the moment you purchase your first Smart Review Card. The physical card is your entry point into the full reputation domination ecosystem.
             </motion.p>
           </motion.div>
         </div>

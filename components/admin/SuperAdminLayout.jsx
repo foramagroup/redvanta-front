@@ -104,7 +104,7 @@ const SuperAdminLayout = ({ children, title, subtitle, headerAction }) => {
           </button>
 
           <div className="mb-6 px-3 pt-2">
-            <span className="font-display text-lg font-bold text-primary">REDVANTA</span>
+            <span className="font-display text-lg font-bold text-primary">Opinoor</span>
             <span className="ml-2 text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">Admin</span>
           </div>
 

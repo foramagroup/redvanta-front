@@ -423,7 +423,7 @@ model dashboardstat {
     // ── Step 1 : Business ─────────────────────────────────────
     businessName    String?
     slogan          String?
-    callToAction    String?  @default("Powered by RedVanta")
+    callToAction    String?  @default("Powered by Opinoor")
     ctaPaddingTop   Int?     @default(8)          // ← NOUVEAU : espacement CTA en px
     googlePlaceId   String?
     googleReviewUrl String?
@@ -644,7 +644,7 @@ model NFCCard {
   orderItemId Int?
 
   // ── Payload (URL encodée dans QR + puce NFC) ────────────────
-  // Format : https://app.redvanta.com/r/{uid}
+  // Format : https://app.opinoor.com/r/{uid}
   // JAMAIS le lien Google directement
   payload     String?       @db.VarChar(500)
 

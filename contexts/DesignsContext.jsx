@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
-const STORAGE_KEY = "redvanta_saved_designs";
-const VERSIONS_STORAGE_KEY = "redvanta_design_versions";
+const STORAGE_KEY = "opinoor_saved_designs";
+const VERSIONS_STORAGE_KEY = "opinoor_design_versions";
 const MAX_VERSIONS = 20;
 
 const INITIAL_DESIGNS = [];

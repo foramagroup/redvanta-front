@@ -51,7 +51,7 @@ const AvailableIntegrations = () => {
     return matchCat && matchSearch;
   });
 
-  const generateWebhookUrl = () => { const id = Math.random().toString(36).substring(2, 10); setGeneratedUrl(`https://api.redvanta.com/webhooks/inbound/wh_${id}`); setShowWebhookUrl(true); };
+  const generateWebhookUrl = () => { const id = Math.random().toString(36).substring(2, 10); setGeneratedUrl(`https://api.opinoor.com/webhooks/inbound/wh_${id}`); setShowWebhookUrl(true); };
 
   return (
     <DashboardLayout title={t("avint.title")} subtitle={t("avint.subtitle")}>

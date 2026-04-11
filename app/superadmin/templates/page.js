@@ -12,16 +12,41 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search, Plus, Copy, Trash2, Pencil, Star, Palette,
-  Grid3X3, LayoutGrid, Square, Circle,
+  Grid3X3, LayoutGrid, Square, Circle, Loader2
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { ALL_CARD_TEMPLATES, PLATFORMS, gradientCSS } from "@/data/cardTemplates";
+import { useCardTemplates } from "@/hooks/useCardTemplates";
+
+const PLATFORMS = [
+  { id: "google", label: "Google", icon: "🔍", color: "#4285F4" },
+  { id: "facebook", label: "Facebook", icon: "📘", color: "#1877F2" },
+   { id: "instagram", label: "Instagram Review", icon: "IG", color: "#E4405F" },
+  { id: "tiktok", label: "TikTok Review", icon: "TT", color: "#000000" },
+  { id: "yelp", label: "Yelp", icon: "⭐", color: "#D32323" },
+  { id: "tripadvisor", label: "TripAdvisor", icon: "🦉", color: "#00AA6C" },
+  { id: "trustpilot", label: "Trustpilot", icon: "⭐", color: "#00B67A" },
+  { id: "booking", label: "Booking Review", icon: "B", color: "#003580" },
+  { id: "airbnb", label: "Airbnb Review", icon: "AB", color: "#FF5A5F" },
+  { id: "custom", label: "Custom Branding", icon: "C", color: "#6b7280" },
+];
 
 const PATTERN_OPTIONS = [
   "none", "dots", "grid", "wave", "noise", "glow", "mesh", "polygon",
   "memphis", "stripes", "chevron", "diagonal-lines", "checkerboard",
   "hexagon", "concentric", "radial", "scribble", "camo", "pixel",
 ];
+
+function gradientCSS(gradient) {
+  if (!Array.isArray(gradient) || gradient.length === 0) {
+    return "linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)";
+  }
+  if (gradient.length === 2) {
+    return `linear-gradient(135deg, ${gradient[0]} 0%, ${gradient[1]} 100%)`;
+  }
+  if (gradient.length === 3) {
+    return `linear-gradient(135deg, ${gradient[0]} 0%, ${gradient[1]} 50%, ${gradient[2]} 100%)`;
+  }
+  return `linear-gradient(135deg, ${gradient.join(", ")})`;
+}
 
 function patternToCSS(pattern, accent) {
   const a = `${accent}15`;
@@ -60,21 +85,6 @@ function patternBgSize(pattern) {
     case "pixel": return "8px 8px";
     default: return undefined;
   }
-}
-
-function toAdmin(template) {
-  return {
-    ...template,
-    isActive: true,
-    isDefault: false,
-    bandColor1: template.accentColor,
-    bandColor2: template.gradient[1] || template.gradient[0],
-    qrColor: template.accentColor,
-    starsColor: "#FBBF24",
-    iconsColor: template.accentColor,
-    createdAt: "2026-01-01",
-    updatedAt: "2026-01-01",
-  };
 }
 
 const EMPTY_FORM = {
@@ -168,29 +178,50 @@ const PreviewCard = ({ template, previewLayout }) => {
 };
 
 const TemplateManager = () => {
-  const [templates, setTemplates] = useState(() => ALL_CARD_TEMPLATES.map(toAdmin));
-  const [platformFilter, setPlatformFilter] = useState("all");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const {
+    templates,
+    stats,
+    loading,
+    filters,
+    updateFilters,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    duplicateTemplate,
+    toggleTemplate,
+  } = useCardTemplates();
+
   const [editModal, setEditModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteModal, setDeleteModal] = useState(null);
   const [previewLayout, setPreviewLayout] = useState("landscape");
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
     let list = templates;
 
-    if (platformFilter !== "all") list = list.filter((item) => item.platform === platformFilter);
-    if (activeFilter === "active") list = list.filter((item) => item.isActive);
-    if (activeFilter === "inactive") list = list.filter((item) => !item.isActive);
-    if (search) {
-      const query = search.toLowerCase();
-      list = list.filter((item) => item.name.toLowerCase().includes(query) || item.platform.includes(query));
+    if (filters.platform !== "all") {
+      list = list.filter((item) => item.platform === filters.platform);
+    }
+
+    if (filters.isActive === "active") {
+      list = list.filter((item) => item.isActive);
+    } else if (filters.isActive === "inactive") {
+      list = list.filter((item) => !item.isActive);
+    }
+
+    if (filters.search) {
+      const query = filters.search.toLowerCase();
+      list = list.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.platform.includes(query)
+      );
     }
 
     return list;
-  }, [templates, platformFilter, activeFilter, search]);
+  }, [templates, filters]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -218,102 +249,106 @@ const TemplateManager = () => {
     setEditModal(true);
   };
 
-  const handleDuplicate = (template) => {
-    const clone = {
-      ...template,
-      id: `${template.platform}-custom-${Date.now()}`,
-      name: `${template.name} (Copy)`,
-      isDefault: false,
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
-    };
-
-    setTemplates((prev) => [...prev, clone]);
-    toast({ title: "Template duplicated", description: `Duplicated "${template.name}"` });
+  const handleDuplicate = async (template) => {
+    try {
+      await duplicateTemplate(template.id);
+    } catch (error) {
+      console.error('Duplicate error:', error);
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) {
-      toast({
-        title: "Template name required",
-        description: "Template name is required",
-        variant: "destructive",
-      });
       return;
     }
 
-    const now = new Date().toISOString().split("T")[0];
+    try {
+      setSaving(true);
 
-    if (editingId) {
-      setTemplates((prev) => prev.map((item) => (
-        item.id === editingId ? { ...item, ...form, updatedAt: now } : item
-      )));
-      toast({ title: "Template updated", description: `Updated "${form.name}"` });
-    } else {
-      const nextTemplate = {
-        ...form,
-        id: `${form.platform}-custom-${Date.now()}`,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setTemplates((prev) => [...prev, nextTemplate]);
-      toast({ title: "Template created", description: `Created "${form.name}"` });
+      if (editingId) {
+        await updateTemplate(editingId, form);
+      } else {
+        await createTemplate(form);
+      }
+
+      setEditModal(false);
+    } catch (error) {
+      console.error('Save error:', error);
+    } finally {
+      setSaving(false);
     }
-
-    setEditModal(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteModal) return;
 
-    setTemplates((prev) => prev.filter((item) => item.id !== deleteModal.id));
-    toast({ title: "Template deleted", description: `Deleted "${deleteModal.name}"` });
-    setDeleteModal(null);
+    try {
+      await deleteTemplate(deleteModal.id);
+      setDeleteModal(null);
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
   };
 
-  const toggleActive = (id) => {
-    setTemplates((prev) => prev.map((item) => (
-      item.id === id
-        ? { ...item, isActive: !item.isActive, updatedAt: new Date().toISOString().split("T")[0] }
-        : item
-    )));
+  const handleToggleActive = async (id) => {
+    try {
+      await toggleTemplate(id);
+    } catch (error) {
+      console.error('Toggle error:', error);
+    }
   };
 
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+
+  if (loading) {
+    return (
+      <SuperAdminLayout
+        title="Template Manager"
+        subtitle="Create and manage NFC card design templates"
+      >
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </SuperAdminLayout>
+    );
+  }
 
   return (
     <SuperAdminLayout
       title="Template Manager"
       subtitle="Create and manage NFC card design templates"
-      headerAction={(
+      headerAction={
         <Button onClick={openCreate} className="gap-2">
           <Plus size={16} /> Create Template
         </Button>
-      )}
+      }
     >
       <div className="space-y-6">
+        {/* Filtres */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search templates..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => updateFilters({ search: e.target.value })}
               className="pl-9"
             />
           </div>
-          <Select value={platformFilter} onValueChange={setPlatformFilter}>
+          <Select value={filters.platform} onValueChange={(value) => updateFilters({ platform: value })}>
             <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="All Platforms" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Platforms</SelectItem>
               {PLATFORMS.map((platform) => (
-                <SelectItem key={platform.id} value={platform.id}>{platform.icon} {platform.label}</SelectItem>
+                <SelectItem key={platform.id} value={platform.id}>
+                  {platform.icon} {platform.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={activeFilter} onValueChange={setActiveFilter}>
+          <Select value={filters.isActive} onValueChange={(value) => updateFilters({ isActive: value })}>
             <SelectTrigger className="w-full sm:w-36">
               <SelectValue />
             </SelectTrigger>
@@ -325,20 +360,24 @@ const TemplateManager = () => {
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[
-            { label: "Total Templates", value: templates.length, color: "text-foreground" },
-            { label: "Active", value: templates.filter((item) => item.isActive).length, color: "text-green-500" },
-            { label: "Inactive", value: templates.filter((item) => !item.isActive).length, color: "text-muted-foreground" },
-            { label: "Platforms", value: new Set(templates.map((item) => item.platform)).size, color: "text-primary" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border/50 bg-card p-4">
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
-        </div>
+        {/* Stats */}
+        {stats && (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { label: "Total Templates", value: stats.total, color: "text-foreground" },
+              { label: "Active", value: stats.active, color: "text-green-500" },
+              { label: "Inactive", value: stats.inactive, color: "text-muted-foreground" },
+              { label: "Platforms", value: stats.platforms, color: "text-primary" },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-border/50 bg-card p-4">
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
+        {/* Grid de templates */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((template) => {
             const platform = PLATFORMS.find((item) => item.id === template.platform);
@@ -402,10 +441,15 @@ const TemplateManager = () => {
                       variant="ghost"
                       onClick={() => setDeleteModal(template)}
                       className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                      disabled={template.isDefault}
                     >
                       <Trash2 size={12} />
                     </Button>
-                    <Switch checked={template.isActive} onCheckedChange={() => toggleActive(template.id)} className="ml-auto scale-75" />
+                    <Switch 
+                      checked={template.isActive} 
+                      onCheckedChange={() => handleToggleActive(template.id)} 
+                      className="ml-auto scale-75" 
+                    />
                   </div>
                 </div>
               </div>
@@ -421,6 +465,7 @@ const TemplateManager = () => {
         )}
       </div>
 
+      {/* Modal Edit/Create */}
       <Dialog open={editModal} onOpenChange={setEditModal}>
         <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
           <DialogHeader>
@@ -462,6 +507,10 @@ const TemplateManager = () => {
                   <div className="flex items-center gap-3">
                     <Switch checked={form.isActive} onCheckedChange={(value) => updateForm({ isActive: value })} />
                     <span className="text-sm">Active</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={form.isDefault} onCheckedChange={(value) => updateForm({ isDefault: value })} />
+                    <span className="text-sm">Set as Default</span>
                   </div>
                 </div>
 
@@ -515,12 +564,18 @@ const TemplateManager = () => {
           </ScrollArea>
 
           <DialogFooter className="border-t border-border/50 pt-4">
-            <Button variant="outline" onClick={() => setEditModal(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{editingId ? "Update Template" : "Create Template"}</Button>
+            <Button variant="outline" onClick={() => setEditModal(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {editingId ? "Update Template" : "Create Template"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Modal Delete */}
       <Dialog open={!!deleteModal} onOpenChange={() => setDeleteModal(null)}>
         <DialogContent>
           <DialogHeader>

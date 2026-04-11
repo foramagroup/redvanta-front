@@ -104,7 +104,7 @@ const Automation = () => {
             <div className="flex items-center justify-between mb-4"><h3 className="font-display font-semibold">{t("auto.template_preview")}</h3><button onClick={() => setShowPreview(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button></div>
             <div className="rounded-lg bg-secondary/50 p-4">
               <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground"><selectedWorkflow.actionIcon size={14} /><span>{selectedWorkflow.action}</span></div>
-              <p className="text-sm">{selectedWorkflow.template.replace("{customer_name}", "John").replace("{business_name}", "REDVANTA").replace("{review_link}", "https://g.page/r/...")}</p>
+              <p className="text-sm">{selectedWorkflow.template.replace("{customer_name}", "John").replace("{business_name}", "Opinoor").replace("{review_link}", "https://g.page/r/...")}</p>
             </div>
             <Button className="w-full mt-4" onClick={() => setShowPreview(false)}>{t("auto.close")}</Button>
           </motion.div>

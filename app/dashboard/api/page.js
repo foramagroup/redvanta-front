@@ -19,7 +19,7 @@ const initialApiKeys = [
 ];
 
 const initialWebhooks = [
-  { url: "https://api.client.com/webhooks/redvanta", events: ["review.created", "review.updated"], retries: true, status: "Active" },
+  { url: "https://api.client.com/webhooks/opinoor", events: ["review.created", "review.updated"], retries: true, status: "Active" },
   { url: "https://hooks.zapier.com/hooks/catch/12345", events: ["request.completed"], retries: false, status: "Active" },
 ];
 
@@ -71,7 +71,7 @@ const ApiWebhooks = () => {
       <motion.div variants={fadeUp} custom={1} className="rounded-xl border border-border/50 bg-gradient-card p-6 mb-6">
         <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Webhook size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("apiwh.incoming")}</h3><p className="text-xs text-muted-foreground">{t("apiwh.incoming_desc")}</p></div></div>
         <div className="space-y-4">
-          <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("apiwh.webhook_url")}</label><div className="flex gap-2"><Input className="bg-secondary/50 border-border/50 font-mono text-xs flex-1" value="https://api.redvanta.com/webhooks/inbound/wh_a1b2c3d4e5f6" readOnly /><Button variant="outline" size="icon" className="border-border/50" onClick={() => handleCopy("https://api.redvanta.com/webhooks/inbound/wh_a1b2c3d4e5f6")}><Copy size={14} /></Button></div></div>
+          <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("apiwh.webhook_url")}</label><div className="flex gap-2"><Input className="bg-secondary/50 border-border/50 font-mono text-xs flex-1" value="https://api.opinoor.com/webhooks/inbound/wh_a1b2c3d4e5f6" readOnly /><Button variant="outline" size="icon" className="border-border/50" onClick={() => handleCopy("https://api.opinoor.com/webhooks/inbound/wh_a1b2c3d4e5f6")}><Copy size={14} /></Button></div></div>
           <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("apiwh.signing_secret")}</label><div className="flex gap-2"><Input className="bg-secondary/50 border-border/50 font-mono text-xs flex-1" value="whsec_••••••••••••••••••••" readOnly /><Button variant="outline" size="sm" className="border-border/50 gap-1" onClick={() => toast({ title: t("apiwh.regenerated") })}><RefreshCw size={14} /> {t("apiwh.regenerate")}</Button></div></div>
         </div>
       </motion.div>

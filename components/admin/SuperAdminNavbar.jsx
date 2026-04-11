@@ -80,7 +80,7 @@ const SuperAdminNavbar = () => {
   }, []);
 
   const displayName = account?.name || "Super Admin";
-  const displayEmail = account?.email || "admin@redvanta.com";
+  const displayEmail = account?.email || "admin@opinoor.com";
   const displayRole = account?.role?.name || "Super Admin";
   const avatarLabel = useMemo(() => {
     const source = displayName?.trim() || displayEmail?.trim() || "S";
@@ -118,7 +118,7 @@ const SuperAdminNavbar = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <Link href="/superadmin" className="font-display text-xl font-bold tracking-tight">
-            RED<span className="text-gradient-red">VANTA</span>
+            OPI<span className="text-gradient-red">NOOR</span>
           </Link>
 
           <div className="flex items-center gap-1 sm:gap-2">

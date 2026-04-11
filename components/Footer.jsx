@@ -13,7 +13,7 @@ const Footer = () => {
         <div className="grid gap-12 md:grid-cols-4">
           <div>
             <Link href="/" className="font-display text-2xl font-bold tracking-tight">
-              RED<span className="text-gradient-red">VANTA</span>
+              OPI<span className="text-gradient-red">NOOR</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
               {t("footer.tagline")}

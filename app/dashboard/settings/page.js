@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/animations";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Building2, Palette, Link2, Shield, CreditCard, Upload, Eye, EyeOff, Copy, ExternalLink, Plus, Globe, MapPin, CheckCircle, Smartphone, Mail, Key, ZoomIn, ZoomOut, Info } from "lucide-react";
+import { Building2, CreditCard, Upload, Plus, Globe, CheckCircle, Smartphone, ZoomIn, ZoomOut, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,18 +29,10 @@ const countries = [
 const Settings = () => {
   const { t } = useLanguage();
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [twoFactor, setTwoFactor] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState("#E10600");
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoScale, setLogoScale] = useState(100);
   const fileInputRef = useRef(null);
-  const [captchaEnabled, setCaptchaEnabled] = useState(false);
-  const [mapsEnabled, setMapsEnabled] = useState(false);
-  const [twoFactorEmail, setTwoFactorEmail] = useState(false);
-  const [twoFactorPhone, setTwoFactorPhone] = useState(false);
-  const [twoFactorGoogle, setTwoFactorGoogle] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeStep, setUpgradeStep] = useState("select");
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -50,26 +42,17 @@ const Settings = () => {
   const [locationsToAdd, setLocationsToAdd] = useState(1);
   const [showBillingHistory, setShowBillingHistory] = useState(false);
 
-  const Toggle = ({ value, onChange }) => (
-    <button onClick={() => onChange(!value)} className={`relative w-10 h-5 rounded-full transition-colors ${value ? "bg-primary" : "bg-muted"}`}>
-      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-transform ${value ? "left-5" : "left-0.5"}`} />
-    </button>
-  );
-
-  const handleCopy = (text) => { navigator.clipboard.writeText(text); toast({ title: t("sett.copied"), description: t("sett.copied_desc") }); };
   const handleLogoUpload = (e) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setLogoPreview(reader.result); reader.readAsDataURL(file); } };
   const handleCountryChange = (countryName) => { const country = countries.find((c) => c.name === countryName); if (country) setSelectedCountry(country); };
 
   return (
     <DashboardLayout title={t("sett.title")} subtitle={t("sett.subtitle")}>
       <div className="max-w-4xl">
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="w-full justify-start mb-6 bg-secondary/50 p-1">
-            <TabsTrigger value="general" className="gap-2"><Building2 size={14} /> {t("sett.general")}</TabsTrigger>
-            <TabsTrigger value="platforms" className="gap-2"><Link2 size={14} /> {t("sett.review_platforms")}</TabsTrigger>
-            <TabsTrigger value="security" className="gap-2"><Shield size={14} /> {t("sett.security")}</TabsTrigger>
-            <TabsTrigger value="subscription" className="gap-2"><CreditCard size={14} /> {t("sett.subscription")}</TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="w-full justify-start mb-6 bg-secondary/50 p-1">
+              <TabsTrigger value="general" className="gap-2"><Building2 size={14} /> {t("sett.general")}</TabsTrigger>
+              <TabsTrigger value="subscription" className="gap-2"><CreditCard size={14} /> {t("sett.subscription")}</TabsTrigger>
+            </TabsList>
 
           <TabsContent value="general" className="space-y-6">
             <motion.div variants={fadeUp} custom={0} className="rounded-xl border border-border/50 bg-gradient-card p-6">
@@ -89,10 +72,10 @@ const Settings = () => {
                   </div>
                 </div>
                 <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.full_name")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="John Doe" /></div>
-                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.business_name")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="REDVANTA Inc." /></div>
+                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.business_name")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="Opinoor Inc." /></div>
                 <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.vat")}</label><Input className="bg-secondary/50 border-border/50" placeholder="e.g. FR12345678901" /></div>
                 <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.trade")}</label><Input className="bg-secondary/50 border-border/50" placeholder="e.g. 123456789" /></div>
-                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.contact_email")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="contact@redvanta.com" type="email" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.contact_email")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="contact@opinoor.com" type="email" /></div>
                 <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.country")}</label><select value={selectedCountry.name} onChange={(e) => handleCountryChange(e.target.value)} className="w-full h-10 rounded-md border border-border/50 bg-secondary/50 px-3 text-sm">{countries.map((c) => (<option key={c.name} value={c.name}>{c.flag} {c.name}</option>))}</select></div>
                 <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.phone")}</label><div className="flex gap-2"><div className="flex items-center gap-1 px-3 rounded-md border border-border/50 bg-secondary/50 text-sm min-w-[80px]"><span>{selectedCountry.flag}</span><span className="text-xs">{selectedCountry.code}</span></div><Input className="bg-secondary/50 border-border/50 flex-1" defaultValue="555 000-0000" /></div></div>
                 <div className="md:col-span-2"><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.address")}</label><Input className="bg-secondary/50 border-border/50" defaultValue="123 Main St, New York, NY" /></div>
@@ -100,63 +83,9 @@ const Settings = () => {
               <Button size="sm" className="mt-6 glow-red-hover">{t("sett.save_changes")}</Button>
             </motion.div>
 
-            <motion.div variants={fadeUp} custom={1} className="rounded-xl border border-border/50 bg-gradient-card p-6">
-              <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Palette size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("sett.branding")}</h3><p className="text-xs text-muted-foreground">{t("sett.branding_desc")}</p></div></div>
-              <div className="flex items-center gap-4 mb-4"><label className="text-xs text-muted-foreground">{t("sett.primary_color")}</label><div className="flex items-center gap-3"><input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-10 h-10 rounded-lg border border-border/50 cursor-pointer bg-transparent" /><Input className="w-28 bg-secondary/50 border-border/50" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} /></div></div>
-              <div className="rounded-lg bg-secondary/30 p-4"><p className="text-xs text-muted-foreground mb-2">{t("sett.preview")}</p><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg" style={{ backgroundColor: primaryColor }} /><span className="text-sm font-medium">{t("sett.your_brand")}</span><button className="ml-auto px-4 py-1.5 rounded-lg text-xs font-medium text-foreground" style={{ backgroundColor: primaryColor }}>{t("sett.leave_review")}</button></div></div>
-            </motion.div>
-
-            <motion.div variants={fadeUp} custom={2} className="rounded-xl border border-border/50 bg-gradient-card p-6">
-              <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Shield size={20} className="text-primary" /></div><div className="flex-1"><h3 className="font-display font-semibold">{t("sett.recaptcha")}</h3><p className="text-xs text-muted-foreground">{t("sett.recaptcha_desc")}</p></div><Toggle value={captchaEnabled} onChange={setCaptchaEnabled} /></div>
-              {captchaEnabled && (<div className="space-y-4"><div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.site_key")}</label><Input className="bg-secondary/50 border-border/50 font-mono text-xs" placeholder="6Lc..." /></div><div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.secret_key")}</label><Input className="bg-secondary/50 border-border/50 font-mono text-xs" type="password" placeholder="6Lc..." /></div><Button size="sm" className="glow-red-hover">{t("sett.save_recaptcha")}</Button></div>)}
-            </motion.div>
-
-            <motion.div variants={fadeUp} custom={3} className="rounded-xl border border-border/50 bg-gradient-card p-6">
-              <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><MapPin size={20} className="text-primary" /></div><div className="flex-1"><h3 className="font-display font-semibold">{t("sett.maps_api")}</h3><p className="text-xs text-muted-foreground">{t("sett.maps_desc")}</p></div><Toggle value={mapsEnabled} onChange={setMapsEnabled} /></div>
-              {mapsEnabled && (<div className="space-y-4"><div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.cloud_api_key")}</label><Input className="bg-secondary/50 border-border/50 font-mono text-xs" placeholder="AIza..." /></div><div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.cloud_secret")}</label><Input className="bg-secondary/50 border-border/50 font-mono text-xs" type="password" placeholder="Enter secret..." /></div><p className="text-[10px] text-muted-foreground">{t("sett.maps_note")}</p><Button size="sm" className="glow-red-hover">{t("sett.save_maps")}</Button></div>)}
-            </motion.div>
           </TabsContent>
 
-          <TabsContent value="platforms">
-            <motion.div variants={fadeUp} custom={0} className="rounded-xl border border-border/50 bg-gradient-card p-6">
-              <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Link2 size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("sett.platforms_title")}</h3><p className="text-xs text-muted-foreground">{t("sett.platforms_desc")}</p></div></div>
-              <div className="space-y-4">
-                {[
-                  { labelKey: "sett.google_link", value: "https://g.page/r/XXXX/review" },
-                  { labelKey: "sett.facebook_link", value: "https://facebook.com/your-page/reviews" },
-                  { labelKey: "sett.yelp_link", value: "" },
-                  { labelKey: "sett.tripadvisor_link", value: "" },
-                  { labelKey: "sett.custom_link", value: "" },
-                ].map((platform) => (
-                  <div key={platform.labelKey}><label className="text-xs text-muted-foreground mb-1.5 block">{t(platform.labelKey)}</label><div className="flex gap-2"><Input className="bg-secondary/50 border-border/50 flex-1" defaultValue={platform.value} placeholder="https://..." /><Button variant="outline" size="icon" className="border-border/50"><ExternalLink size={14} /></Button></div></div>
-                ))}
-              </div>
-              <Button size="sm" className="mt-6 glow-red-hover">{t("sett.save_platforms")}</Button>
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-6">
-            <motion.div variants={fadeUp} custom={0} className="rounded-xl border border-border/50 bg-gradient-card p-6">
-              <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Shield size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("sett.security_title")}</h3><p className="text-xs text-muted-foreground">{t("sett.security_desc")}</p></div></div>
-              <div className="space-y-4">
-                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.change_password")}</label><div className="flex gap-2"><div className="relative flex-1"><Input className="bg-secondary/50 border-border/50 pr-10" type={showPassword ? "text" : "password"} placeholder={t("sett.new_password")} /><button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div><Button variant="outline" size="default" className="border-border/50">{t("sett.update")}</Button></div></div>
-
-                <div className="flex items-center justify-between rounded-lg bg-secondary/30 p-4"><div><span className="text-sm font-medium block">{t("sett.two_factor")}</span><span className="text-xs text-muted-foreground">{t("sett.two_factor_desc")}</span></div><Toggle value={twoFactor} onChange={setTwoFactor} /></div>
-
-                {twoFactor && (
-                  <div className="space-y-3 ml-0 border-l-2 border-primary/30 pl-4">
-                    <div className="rounded-lg bg-secondary/20 p-4"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Mail size={16} className="text-primary" /></div><div><span className="text-sm font-medium block">{t("sett.setup_email")}</span><span className="text-[11px] text-muted-foreground">{t("sett.email_2fa_desc")}</span></div></div><Button size="sm" variant={twoFactorEmail ? "default" : "outline"} className={twoFactorEmail ? "glow-red-hover" : "border-border/50"} onClick={() => setTwoFactorEmail(!twoFactorEmail)}>{twoFactorEmail ? t("sett.enabled") : t("sett.enable")}</Button></div></div>
-                    <div className="rounded-lg bg-secondary/20 p-4"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Smartphone size={16} className="text-primary" /></div><div><span className="text-sm font-medium block">{t("sett.setup_phone")}</span><span className="text-[11px] text-muted-foreground">{t("sett.phone_2fa_desc")}</span></div></div><Button size="sm" variant={twoFactorPhone ? "default" : "outline"} className={twoFactorPhone ? "glow-red-hover" : "border-border/50"} onClick={() => setTwoFactorPhone(!twoFactorPhone)}>{twoFactorPhone ? t("sett.enabled") : t("sett.enable")}</Button></div></div>
-                    <div className="rounded-lg bg-secondary/20 p-4"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Key size={16} className="text-primary" /></div><div><span className="text-sm font-medium block">{t("sett.setup_google")}</span><span className="text-[11px] text-muted-foreground">{t("sett.google_2fa_desc")}</span></div></div><Button size="sm" variant={twoFactorGoogle ? "default" : "outline"} className={twoFactorGoogle ? "glow-red-hover" : "border-border/50"} onClick={() => setTwoFactorGoogle(!twoFactorGoogle)}>{twoFactorGoogle ? t("sett.enabled") : t("sett.enable")}</Button></div></div>
-                  </div>
-                )}
-
-                <div><label className="text-xs text-muted-foreground mb-1.5 block">{t("sett.api_key")}</label><div className="flex gap-2"><Input className="bg-secondary/50 border-border/50 flex-1 font-mono text-xs" value="rv_live_sk_xxxxxxxxxxxxxxxxxxxxxxxx" readOnly /><Button variant="outline" size="icon" className="border-border/50" onClick={() => handleCopy("rv_live_sk_xxxxxxxxxxxxxxxxxxxxxxxx")}><Copy size={14} /></Button></div></div>
-              </div>
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="subscription">
+            <TabsContent value="subscription">
             <motion.div variants={fadeUp} custom={0} className="rounded-xl border border-border/50 bg-gradient-card p-6">
               <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><CreditCard size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("sett.subscription_title")}</h3><p className="text-xs text-muted-foreground">{t("sett.subscription_desc")}</p></div></div>
               <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 mb-4">

@@ -68,7 +68,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (business) {
-      document.title = `Review ${business.name} | REDVANTA`;
+      document.title = `Review ${business.name} | Opinoor`;
     }
   }, [business]);
 
@@ -149,7 +149,7 @@ export default function ReviewPage() {
             </div>
 
             <p className="mt-4 text-[11px] text-muted-foreground/60 font-body">
-              Powered by <span className="font-semibold">REDVANTA</span>
+              Powered by <span className="font-semibold">Opinoor</span>
             </p>
           </motion.div>
         </div>

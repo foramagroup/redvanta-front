@@ -75,9 +75,9 @@ const DashboardNavbar = () => {
     return () => { cancelled = true; };
   }, [apiBase]);
 
-  const displayCompanyName = account?.activeCompany?.name || "REDVANTA Inc.";
+  const displayCompanyName = account?.activeCompany?.name || "Opinoor Inc.";
   const displayUserName = account?.name || "John Doe";
-  const displayUserEmail = account?.email || "john@redvanta.com";
+  const displayUserEmail = account?.email || "john@opinoor.com";
   const avatarLetter = useMemo(() => {
     const source = account?.name || account?.activeCompany?.name || "R";
     return String(source).trim().charAt(0).toUpperCase() || "R";
@@ -113,7 +113,7 @@ const DashboardNavbar = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <Link href="/dashboard" className="font-display text-xl font-bold tracking-tight">
-            RED<span className="text-gradient-red">VANTA</span>
+            OPI<span className="text-gradient-red">NOOR</span>
           </Link>
 
           <div className="flex items-center gap-1 sm:gap-2">

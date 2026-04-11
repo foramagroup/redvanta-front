@@ -111,7 +111,7 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-dark px-6 py-16">
       <div className="w-full max-w-md rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur text-center">
         <Link href="/" className="font-display text-3xl font-bold tracking-tight">
-          RED<span className="text-gradient-red">VANTA</span>
+          OPI<span className="text-gradient-red">NOOR</span>
         </Link>
 
         <h1 className="mt-6 text-2xl font-bold">

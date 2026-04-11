@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const codeExamples = {
-  Node: `const axios = require('axios');\n\nconst res = await axios.get(\n  'https://api.redvanta.com/v1/reviews',\n  {\n    headers: {\n      'Authorization': 'Bearer rv_live_sk_your_key',\n      'Content-Type': 'application/json'\n    }\n  }\n);\n\nconsole.log(res.data);`,
-  Python: `import requests\n\nresponse = requests.get(\n    "https://api.redvanta.com/v1/reviews",\n    headers={\n        "Authorization": "Bearer rv_live_sk_your_key",\n        "Content-Type": "application/json"\n    }\n)\n\nprint(response.json())`,
-  cURL: `curl -X GET \\\n  https://api.redvanta.com/v1/reviews \\\n  -H "Authorization: Bearer rv_live_sk_your_key" \\\n  -H "Content-Type: application/json"`,
+  Node: `const axios = require('axios');\n\nconst res = await axios.get(\n  'https://api.opinoor.com/v1/reviews',\n  {\n    headers: {\n      'Authorization': 'Bearer rv_live_sk_your_key',\n      'Content-Type': 'application/json'\n    }\n  }\n);\n\nconsole.log(res.data);`,
+  Python: `import requests\n\nresponse = requests.get(\n    "https://api.opinoor.com/v1/reviews",\n    headers={\n        "Authorization": "Bearer rv_live_sk_your_key",\n        "Content-Type": "application/json"\n    }\n)\n\nprint(response.json())`,
+  cURL: `curl -X GET \\\n  https://api.opinoor.com/v1/reviews \\\n  -H "Authorization: Bearer rv_live_sk_your_key" \\\n  -H "Content-Type: application/json"`,
 };
 
 const samplePayload = `{\n  "data": [\n    {\n      "id": "rev_a1b2c3d4",\n      "rating": 5,\n      "customer_name": "John D.",\n      "content": "Excellent service...",\n      "source": "nfc",\n      "location_id": "loc_xyz",\n      "created_at": "2026-02-24T14:30:00Z",\n      "status": "public"\n    }\n  ],\n  "meta": {\n    "total": 1247,\n    "page": 1,\n    "per_page": 20\n  }\n}`;
@@ -37,7 +37,7 @@ const DeveloperAccess = () => {
       <motion.div variants={fadeUp} custom={0} className="rounded-xl border border-border/50 bg-gradient-card p-6 mb-6">
         <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Globe size={20} className="text-primary" /></div><div><h3 className="font-display font-semibold">{t("devac.api_overview")}</h3><p className="text-xs text-muted-foreground">{t("devac.api_desc")}</p></div></div>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 rounded-lg bg-secondary/30 p-4"><span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">{t("devac.base_url")}</span><div className="flex items-center gap-2"><code className="text-sm font-mono text-primary">https://api.redvanta.com/v1</code><button className="text-muted-foreground hover:text-foreground"><Copy size={14} /></button></div></div>
+          <div className="flex-1 rounded-lg bg-secondary/30 p-4"><span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">{t("devac.base_url")}</span><div className="flex items-center gap-2"><code className="text-sm font-mono text-primary">https://api.opinoor.com/v1</code><button className="text-muted-foreground hover:text-foreground"><Copy size={14} /></button></div></div>
           <div className="rounded-lg bg-secondary/30 p-4 flex items-center gap-3">
             <span className="text-xs text-muted-foreground">{t("devac.sandbox_mode")}</span>
             <button onClick={() => setSandbox(!sandbox)} className="text-primary">{sandbox ? <ToggleRight size={28} /> : <ToggleLeft size={28} className="text-muted-foreground" />}</button>

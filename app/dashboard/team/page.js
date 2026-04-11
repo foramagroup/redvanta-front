@@ -12,11 +12,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const roleColors = { Admin: "bg-primary/20 text-primary", Manager: "bg-blue-500/20 text-blue-400", Viewer: "bg-secondary text-muted-foreground" };
 
 const members = [
-  { id: 1, name: "John Anderson", email: "john@redvanta.com", role: "Admin", locations: "All", status: "Active", lastLogin: "2 min ago", avatar: "JA" },
-  { id: 2, name: "Sarah Williams", email: "sarah@redvanta.com", role: "Manager", locations: "Downtown, Midtown", status: "Active", lastLogin: "1 hr ago", avatar: "SW" },
-  { id: 3, name: "Mike Chen", email: "mike@redvanta.com", role: "Manager", locations: "Westside", status: "Active", lastLogin: "3 hrs ago", avatar: "MC" },
-  { id: 4, name: "Emily Davis", email: "emily@redvanta.com", role: "Viewer", locations: "Downtown", status: "Active", lastLogin: "1 day ago", avatar: "ED" },
-  { id: 5, name: "Tom Wilson", email: "tom@redvanta.com", role: "Viewer", locations: "Midtown", status: "Inactive", lastLogin: "2 weeks ago", avatar: "TW" },
+  { id: 1, name: "John Anderson", email: "john@opinoor.com", role: "Admin", locations: "All", status: "Active", lastLogin: "2 min ago", avatar: "JA" },
+  { id: 2, name: "Sarah Williams", email: "sarah@opinoor.com", role: "Manager", locations: "Downtown, Midtown", status: "Active", lastLogin: "1 hr ago", avatar: "SW" },
+  { id: 3, name: "Mike Chen", email: "mike@opinoor.com", role: "Manager", locations: "Westside", status: "Active", lastLogin: "3 hrs ago", avatar: "MC" },
+  { id: 4, name: "Emily Davis", email: "emily@opinoor.com", role: "Viewer", locations: "Downtown", status: "Active", lastLogin: "1 day ago", avatar: "ED" },
+  { id: 5, name: "Tom Wilson", email: "tom@opinoor.com", role: "Viewer", locations: "Midtown", status: "Inactive", lastLogin: "2 weeks ago", avatar: "TW" },
 ];
 
 const Team = () => {

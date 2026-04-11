@@ -50,7 +50,7 @@ const EmailTemplates = () => {
 
   const userPresets = {
     customer: { "{{customer_name}}": "John Smith", "{{company_name}}": "Acme Corp", "{{review_link}}": "#", "{{location}}": "New York", "{{date}}": "Mar 3, 2026" },
-    admin: { "{{customer_name}}": "Admin User", "{{company_name}}": "REDVANTA", "{{review_link}}": "#", "{{location}}": "HQ", "{{date}}": "Mar 3, 2026" },
+    admin: { "{{customer_name}}": "Admin User", "{{company_name}}": "Opinoor", "{{review_link}}": "#", "{{location}}": "HQ", "{{date}}": "Mar 3, 2026" },
   };
 
   const replaceVars = (text) => {
@@ -325,7 +325,7 @@ const EmailTemplates = () => {
                   </div>
                   <div className="flex items-center gap-2 text-xs mt-1">
                     <span className={`font-medium ${previewDark ? "text-gray-300" : "text-gray-600"}`}>{t("sa.emt_to")}:</span>
-                    <span className={previewDark ? "text-gray-400" : "text-gray-500"}>{previewUser === "admin" ? "admin@redvanta.com" : "john@example.com"}</span>
+                    <span className={previewDark ? "text-gray-400" : "text-gray-500"}>{previewUser === "admin" ? "admin@opinoor.com" : "john@example.com"}</span>
                   </div>
                 </div>
                 <div className={`p-0 min-h-[400px] ${previewDark ? "bg-gray-800" : "bg-white"}`}>

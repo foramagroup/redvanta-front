@@ -201,7 +201,7 @@ const SecurityPage = () => {
   const AdminFormFields = () => (
     <div className="space-y-4">
       <div><Label>{t("sa.sec_full_name")}</Label><Input value={form.name} disabled={savingAdmin} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 bg-secondary border-border/50" placeholder={t("sa.sec_enter_name")} /></div>
-      <div><Label>{t("sa.sec_email")}</Label><Input type="email" value={form.email} disabled={savingAdmin} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 bg-secondary border-border/50" placeholder="admin@redvanta.com" /></div>
+      <div><Label>{t("sa.sec_email")}</Label><Input type="email" value={form.email} disabled={savingAdmin} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 bg-secondary border-border/50" placeholder="admin@opinoor.com" /></div>
       <div><Label>{t("sa.sec_role")}</Label>
         <Select value={form.roleId} disabled={savingAdmin} onValueChange={(v) => setForm({ ...form, roleId: v })}>
           <SelectTrigger className="mt-1 bg-secondary border-border/50"><SelectValue placeholder={t("sa.sec_select_role")} /></SelectTrigger>

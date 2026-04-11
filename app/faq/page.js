@@ -9,10 +9,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const categories = ["All", "General", "Pricing", "Features", "Integrations", "Security", "Support"];
 
 const faqs = [
-  { q: "What is REDVANTA?", a: "REDVANTA is a comprehensive reputation management platform that helps businesses monitor, collect, and respond to customer reviews across all major platforms — all from a single dashboard.", category: "General" },
+  { q: "What is Opinoor?", a: "Opinoor is a comprehensive reputation management platform that helps businesses monitor, collect, and respond to customer reviews across all major platforms — all from a single dashboard.", category: "General" },
   { q: "How does the review collection system work?", a: "Our smart NFC cards and QR codes direct customers to leave reviews. The system uses intelligent routing to guide satisfied customers to public review sites while privately capturing feedback from less satisfied ones.", category: "General" },
   { q: "What platforms do you integrate with?", a: "We integrate with Google Business, Trustpilot, Yelp, Facebook, TripAdvisor, and 50+ other review platforms. Custom integrations are available via our API.", category: "Integrations" },
-  { q: "Can I connect my existing CRM?", a: "Yes. REDVANTA integrates with major CRMs including Salesforce, HubSpot, and Pipedrive. We also offer webhooks and a REST API for custom integrations.", category: "Integrations" },
+  { q: "Can I connect my existing CRM?", a: "Yes. Opinoor integrates with major CRMs including Salesforce, HubSpot, and Pipedrive. We also offer webhooks and a REST API for custom integrations.", category: "Integrations" },
   { q: "What pricing plans are available?", a: "We offer Starter, Professional, and Enterprise plans. Each includes different levels of locations, API access, and features. Visit our pricing page for detailed comparisons.", category: "Pricing" },
   { q: "Is there a free trial?", a: "Yes, we offer a 14-day free trial on all plans with no credit card required. You get full access to all features during the trial period.", category: "Pricing" },
   { q: "Can I change my plan later?", a: "Absolutely. You can upgrade or downgrade your plan at any time. Changes take effect at the start of your next billing cycle, with prorated adjustments.", category: "Pricing" },
@@ -22,7 +22,7 @@ const faqs = [
   { q: "Is my data GDPR compliant?", a: "Yes. We are fully GDPR compliant with data processing agreements, right to deletion support, and transparent data handling policies.", category: "Security" },
   { q: "What support channels are available?", a: "We offer email support, live chat, phone support (Business & Enterprise), and a comprehensive knowledge base. Enterprise plans include a dedicated account manager.", category: "Support" },
   { q: "Do you offer onboarding assistance?", a: "Yes. All plans include guided onboarding. Professional and Enterprise plans include dedicated onboarding sessions with a customer success manager.", category: "Support" },
-  { q: "What is the white-label agency program?", a: "Our agency program lets you resell REDVANTA under your own brand. You get custom branding, sub-account management, consolidated billing, and dedicated agency support.", category: "General" },
+  { q: "What is the white-label agency program?", a: "Our agency program lets you resell Opinoor under your own brand. You get custom branding, sub-account management, consolidated billing, and dedicated agency support.", category: "General" },
 ];
 
 const FAQ = () => {
@@ -43,7 +43,7 @@ const FAQ = () => {
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Frequently Asked <span className="text-gradient-red">Questions</span>
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg">Find answers to common questions about REDVANTA's platform, pricing, and features.</p>
+          <p className="text-muted-foreground text-base sm:text-lg">Find answers to common questions about Opinoor's platform, pricing, and features.</p>
         </motion.div>
 
         {/* Search */}

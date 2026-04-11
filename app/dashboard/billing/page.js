@@ -24,7 +24,7 @@ const usageData = [
 const initialAddons = [
   { name: "API Access Pro", desc: "500K API calls/mo, priority rate limits", price: "$49/mo", active: true },
   { name: "Automation Suite", desc: "Advanced workflow builder, 10K SMS", price: "$79/mo", active: false },
-  { name: "White-Label", desc: "Remove REDVANTA branding, custom domain", price: "$199/mo", active: false },
+  { name: "White-Label", desc: "Remove Opinoor branding, custom domain", price: "$199/mo", active: false },
   { name: "Extra Locations", desc: "Add 5 additional locations", price: "$29/mo", active: true },
 ];
 
