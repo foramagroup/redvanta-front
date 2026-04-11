@@ -4,12 +4,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Mail, Menu, ShoppingCart, X } from "lucide-react";
+import { CreditCard, FileText, KeyRound, LayoutDashboard, LogOut, Mail, Menu, Moon, ShoppingCart, Sun, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage, LANGUAGES } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLiveTextEditor } from "@/contexts/LiveTextEditorContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { ChevronDown } from "lucide-react";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -38,6 +39,7 @@ const Header = ({ showEditBar = false }) => {
   const { lang, setLang, t } = useLanguage();
   const { currency, setCurrencyCode, currencies } = useCurrency();
   const { isEditing } = useLiveTextEditor();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     let active = true;
@@ -292,9 +294,58 @@ const Header = ({ showEditBar = false }) => {
                       <span className="truncate">{displayUserEmail}</span>
                     </div>
                   </div>
+                  <Link
+                    href="/dashboard"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <LayoutDashboard size={14} />
+                    <span>Dashboard</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/designs"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <CreditCard size={14} />
+                    <span>My Cards</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/settings"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <User size={14} />
+                    <span>My Profile</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/orders"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <FileText size={14} />
+                    <span>All Orders</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/billing"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <FileText size={14} />
+                    <span>Invoice</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/settings"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    <KeyRound size={14} />
+                    <span>Change Password</span>
+                  </Link>
+                  <button
+                    onClick={toggleTheme}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-xs text-foreground transition-colors hover:bg-secondary/50"
+                  >
+                    {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                    <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                  </button>
                   <button
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-sm text-red-400 transition-colors hover:bg-secondary/50"
+                    className="flex w-full items-center gap-2 border-t border-border/50 px-4 py-3 text-xs text-red-400 transition-colors hover:bg-secondary/50"
                   >
                     <LogOut size={14} />
                     <span>{t("sa.navbar_logout") || "Logout"}</span>
@@ -350,9 +401,32 @@ const Header = ({ showEditBar = false }) => {
             ))}
             <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
               {authChecked && isAuthenticated ? (
-                <div className="px-1 text-sm font-medium text-foreground">
-                  {authUser.name || authUser.email}
-                </div>
+                <>
+                  <div className="px-1 text-sm font-medium text-foreground">
+                    {authUser.name || authUser.email}
+                  </div>
+                  <Link href="/dashboard" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    Dashboard
+                  </Link>
+                  <Link href="/dashboard/designs" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    My Cards
+                  </Link>
+                  <Link href="/dashboard/orders" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    All Orders
+                  </Link>
+                  <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    My Profile
+                  </Link>
+                  <Link href="/dashboard/billing" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    Invoice
+                  </Link>
+                  <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    Change Password
+                  </Link>
+                  <button onClick={() => { toggleTheme(); setIsOpen(false); }} className="text-left text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
+                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                  </button>
+                </>
               ) : authChecked ? (
                 <>
                   <Link href="/login" onClick={() => setIsOpen(false)}>
