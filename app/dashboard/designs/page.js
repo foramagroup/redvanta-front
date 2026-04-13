@@ -34,7 +34,7 @@ const STATUS_CONFIG = {
 // Authentification via cookie HttpOnly (sa_token / admin_token).
 // credentials: "include" => le navigateur envoie automatiquement les cookies.
 // Aucune lecture de localStorage — le token reste inaccessible au JS.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -73,7 +73,7 @@ const MyDesigns = () => {
   // ── Chargement ──────────────────────────────────────────────
   const loadStats = useCallback(async () => {
     try {
-      const { data } = await apiFetch("/api/admin/my-design/stats");
+      const { data } = await apiFetch("/admin/my-design/stats");
       setStats(data);
     } catch (e) {
       console.error("[designs] stats:", e.message);
@@ -85,7 +85,7 @@ const MyDesigns = () => {
     try {
       const params = new URLSearchParams({ status: statusFilter, limit: "50" });
       if (search.trim()) params.set("search", search.trim());
-      const { data } = await apiFetch(`/api/admin/my-design?${params}`);
+      const { data } = await apiFetch(`/admin/my-design?${params}`);
       setDesigns(data ?? []);
     } catch (e) {
       toast({ title: "Erreur", description: e.message, variant: "destructive" });
@@ -115,7 +115,7 @@ const MyDesigns = () => {
 
     setAction(`rename-${id}`);
     try {
-      const { data } = await apiFetch(`/api/admin/my-design/${id}/rename`, {
+      const { data } = await apiFetch(`/admin/my-design/${id}/rename`, {
         method: "PATCH",
         body: JSON.stringify({ name: value }),
       });
@@ -132,7 +132,7 @@ const MyDesigns = () => {
   const handleDuplicate = async (design) => {
     setAction(`dup-${design.id}`);
     try {
-      const { data } = await apiFetch(`/api/admin/my-design/${design.id}/duplicate`, {
+      const { data } = await apiFetch(`/admin/my-design/${design.id}/duplicate`, {
         method: "POST",
       });
       setDesigns((prev) => [data, ...prev]);
@@ -152,7 +152,7 @@ const MyDesigns = () => {
     setDelete(null);
     setAction(`del-${id}`);
     try {
-      await apiFetch(`/api/admin/my-design/${id}`, { method: "DELETE" });
+      await apiFetch(`/admin/my-design/${id}`, { method: "DELETE" });
       const removed = designs.find((d) => d.id === id);
       setDesigns((prev) => prev.filter((d) => d.id !== id));
       if (removed) {
@@ -175,7 +175,7 @@ const MyDesigns = () => {
   const handleArchive = async (design) => {
     setAction(`arch-${design.id}`);
     try {
-      const { data } = await apiFetch(`/api/admin/my-design/${design.id}/archive`, {
+      const { data } = await apiFetch(`/admin/my-design/${design.id}/archive`, {
         method: "PATCH",
       });
       setDesigns((prev) => prev.map((d) => (d.id === design.id ? data : d)));
@@ -197,7 +197,7 @@ const MyDesigns = () => {
   const handleRestore = async (design) => {
     setAction(`restore-${design.id}`);
     try {
-      const { data } = await apiFetch(`/api/admin/my-design/${design.id}/restore`, {
+      const { data } = await apiFetch(`/admin/my-design/${design.id}/restore`, {
         method: "PATCH",
       });
       setDesigns((prev) => prev.map((d) => (d.id === design.id ? data : d)));

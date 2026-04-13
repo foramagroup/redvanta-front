@@ -641,6 +641,20 @@ const Products = () => {
       cardTypeId: item.typeId,
       price: Number(item.price || 0),
     })),
+      cardSettings: {
+      width:               Number(productForm.cardSettings?.width)               || 85,
+      height:              Number(productForm.cardSettings?.height)              || 54,
+      cornerRadiusEnabled: Boolean(productForm.cardSettings?.cornerRadiusEnabled),
+      cornerRadius:        Number(productForm.cardSettings?.cornerRadius)        || 0,
+      layouts:             Array.isArray(productForm.cardSettings?.layouts)
+        ? productForm.cardSettings.layouts
+        : ["landscape"],
+      reviewPlatform:      productForm.cardSettings?.reviewPlatform    || "google",
+      defaultTemplateId:   productForm.cardSettings?.defaultTemplateId || "",
+      availableTemplates:  Array.isArray(productForm.cardSettings?.availableTemplates)
+        ? productForm.cardSettings.availableTemplates
+        : [],
+    },
   });
 
   const openCreate = () => {
@@ -655,9 +669,20 @@ const Products = () => {
     const manualEdits = {};
     Object.keys(p.slug).forEach(l => { if (p.slug[l]) manualEdits[l] = true; });
     setSlugManualEdits(manualEdits);
-    const cs = { ...p.cardSettings, layouts: [...p.cardSettings.layouts], availableTemplates: [...(p.cardSettings.availableTemplates || [])], defaultTemplateId: p.cardSettings.defaultTemplateId || "" };
-    setForm({ slug: { ...p.slug }, price: p.price, active: p.active, image: p.image, gallery: [...p.gallery], title: { ...p.title }, seoTitle: { ...p.seoTitle }, metaDescription: { ...p.metaDescription }, metaImage: { ...p.metaImage }, packageTiers: [...p.packageTiers], cardTypePrices: [...p.cardTypePrices], cardSettings: cs });
-    setDialogOpen(true);
+    const platform = p.cardSettings.reviewPlatform || "google";
+    const availableTemplates = p.cardSettings.availableTemplates?.length > 0
+      ? p.cardSettings.availableTemplates
+      : getTemplatesForPlatform(platform).map(t => t.id);
+
+    const cs = {
+    ...p.cardSettings,
+    layouts:            [...(p.cardSettings.layouts || ["landscape"])],
+    availableTemplates, // ← utiliser la valeur recalculée
+    defaultTemplateId:  p.cardSettings.defaultTemplateId || "",
+  };
+  setForm({ ...form, slug: { ...p.slug }, price: p.price, active: p.active, image: p.image, gallery: [...p.gallery], title: { ...p.title }, seoTitle: { ...p.seoTitle }, metaDescription: { ...p.metaDescription }, metaImage: { ...p.metaImage }, packageTiers: [...p.packageTiers], cardTypePrices: [...p.cardTypePrices], cardSettings: cs });
+  setDialogOpen(true);
+
   };
 
   const addLang = (lang) => {
@@ -1050,11 +1075,21 @@ const Products = () => {
                   {/* Review Platform */}
                   <div className="space-y-1.5">
                     <Label className="text-xs">Review Platform</Label>
-                    <Select value={form.cardSettings.reviewPlatform} onValueChange={(v) => {
+                    <Select value={form.cardSettings.reviewPlatform} 
+                      onValueChange={(v) => {
                       const platformTemplates = getTemplatesForPlatform(v);
                       const firstId = platformTemplates[0]?.id || "";
-                      setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, reviewPlatform: v, defaultTemplateId: firstId, availableTemplates: platformTemplates.map(t => t.id) } }));
-                    }}>
+                      setForm(f => ({
+                        ...f,
+                        cardSettings: {
+                          ...f.cardSettings,
+                          reviewPlatform:     v,
+                          defaultTemplateId:  firstId,
+                          availableTemplates: platformTemplates.map(t => t.id), // ✅ déjà correct
+                        },
+                      }));
+                    }}
+                    >
                       <SelectTrigger className="h-8 text-sm">
                         <SelectValue />
                       </SelectTrigger>
@@ -1070,23 +1105,24 @@ const Products = () => {
                       </SelectContent>
                     </Select>
                     <div className="flex flex-wrap gap-1">
-                      {PLATFORMS.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            const platformTemplates = getTemplatesForPlatform(p.id);
-                            const firstId = platformTemplates[0]?.id || "";
-                            setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, reviewPlatform: p.id, defaultTemplateId: firstId, availableTemplates: platformTemplates.map(t => t.id) } }));
-                          }}
-                          className={cn(
-                            "h-6 w-6 rounded-full border-2 transition-all shrink-0",
-                            form.cardSettings.reviewPlatform === p.id ? "border-primary scale-110 ring-2 ring-primary/30" : "border-transparent opacity-60 hover:opacity-100"
-                          )}
-                          style={{ background: p.color }}
-                          title={p.label}
-                        />
-                      ))}
+                       {PLATFORMS.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              const platformTemplates = getTemplatesForPlatform(p.id);
+                              const firstId = platformTemplates[0]?.id || "";
+                              setForm(f => ({
+                                ...f,
+                                cardSettings: {
+                                  ...f.cardSettings,
+                                  reviewPlatform:     p.id,
+                                  defaultTemplateId:  firstId,
+                                  availableTemplates: platformTemplates.map(t => t.id), // ✅ déjà correct
+                                },
+                              }));
+                            }}
+                          />
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -1102,7 +1138,16 @@ const Products = () => {
                           <button
                             key={tmpl.id}
                             type="button"
-                            onClick={() => setForm(f => ({ ...f, cardSettings: { ...f.cardSettings, defaultTemplateId: tmpl.id } }))}
+                             onClick={() => setForm(f => ({
+                              ...f,
+                              cardSettings: {
+                                ...f.cardSettings,
+                                defaultTemplateId:  tmpl.id,
+                                availableTemplates: getTemplatesForPlatform(
+                                  f.cardSettings.reviewPlatform
+                                ).map(t => t.id),
+                              },
+                            }))}
                             className={cn(
                               "relative rounded-lg overflow-hidden border-2 transition-all aspect-[3/2]",
                               isDefault ? "border-primary ring-2 ring-primary/30 scale-[1.02]" : "border-border/40 hover:border-primary/40"

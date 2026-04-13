@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter,  useSearchParams  } from "next/navigation";
 import { Trash2, Minus, Plus, AlertTriangle, CheckCircle2, Pencil, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +16,16 @@ import { MODEL_LABELS } from "@/types/shop";
 const Cart = () => {
   const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
   const { formatPrice } = useCurrency();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
   const { t } = useLanguage();
-  const router = useRouter();
+
   const isDraftDesignBlockingCheckout = (design) =>
     !!design && design.status === "draft" && !!design.googlePlaceId;
   const handleProceedCheckout = () => {
     if (!isAuthenticated) {
-      router.push("/account-required");
+       router.push("/login?redirect=/checkout");
       return;
     }
 

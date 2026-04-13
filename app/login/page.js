@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import CompanySwitchDialog from "@/components/CompanySwitchDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fadeUp } from "@/lib/animations";
 
@@ -43,14 +44,42 @@ const socialProviders = [
   },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [availableCompanies, setAvailableCompanies] = useState([]);
+  const [activeCompanyId, setActiveCompanyId] = useState(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [isSwitchingCompany, setIsSwitchingCompany] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+  const finalizeLogin = () => {
+    window.dispatchEvent(new Event("app:login"));
+    router.push(redirectTo);
+    router.refresh();
+  };
+
+  const normalizeCompanies = (user) => {
+    const companies = Array.isArray(user?.companies) ? user.companies : [];
+    return companies
+      .filter((entry) => ["active", "trial"].includes(entry?.company?.status))
+      .map((entry) => ({
+        linkId: entry.linkId,
+        isOwner: !!entry.isOwner,
+        id: entry?.company?.id,
+        name: entry?.company?.name || "Company",
+        status: entry?.company?.status || "",
+        email: entry?.company?.email || "",
+      }))
+      .filter((entry) => entry.id);
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -64,7 +93,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiBase}/admin/auth/login`, {
+      const response = await fetch(`${apiBase}/client/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -76,32 +105,22 @@ export default function LoginPage() {
         throw new Error(data?.error || "Login failed");
       }
 
-      if (data?.requiresSelection) {
-        const firstCompany = Array.isArray(data?.companies) ? data.companies[0] : null;
-
-        if (!data?.userId || !firstCompany?.id) {
-          throw new Error("No active company available for this account");
-        }
-
-        const selectResponse = await fetch(`${apiBase}/admin/auth/select-company`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: data.userId,
-            companyId: firstCompany.id,
-          }),
-        });
-        const selectData = await selectResponse.json().catch(() => ({}));
-
-        if (!selectResponse.ok || !selectData?.success) {
-          throw new Error(selectData?.error || "Failed to select company");
-        }
-      } else if (!data?.success) {
+      if (!data?.success) {
         throw new Error(data?.error || "Login failed");
       }
 
-      router.push("/dashboard");
+      const companies = normalizeCompanies(data?.user);
+      const currentActiveCompanyId = data?.user?.activeCompany?.id ?? companies[0]?.id ?? null;
+
+      if (companies.length > 1) {
+        setAvailableCompanies(companies);
+        setActiveCompanyId(currentActiveCompanyId);
+        setSelectedCompanyId(currentActiveCompanyId);
+        setShowCompanyModal(true);
+        return;
+      }
+
+      finalizeLogin();
     } catch (error) {
       console.error("Login error:", error);
       setErr(error?.message || "Login failed");
@@ -110,96 +129,152 @@ export default function LoginPage() {
     }
   };
 
+  const handleCompanySelection = async () => {
+    if (!selectedCompanyId) {
+      setErr("Please select a company");
+      return;
+    }
+
+    setErr(null);
+    setIsSwitchingCompany(true);
+
+    try {
+      if (String(selectedCompanyId) !== String(activeCompanyId)) {
+        const response = await fetch(`${apiBase}/client/auth/switch-company`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId: selectedCompanyId }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || "Failed to switch company");
+        }
+      }
+
+      window.dispatchEvent(new Event("app:company-switched"));
+      setShowCompanyModal(false);
+      finalizeLogin();
+    } catch (error) {
+      console.error("Switch company error:", error);
+      setErr(error?.message || "Failed to switch company");
+    } finally {
+      setIsSwitchingCompany(false);
+    }
+  };
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-dark px-6 py-16">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-primary/10 blur-[140px]" />
+    <>
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-dark px-6 py-16">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
+          <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-primary/10 blur-[140px]" />
+        </div>
+
+        <motion.div initial="hidden" animate="visible" className="relative w-full max-w-md">
+          <motion.div variants={fadeUp} custom={0} className="text-center">
+            <Link href="/" className="font-display text-3xl font-bold tracking-tight">
+              OPI<span className="text-gradient-red">NOOR</span>
+            </Link>
+            <h1 className="mt-6 font-display text-2xl font-bold">{t("login.welcome_back")}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{t("login.subtitle")}</p>
+          </motion.div>
+
+          <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
+            <div className="space-y-3">
+              {socialProviders.map((provider) => (
+                <Button
+                  key={provider.name}
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center gap-3 border-border/50 bg-secondary hover:bg-secondary/80"
+                >
+                  {provider.icon}
+                  {t("login.continue_with")} {provider.name}
+                </Button>
+              ))}
+            </div>
+
+            <div className="relative my-6">
+              <Separator className="bg-border/50" />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
+                {t("login.or_email")}
+              </span>
+            </div>
+
+            {err && (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+                {err}
+              </div>
+            )}
+
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t("login.email")}</label>
+                <Input
+                  className="mt-2 border-border/50 bg-background text-foreground"
+                  placeholder="you@company.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t("login.password")}</label>
+                <Input
+                  className="mt-2 border-border/50 bg-background text-foreground"
+                  placeholder="********"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" className="accent-primary" /> {t("login.remember_me")}
+                </label>
+                <a href="#" className="text-sm text-primary hover:underline">{t("login.forgot_password")}</a>
+              </div>
+              <Button
+                type="submit"
+                className="glow-red-hover w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? `${t("login.log_in")}...` : t("login.log_in")}
+              </Button>
+            </form>
+          </motion.div>
+
+          <motion.p variants={fadeUp} custom={2} className="mt-6 text-center text-sm text-muted-foreground">
+            {t("login.no_account")}{" "}
+            <Link href="/signup" className="text-primary hover:underline">
+              {t("auth.start_free_trial")}
+            </Link>
+          </motion.p>
+        </motion.div>
       </div>
 
-      <motion.div initial="hidden" animate="visible" className="relative w-full max-w-md">
-        <motion.div variants={fadeUp} custom={0} className="text-center">
-          <Link href="/" className="font-display text-3xl font-bold tracking-tight">
-            OPI<span className="text-gradient-red">NOOR</span>
-          </Link>
-          <h1 className="mt-6 font-display text-2xl font-bold">{t("login.welcome_back")}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{t("login.subtitle")}</p>
-        </motion.div>
+      <CompanySwitchDialog
+        open={showCompanyModal}
+        onOpenChange={setShowCompanyModal}
+        companies={availableCompanies}
+        selectedCompanyId={selectedCompanyId}
+        onSelectedCompanyIdChange={setSelectedCompanyId}
+        onConfirm={handleCompanySelection}
+        isSubmitting={isSwitchingCompany}
+        errorMessage={err}
+      />
+    </>
+  );
+}
 
-        <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
-          <div className="space-y-3">
-            {socialProviders.map((provider) => (
-              <Button
-                key={provider.name}
-                type="button"
-                variant="outline"
-                className="w-full justify-center gap-3 border-border/50 bg-secondary hover:bg-secondary/80"
-              >
-                {provider.icon}
-                {t("login.continue_with")} {provider.name}
-              </Button>
-            ))}
-          </div>
-
-          <div className="relative my-6">
-            <Separator className="bg-border/50" />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
-              {t("login.or_email")}
-            </span>
-          </div>
-
-          {err && (
-            <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-              {err}
-            </div>
-          )}
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">{t("login.email")}</label>
-              <Input
-                className="mt-2 border-border/50 bg-background text-foreground"
-                placeholder="you@company.com"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">{t("login.password")}</label>
-              <Input
-                className="mt-2 border-border/50 bg-background text-foreground"
-                placeholder="********"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" className="accent-primary" /> {t("login.remember_me")}
-              </label>
-              <a href="#" className="text-sm text-primary hover:underline">{t("login.forgot_password")}</a>
-            </div>
-            <Button
-              type="submit"
-              className="glow-red-hover w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={loading}
-            >
-              {loading ? `${t("login.log_in")}...` : t("login.log_in")}
-            </Button>
-          </form>
-        </motion.div>
-
-        <motion.p variants={fadeUp} custom={2} className="mt-6 text-center text-sm text-muted-foreground">
-          {t("login.no_account")}{" "}
-          <Link href="/signup" className="text-primary hover:underline">
-            {t("auth.start_free_trial")}
-          </Link>
-        </motion.p>
-      </motion.div>
-    </div>
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

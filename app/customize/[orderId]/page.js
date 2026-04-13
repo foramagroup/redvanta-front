@@ -181,6 +181,7 @@ const TEMPLATE_CATEGORIES = [
     { id: "elegant", label: "Elegant" },
     { id: "tech", label: "Tech" },
 ];
+
 const CARD_TEMPLATES = [
     { id: "crimson-noir", label: "Crimson Noir", gradient1: "#B91C1C", gradient2: "#0D0D0D", accentBand1: "#FFFFFF", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", pattern: "none", category: "classic" },
     { id: "midnight-gold", label: "Midnight Gold", gradient1: "#1E1B4B", gradient2: "#0F172A", accentBand1: "#FBBF24", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", pattern: "none", category: "classic" },
@@ -1150,6 +1151,10 @@ const Customize = () => {
             setCtaPaddingTop(remoteDesign.ctaPaddingTop);
         if (remoteDesign.elementOffsets?.landscape && remoteDesign.elementOffsets?.portrait)
             setAllOffsets(remoteDesign.elementOffsets);
+        if (remoteDesign.platformUrl) {
+          setLinkInput(remoteDesign.platformUrl);
+          setDesign(d => ({ ...d, googleReviewLink: remoteDesign.platformUrl }));
+        }
     }, []);
 
     const ensureRemoteDesign = useCallback(async ({ forceReload = false } = {}) => {
@@ -1483,6 +1488,9 @@ const Customize = () => {
         ctaPaddingTop,
         googlePlaceId: design.googlePlaceId || undefined,
         googleReviewUrl: design.googleReviewLink || undefined,
+         platformUrl: platformConfig.searchMode === "link-input"
+        ? (linkInput || design.googleReviewLink || undefined)
+        : undefined,
     });
     const getWritableRemoteDesignId = async () => {
         if (activeRemoteDesignId)

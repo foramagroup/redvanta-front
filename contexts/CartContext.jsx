@@ -5,6 +5,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 const CartContext = createContext(null);
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const isSyncableCartItem = (item) => !!item?.productId;
+const CART_SCOPE_KEY = "krootal_cart_scope";
+const GUEST_SCOPE = "guest";
 
 const getCartSummaryFromItems = (cartItems) => ({
   itemCount: cartItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0),
@@ -32,6 +34,17 @@ const mapRemoteCartItem = (item) => {
   };
 };
 
+const getSessionScope = (sessionUser) => {
+  if (!sessionUser) return GUEST_SCOPE;
+  const userId = sessionUser?.id ?? sessionUser?.userId ?? "unknown";
+  const companyId =
+    sessionUser?.activeCompany?.id ??
+    sessionUser?.companyId ??
+    sessionUser?.user?.activeCompany?.id ??
+    "unknown";
+  return `user:${userId}:company:${companyId}`;
+};
+
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [cartSummary, setCartSummary] = useState({ itemCount: 0, subtotal: 0, totalCards: 0 });
@@ -42,6 +55,29 @@ export function CartProvider({ children }) {
 
   const isAuthenticated = !!authUser;
 
+  const clearStoredCartState = () => {
+    try {
+      localStorage.removeItem("krootal_cart");
+      localStorage.removeItem("krootal_current_order");
+      localStorage.removeItem("krootal_user");
+      localStorage.removeItem(CART_SCOPE_KEY);
+    } catch {}
+  };
+
+  const getStoredCartScope = () => {
+    try {
+      return localStorage.getItem(CART_SCOPE_KEY) || GUEST_SCOPE;
+    } catch {
+      return GUEST_SCOPE;
+    }
+  };
+
+  const setStoredCartScope = (scope) => {
+    try {
+      localStorage.setItem(CART_SCOPE_KEY, scope);
+    } catch {}
+  };
+
   const handleClientLogout = () => {
     setAuthUser(null);
     setItems([]);
@@ -51,9 +87,7 @@ export function CartProvider({ children }) {
     setIsCartReady(true);
 
     try {
-      localStorage.removeItem("krootal_cart");
-      localStorage.removeItem("krootal_current_order");
-      localStorage.removeItem("krootal_user");
+      clearStoredCartState();
     } catch {}
   };
 
@@ -88,6 +122,12 @@ export function CartProvider({ children }) {
 
   const loadLocalCart = () => {
     try {
+      if (getStoredCartScope() !== GUEST_SCOPE) {
+        clearStoredCartState();
+        setItems([]);
+        setCartSummary({ itemCount: 0, subtotal: 0, totalCards: 0 });
+        return;
+      }
       const rawCart = localStorage.getItem("krootal_cart");
       const rawOrder = localStorage.getItem("krootal_current_order");
       const rawUser = localStorage.getItem("krootal_user");
@@ -150,19 +190,22 @@ export function CartProvider({ children }) {
       throw new Error("Failed to sync local cart");
     }
 
-    localStorage.removeItem("krootal_cart");
+    clearStoredCartState();
   };
 
-  useEffect(() => {
-    let active = true;
+ 
 
     const bootstrapCart = async () => {
+      setIsCartReady(false);
       try {
         const resolvedUser = await resolveAuthUser();
-
-        if (!active) return;
+        const currentScope = getSessionScope(resolvedUser);
+        const storedScope = getStoredCartScope();
 
         if (resolvedUser) {
+          if (storedScope !== GUEST_SCOPE && storedScope !== currentScope) {
+            clearStoredCartState();
+          }
           const localItems = getStoredLocalCart();
           if (localItems.length) {
             await syncLocalCartToRemote(localItems);
@@ -175,36 +218,44 @@ export function CartProvider({ children }) {
             setItems(mergedItems);
             setCartSummary(getCartSummaryFromItems(mergedItems));
           }
+          setStoredCartScope(currentScope);
         } else {
           setAuthUser(null);
+          if (storedScope !== GUEST_SCOPE) {
+            clearStoredCartState();
+          }
+          setStoredCartScope(GUEST_SCOPE);
           loadLocalCart();
         }
       } catch {
-        if (active) {
+      
           setAuthUser(null);
+          setStoredCartScope(GUEST_SCOPE);
           loadLocalCart();
-        }
+  
       } finally {
-        if (active) {
           setIsCartReady(true);
-        }
       }
     };
 
+     useEffect(() => {
+   
+
     bootstrapCart();
 
-    return () => {
-      active = false;
-    };
+  
   }, []);
 
   useEffect(() => {
-    const onLogout = () => {
-      handleClientLogout();
-    };
+    const onLogin  = () => bootstrapCart();
+    const onLogout = () => handleClientLogout();
 
+    window.addEventListener("app:login", onLogin);
     window.addEventListener("app:logout", onLogout);
-    return () => window.removeEventListener("app:logout", onLogout);
+    return () => {
+      window.removeEventListener("app:login", onLogin);
+      window.removeEventListener("app:logout", onLogout);
+    };
   }, []);
 
   useEffect(() => {
@@ -212,14 +263,17 @@ export function CartProvider({ children }) {
 
     try {
       const persistableItems = getPersistableCartItems(items);
+      const scope = isAuthenticated ? getSessionScope(authUser) : GUEST_SCOPE;
 
       if (persistableItems.length) {
         localStorage.setItem("krootal_cart", JSON.stringify(persistableItems));
+        setStoredCartScope(scope);
       } else {
         localStorage.removeItem("krootal_cart");
+        setStoredCartScope(scope);
       }
     } catch {}
-  }, [isCartReady, items, isAuthenticated]);
+  }, [isCartReady, items, isAuthenticated, authUser]);
 
   useEffect(() => {
     try {

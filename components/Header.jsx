@@ -20,7 +20,6 @@ const navLinks = [
   { label: "nav.features", path: "/features" },
   { label: "nav.pricing", path: "/pricing" },
   { label: "nav.agency", path: "/agency" },
-  { label: "nav.dashboard", path: "/dashboard" },
   { label: "nav.contact", path: "/contact" },
 ];
 
@@ -41,33 +40,28 @@ const Header = ({ showEditBar = false }) => {
   const { isEditing } = useLiveTextEditor();
   const { theme, toggleTheme } = useTheme();
 
+  const loadAuth = async () => {
+    try {
+      const response = await fetch(`${apiBase}/client/auth/me`, {
+        credentials: "include",
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (response.ok && payload?.success && payload?.user) {
+        setAuthUser(payload.user);
+      } else {
+        setAuthUser(null);
+      }
+    } catch {
+      setAuthUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
+  };
+
   useEffect(() => {
     let active = true;
-
-    const loadAuth = async () => {
-      try {
-        const response = await fetch(`${apiBase}/client/auth/me`, {
-          credentials: "include",
-        });
-
-        const payload = await response.json().catch(() => ({}));
-        if (!active) return;
-
-        if (response.ok && payload?.success && payload?.user) {
-          setAuthUser(payload.user);
-        } else {
-          setAuthUser(null);
-        }
-      } catch {
-        if (active) {
-          setAuthUser(null);
-        }
-      } finally {
-        if (active) {
-          setAuthChecked(true);
-        }
-      }
-    };
 
     const loadSettings = async () => {
       try {
@@ -75,9 +69,7 @@ const Header = ({ showEditBar = false }) => {
           credentials: "include",
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to load global settings");
-        }
+        if (!response.ok) throw new Error("Failed to load global settings");
 
         const payload = await response.json();
         if (!active) return;
@@ -95,9 +87,11 @@ const Header = ({ showEditBar = false }) => {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    const onLogin  = () => loadAuth();
     const onLogout = () => {
       setAuthUser(null);
       setApiCartCount(0);
@@ -105,8 +99,13 @@ const Header = ({ showEditBar = false }) => {
       setUserMenuOpen(false);
     };
 
+    window.addEventListener("app:login",  onLogin);
     window.addEventListener("app:logout", onLogout);
-    return () => window.removeEventListener("app:logout", onLogout);
+    return () => {
+      window.removeEventListener("app:login",  onLogin);
+      window.removeEventListener("app:logout", onLogout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

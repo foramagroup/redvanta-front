@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, LogOut, CreditCard, User, Star, Lock, Sun, Moon, Search, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, CreditCard, User, Star, Lock, Sun, Moon, Search, X, Building2 } from "lucide-react";
 import { useLanguage, LANGUAGES } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useDashboardAccount } from "@/contexts/DashboardAccountContext";
+import CompanySwitchDialog from "@/components/CompanySwitchDialog";
 
 const notifications = [
   { id: 1, text: "New 5-star review from Sarah M.", time: "2 min ago", read: false },
@@ -44,10 +45,32 @@ const DashboardNavbar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [account, setAccount] = useState(initialAccount || null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [isSwitchingCompany, setIsSwitchingCompany] = useState(false);
+  const [companyError, setCompanyError] = useState("");
 
   const selectedLang = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0];
   const closeAll = () => { setLangOpen(false); setNotifOpen(false); setUserOpen(false); };
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+  const loadAccount = async () => {
+    try {
+      const res = await fetch(`${apiBase}/client/auth/me`, {
+        credentials: "include",
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok || !payload?.success) {
+        setAccount(null);
+        return;
+      }
+
+      setAccount(payload.user || null);
+    } catch {
+      setAccount(null);
+    }
+  };
 
   useEffect(() => {
     setAccount(initialAccount || null);
@@ -56,7 +79,7 @@ const DashboardNavbar = () => {
   useEffect(() => {
     let cancelled = false;
 
-    const loadAccount = async () => {
+    const loadInitialAccount = async () => {
       try {
         const res = await fetch(`${apiBase}/client/auth/me`, {
           credentials: "include",
@@ -71,17 +94,94 @@ const DashboardNavbar = () => {
       }
     };
 
-    loadAccount();
+    loadInitialAccount();
     return () => { cancelled = true; };
   }, [apiBase]);
+
+  useEffect(() => {
+    const handleAccountRefresh = () => {
+      loadAccount();
+    };
+
+    window.addEventListener("app:login", handleAccountRefresh);
+    window.addEventListener("app:company-switched", handleAccountRefresh);
+
+    return () => {
+      window.removeEventListener("app:login", handleAccountRefresh);
+      window.removeEventListener("app:company-switched", handleAccountRefresh);
+    };
+  }, []);
 
   const displayCompanyName = account?.activeCompany?.name || "Opinoor Inc.";
   const displayUserName = account?.name || "John Doe";
   const displayUserEmail = account?.email || "john@opinoor.com";
+  const companyOptions = Array.isArray(account?.companies)
+    ? account.companies
+        .filter((entry) => entry?.company?.id)
+        .map((entry) => ({
+          id: entry.company.id,
+          name: entry.company.name || "Company",
+          email: entry.company.email || "",
+          status: entry.company.status || "",
+          isOwner: !!entry.isOwner,
+        }))
+    : [];
+  const activeCompanyId = account?.activeCompany?.id ?? null;
   const avatarLetter = useMemo(() => {
     const source = account?.name || account?.activeCompany?.name || "R";
     return String(source).trim().charAt(0).toUpperCase() || "R";
   }, [account]);
+
+  const openCompanySwitcher = () => {
+    setUserOpen(false);
+    setCompanyError("");
+
+    if (companyOptions.length <= 1) {
+      setCompanyError("No other company is available for switching.");
+      setShowCompanyModal(true);
+      setSelectedCompanyId(activeCompanyId);
+      return;
+    }
+
+    setSelectedCompanyId(activeCompanyId ? String(activeCompanyId) : String(companyOptions[0]?.id || ""));
+    setShowCompanyModal(true);
+  };
+
+  const handleCompanySwitch = async () => {
+    if (!selectedCompanyId) {
+      setCompanyError("Please select a company");
+      return;
+    }
+
+    setCompanyError("");
+    setIsSwitchingCompany(true);
+
+    try {
+      if (String(selectedCompanyId) !== String(activeCompanyId)) {
+        const response = await fetch(`${apiBase}/client/auth/switch-company`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId: selectedCompanyId }),
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Failed to switch company");
+        }
+      }
+
+      window.dispatchEvent(new Event("app:company-switched"));
+      setShowCompanyModal(false);
+      await loadAccount();
+      router.refresh();
+      window.location.reload();
+    } catch (error) {
+      setCompanyError(error?.message || "Failed to switch company");
+    } finally {
+      setIsSwitchingCompany(false);
+    }
+  };
 
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -214,6 +314,12 @@ const DashboardNavbar = () => {
                   <Link href="/dashboard/settings" onClick={() => setUserOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
                     <Lock size={14} /> Change Password
                   </Link>
+                  <button
+                    onClick={openCompanySwitcher}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                  >
+                    <Building2 size={14} /> Switch Company
+                  </button>
                   <div className="border-t border-border/50">
                     <button
                       onClick={() => { toggleTheme(); }}
@@ -236,8 +342,23 @@ const DashboardNavbar = () => {
               )}
             </div>
           </div>
+
+          
         </div>
       </nav>
+      <CompanySwitchDialog
+        open={showCompanyModal}
+        onOpenChange={setShowCompanyModal}
+        title="Switch company"
+        description="Select the company you want to use in the dashboard."
+        companies={companyOptions}
+        selectedCompanyId={selectedCompanyId}
+        onSelectedCompanyIdChange={setSelectedCompanyId}
+        onConfirm={handleCompanySwitch}
+        isSubmitting={isSwitchingCompany}
+        errorMessage={companyError}
+        confirmLabel="Switch"
+      />
     </>
   );
 };
