@@ -14,6 +14,7 @@ const sidebarItems = [
   { icon: Home, labelKey: "dash.dashboard", path: "/dashboard" },
   { icon: Palette, labelKey: "dash.my_designs", path: "/dashboard/designs" },
   { icon: Star, labelKey: "dash.reviews", path: "/dashboard/reviews" },
+  { icon: MessageSquare, labelKey: "dash.my_cards", path: "/dashboard/my-cards" },
   { icon: MessageSquare, labelKey: "dash.requests", path: "/dashboard/requests" },
   { icon: Filter, labelKey: "dash.filtering", path: "/dashboard/filtering" },
   { icon: BarChart3, labelKey: "dash.analytics", path: "/dashboard/analytics" },
