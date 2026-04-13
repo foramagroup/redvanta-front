@@ -116,7 +116,7 @@ const Product = () => {
 
     const loadShopDetails = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/client/shop-details`, { cache: "no-store" });
+        const res = await fetch(`${apiBase}/client/shop-details`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load shop details");
 
         const payload = await res.json();

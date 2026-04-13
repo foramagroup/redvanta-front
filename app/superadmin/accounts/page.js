@@ -98,9 +98,9 @@ export default function Accounts() {
     setError("");
     try {
       const [companiesRes, plansRes, langsRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/companies`, { credentials: "include" }),
-        fetch(`${apiBase}/api/superadmin/plan-settings`, { credentials: "include" }),
-        fetch(`${apiBase}/api/superadmin/language-settings`, { credentials: "include" }),
+        fetch(`${apiBase}/superadmin/companies`, { credentials: "include" }),
+        fetch(`${apiBase}/superadmin/plan-settings`, { credentials: "include" }),
+        fetch(`${apiBase}/superadmin/language-settings`, { credentials: "include" }),
       ]);
       if (!companiesRes.ok || !plansRes.ok || !langsRes.ok) throw new Error("Failed to load accounts data");
       const companies = await companiesRes.json();
@@ -159,7 +159,7 @@ export default function Accounts() {
   const submitCreate = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/companies`, {
+      const res = await fetch(`${apiBase}/superadmin/companies`, {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload(createForm)),
       });
@@ -180,7 +180,7 @@ export default function Accounts() {
     if (!editAccount) return;
     setSaving(true);
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/companies/${editAccount.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/companies/${editAccount.id}`, {
         method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload(editForm, true)),
       });
@@ -199,7 +199,7 @@ export default function Accounts() {
   const updateStatus = async (account) => {
     const nextStatus = account.statusRaw === "suspended" ? "active" : "suspended";
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/companies/${account.id}/status`, {
+      const res = await fetch(`${apiBase}/superadmin/companies/${account.id}/status`, {
         method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
@@ -214,7 +214,7 @@ export default function Accounts() {
 
   const impersonate = async (account) => {
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/companies/${account.id}/impersonate`, {
+      const res = await fetch(`${apiBase}/superadmin/companies/${account.id}/impersonate`, {
         method: "POST", credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));

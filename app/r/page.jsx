@@ -19,7 +19,7 @@ export default async function RedirectByUid({ searchParams }) {
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   try {
-    const res = await fetch(`${API}/api/nfc/resolve/${uid}`, {
+    const res = await fetch(`${API}/nfc/resolve/${uid}`, {
       cache: "no-store",
     });
 

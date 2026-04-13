@@ -21,7 +21,7 @@ export default function SuperadminLayout({ children }) {
       }
 
       try {
-        const res = await fetch(`${apiBase}/api/superadmin/auth/me`, {
+        const res = await fetch(`${apiBase}/superadmin/auth/me`, {
           credentials: "include",
         });
 
@@ -44,7 +44,7 @@ export default function SuperadminLayout({ children }) {
   }, [pathname, router]);
 
   const onLogout = async () => {
-    await fetch(`${apiBase}/api/superadmin/auth/logout`, {
+    await fetch(`${apiBase}/superadmin/auth/logout`, {
       method: "POST",
       credentials: "include",
     });

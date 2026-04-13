@@ -14,7 +14,7 @@ function CheckoutInner({ amountCents }) {
     if (!elements || !stripe) return alert("Stripe not ready");
     setLoading(true);
     try {
-      const res = await api.post("/api/payments/create-payment-intent", { amountCents });
+      const res = await api.post("/payments/create-payment-intent", { amountCents });
       const clientSecret = res.data.clientSecret;
       const card = elements.getElement(CardElement);
       const result = await stripe.confirmCardPayment(clientSecret, {

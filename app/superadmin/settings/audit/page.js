@@ -33,7 +33,7 @@ const AuditLogs = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/audit-log-settings?page=${nextPage}&pageSize=${pageSize}`, {
+      const res = await fetch(`${apiBase}/superadmin/audit-log-settings?page=${nextPage}&pageSize=${pageSize}`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));

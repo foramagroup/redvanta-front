@@ -52,7 +52,7 @@ const Webhooks = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/webhooks-settings`, {
+      const response = await fetch(`${apiBase}/superadmin/webhooks-settings`, {
         credentials: "include",
       });
       const payload = await response.json().catch(() => []);
@@ -108,7 +108,7 @@ const Webhooks = () => {
 
     try {
       const isEditing = Boolean(editing?.id);
-      const response = await fetch(`${apiBase}/api/superadmin/webhooks-settings${isEditing ? `/${editing.id}` : ""}`, {
+      const response = await fetch(`${apiBase}/superadmin/webhooks-settings${isEditing ? `/${editing.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -138,7 +138,7 @@ const Webhooks = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/webhooks-settings/${webhook.id}`, {
+      const response = await fetch(`${apiBase}/superadmin/webhooks-settings/${webhook.id}`, {
         method: "DELETE",
         credentials: "include",
       });

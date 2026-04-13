@@ -11,7 +11,7 @@ export default function AffiliateOnboard() {
   const startOnboard = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/api/affiliate/connect/create", { country: "FR", type: "express" });
+      const res = await api.post("/affiliate/connect/create", { country: "FR", type: "express" });
       // res.data.ok -> { accountId, url }
       if (res.data && res.data.url) {
         setUrl(res.data.url);

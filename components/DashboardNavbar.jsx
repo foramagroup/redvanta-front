@@ -58,7 +58,7 @@ const DashboardNavbar = () => {
 
     const loadAccount = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/client/auth/me`, {
+        const res = await fetch(`${apiBase}/client/auth/me`, {
           credentials: "include",
         });
         const payload = await res.json().catch(() => ({}));
@@ -87,7 +87,7 @@ const DashboardNavbar = () => {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      await fetch(`${apiBase}/api/client/auth/logout`, {
+      await fetch(`${apiBase}/client/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

@@ -58,7 +58,7 @@ export function CartProvider({ children }) {
   };
 
   const resolveAuthUser = async () => {
-    const response = await fetch(`${apiBase}/api/client/auth/me`, {
+    const response = await fetch(`${apiBase}/client/auth/me`, {
       credentials: "include",
     });
     const payload = await response.json().catch(() => ({}));
@@ -105,7 +105,7 @@ export function CartProvider({ children }) {
   };
 
   const loadRemoteCart = async () => {
-    const response = await fetch(`${apiBase}/api/client/shop/cart`, {
+    const response = await fetch(`${apiBase}/client/shop/cart`, {
       credentials: "include",
     });
 
@@ -139,7 +139,7 @@ export function CartProvider({ children }) {
 
     if (!syncableItems.length) return;
 
-    const response = await fetch(`${apiBase}/api/client/shop/sync`, {
+    const response = await fetch(`${apiBase}/client/shop/sync`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -257,7 +257,7 @@ export function CartProvider({ children }) {
     }
 
     if (sessionUser && isSyncableCartItem(normalized)) {
-      const response = await fetch(`${apiBase}/api/client/shop/cart`, {
+      const response = await fetch(`${apiBase}/client/shop/cart`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -297,7 +297,7 @@ export function CartProvider({ children }) {
 
   const clearCart = async () => {
     if (isAuthenticated) {
-      const response = await fetch(`${apiBase}/api/client/shop/cart`, {
+      const response = await fetch(`${apiBase}/client/shop/cart`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -318,7 +318,7 @@ export function CartProvider({ children }) {
 
   const removeItem = async (idOrIndex) => {
     if (isAuthenticated && typeof idOrIndex === "number") {
-      await fetch(`${apiBase}/api/client/shop/cart/${idOrIndex}`, {
+      await fetch(`${apiBase}/client/shop/cart/${idOrIndex}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -347,7 +347,7 @@ export function CartProvider({ children }) {
         return;
       }
 
-      const response = await fetch(`${apiBase}/api/client/shop/cart/${idOrIndex}`, {
+      const response = await fetch(`${apiBase}/client/shop/cart/${idOrIndex}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

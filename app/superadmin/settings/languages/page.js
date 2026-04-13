@@ -71,7 +71,7 @@ const LanguageSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings?page=1&limit=${languageLimit}`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings?page=1&limit=${languageLimit}`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));
@@ -94,7 +94,7 @@ const LanguageSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings/translations?page=1&limit=${translationLimit}`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings/translations?page=1&limit=${translationLimit}`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));
@@ -164,7 +164,7 @@ const LanguageSettings = () => {
 
     try {
       const isEditing = Boolean(editingLang?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings${isEditing ? `/${editingLang.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings${isEditing ? `/${editingLang.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -194,7 +194,7 @@ const LanguageSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings/${language.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings/${language.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -232,7 +232,7 @@ const LanguageSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings/translations/update`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings/translations/update`, {
         method: "PUT",
         credentials: "include",
         headers: {
@@ -284,7 +284,7 @@ const LanguageSettings = () => {
         return accumulator;
       }, {});
 
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings/translations/key`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings/translations/key`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -317,7 +317,7 @@ const LanguageSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/language-settings/translations/${translation.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/language-settings/translations/${translation.id}`, {
         method: "DELETE",
         credentials: "include",
       });

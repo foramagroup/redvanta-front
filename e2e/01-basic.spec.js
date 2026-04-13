@@ -9,11 +9,11 @@ test.describe('Krootal basic flows', () => {
 
   test('admin products list and create (mock)', async ({ page }) => {
     // Intercept admin products GET
-    await page.route('**/api/admin/products', route => {
+    await page.route('**/admin/products', route => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
     // Intercept create product POST
-    await page.route('**/api/products', route => {
+    await page.route('**/products', route => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'p1', title: 'Mock', slug: 'mock', priceCents: 1000 }) });
     });
 
@@ -33,7 +33,7 @@ test.describe('Krootal basic flows', () => {
 
   test('checkout flow opens stripe redirect (mock)', async ({ page }) => {
     // mock backend checkout response to return a session id
-    await page.route('**/api/payments/checkout', route => {
+    await page.route('**/payments/checkout', route => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session: { id: 'sess_123' }, url: 'https://checkout.stripe.fake' }) });
     });
 

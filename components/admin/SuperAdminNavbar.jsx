@@ -55,7 +55,7 @@ const SuperAdminNavbar = () => {
 
     const loadAccount = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/superadmin/auth/me`, {
+        const res = await fetch(`${apiBase}/superadmin/auth/me`, {
           credentials: "include",
         });
 
@@ -96,7 +96,7 @@ const SuperAdminNavbar = () => {
     setUserOpen(false);
 
     try {
-      await fetch(`${apiBase}/api/superadmin/auth/logout`, {
+      await fetch(`${apiBase}/superadmin/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

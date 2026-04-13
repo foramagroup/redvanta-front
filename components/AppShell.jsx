@@ -20,7 +20,7 @@ export default function AppShell({ children }) {
 
     const loadSuperadminSession = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/superadmin/auth/me`, {
+        const res = await fetch(`${apiBase}/superadmin/auth/me`, {
           credentials: "include",
         });
 

@@ -26,7 +26,7 @@ export function useCardTemplates() {
       if (filters.isActive !== 'all') params.append('isActive', filters.isActive);
       if (filters.search) params.append('search', filters.search);
       const response = await fetch(
-        `${API_URL}/api/superadmin/card-templates?${params}`,
+        `${API_URL}/superadmin/card-templates?${params}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -53,7 +53,7 @@ export function useCardTemplates() {
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates/stats`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/stats`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -76,7 +76,7 @@ export function useCardTemplates() {
   // Create template
   const createTemplate = async (templateData) => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +108,7 @@ export function useCardTemplates() {
   // Update template
   const updateTemplate = async (id, updates) => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates/${id}`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +139,7 @@ export function useCardTemplates() {
   // Delete template
   const deleteTemplate = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates/${id}`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -168,7 +168,7 @@ export function useCardTemplates() {
   // Duplicate template
   const duplicateTemplate = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates/${id}/duplicate`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}/duplicate`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -197,7 +197,7 @@ export function useCardTemplates() {
   // Toggle template
   const toggleTemplate = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/api/superadmin/card-templates/${id}/toggle`, {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}/toggle`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

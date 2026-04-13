@@ -39,7 +39,7 @@ export function useAnalyticsEvents() {
       params.append('page', filters.page);
 
       const response = await fetch(
-        `${API_URL}/api/admin/analytics/events?${params}`,
+        `${API_URL}/admin/analytics/events?${params}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -72,7 +72,7 @@ export function useAnalyticsEvents() {
       if (filters.endDate) params.append('endDate', filters.endDate);
 
       const response = await fetch(
-        `${API_URL}/api/admin/analytics/events/stats?${params}`,
+        `${API_URL}/admin/analytics/events/stats?${params}`,
         {
           method: 'GET',
           credentials: 'include',

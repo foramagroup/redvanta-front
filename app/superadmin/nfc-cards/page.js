@@ -34,7 +34,7 @@ const NFCCardsPage = () => {
   const availableTags = useMemo(() => tags.filter((tag) => tag.status === "NEW"), [tags]);
 
   const loadCards = async () => {
-    const response = await get("/api/superadmin/nfc-cards", {
+    const response = await get("/superadmin/nfc-cards", {
       filter,
       search,
       page: 1,
@@ -44,12 +44,12 @@ const NFCCardsPage = () => {
   };
 
   const loadStats = async () => {
-    const response = await get("/api/superadmin/nfc-cards/stats");
+    const response = await get("/superadmin/nfc-cards/stats");
     return response?.data || EMPTY_STATS;
   };
 
   const loadTags = async () => {
-    const response = await get("/api/superadmin/nfc-tags", {
+    const response = await get("/superadmin/nfc-tags", {
       status: "NEW",
       page: 1,
       limit: 100,
@@ -100,7 +100,7 @@ const NFCCardsPage = () => {
 
     try {
       setSubmitting(true);
-      await post("/api/superadmin/nfc-cards/assign", {
+      await post("/superadmin/nfc-cards/assign", {
         cardId: assignModal.id,
         tagId: Number(selectedTagId),
       });
@@ -127,7 +127,7 @@ const NFCCardsPage = () => {
 
     try {
       setSubmitting(true);
-      await patch(`/api/superadmin/nfc-cards/${unassignModal.id}/unassign`);
+      await patch(`/superadmin/nfc-cards/${unassignModal.id}/unassign`);
       await refreshData();
       toast({
         title: "NFC Cards",

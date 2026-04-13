@@ -847,7 +847,7 @@ const Customize = () => {
     const { items, updateDesign, updateQuantity, isCartReady } = useCart();
     const { t } = useLanguage();
     const { getDesignById } = useDesigns();
-    const shopApiBase = `${API_BASE_URL}/api/client/shop`;
+    const shopApiBase = `${API_BASE_URL}/client/shop`;
     // Detect edit mode: itemId like "edit-d-1" means editing saved design "d-1"
     const isEditMode = itemId?.startsWith("edit-") ?? false;
     const editDesignId = isEditMode ? itemId.replace("edit-", "") : null;
@@ -1326,7 +1326,7 @@ const Customize = () => {
         const timer = setTimeout(async () => {
             setIsSearchingBusinesses(true);
             try {
-                const response = await fetch(`${API_BASE_URL}/api/client/places/search?q=${encodeURIComponent(query)}&session=${encodeURIComponent(placesSessionRef.current)}&lang=fr`, {
+                const response = await fetch(`${API_BASE_URL}/client/places/search?q=${encodeURIComponent(query)}&session=${encodeURIComponent(placesSessionRef.current)}&lang=fr`, {
                     credentials: "include",
                 });
                 const payload = await response.json().catch(() => ({}));
@@ -1396,7 +1396,7 @@ const Customize = () => {
     const designErrors = Array.isArray(design?.errors) ? design.errors : [];
     const selectBusiness = async (biz) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/client/places/details/${encodeURIComponent(biz.placeId)}?session=${encodeURIComponent(placesSessionRef.current)}`, {
+            const response = await fetch(`${API_BASE_URL}/client/places/details/${encodeURIComponent(biz.placeId)}?session=${encodeURIComponent(placesSessionRef.current)}`, {
                 credentials: "include",
             });
             const payload = await response.json().catch(() => ({}));

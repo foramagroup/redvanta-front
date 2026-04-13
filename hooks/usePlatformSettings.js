@@ -17,7 +17,7 @@ export function usePlatformSettings() {
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -47,7 +47,7 @@ export function usePlatformSettings() {
   const updateGeneral = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/general`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/general`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ export function usePlatformSettings() {
   const updateBranding = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/branding`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/branding`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +120,7 @@ export function usePlatformSettings() {
       const formData = new FormData();
       formData.append('logo', file);
 
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/logo`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/logo`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -154,7 +154,7 @@ export function usePlatformSettings() {
   const updateRecaptcha = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/recaptcha`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/recaptcha`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -189,7 +189,7 @@ export function usePlatformSettings() {
   const updateMaps = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/maps`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/maps`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -224,7 +224,7 @@ export function usePlatformSettings() {
   const updatePlatforms = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/platforms`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/platforms`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -259,7 +259,7 @@ export function usePlatformSettings() {
   const updateSecurity = async (data) => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_URL}/api/superadmin/general-settings/security`, {
+      const response = await fetch(`${API_URL}/superadmin/general-settings/security`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -6,8 +6,8 @@ test.describe('Checkout flow', () => {
     // 1. start on checkout page
     await page.goto('/checkout');
 
-    // 2. intercept the call to /api/payments/create-session and return a fake session url
-    await page.route('**/api/payments/create-session', route => {
+    // 2. intercept the call to /payments/create-session and return a fake session url
+    await page.route('**/payments/create-session', route => {
       const fake = {
         url: 'https://test-checkout.krootal.local/success',
         sessionId: 'cs_test_123'

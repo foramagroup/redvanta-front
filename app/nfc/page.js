@@ -3,7 +3,7 @@
 /**
  * app/nfc/page.js
  * Page utile pour tester/consulter une puce NFC via UID ou saisir manuellement
- * Le backend doit exposer GET /api/nfc/:uid
+ * Le backend doit exposer GET /nfc/:uid
  */
 
 import { useEffect, useState } from "react";

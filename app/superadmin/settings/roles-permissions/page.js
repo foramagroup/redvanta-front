@@ -50,7 +50,7 @@ export default function RolesPermissions() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${apiBase}/api/superadmin/role-settings`, {
+        const response = await fetch(`${apiBase}/superadmin/role-settings`, {
           credentials: "include",
         });
         const payload = await response.json().catch(() => ({}));
@@ -150,7 +150,7 @@ export default function RolesPermissions() {
 
     try {
       setSaving(true);
-      await fetch(`${apiBase}/api/superadmin/role-settings/permissions`, {
+      await fetch(`${apiBase}/superadmin/role-settings/permissions`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -160,7 +160,7 @@ export default function RolesPermissions() {
         }),
       });
 
-      const refreshed = await fetch(`${apiBase}/api/superadmin/role-settings`, {
+      const refreshed = await fetch(`${apiBase}/superadmin/role-settings`, {
         credentials: "include",
       });
       const payload = await refreshed.json().catch(() => ({}));
@@ -180,7 +180,7 @@ export default function RolesPermissions() {
 
     try {
       setSaving(true);
-      const response = await fetch(`${apiBase}/api/superadmin/role-settings`, {
+      const response = await fetch(`${apiBase}/superadmin/role-settings`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

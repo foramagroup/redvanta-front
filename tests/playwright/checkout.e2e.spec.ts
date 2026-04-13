@@ -11,7 +11,7 @@ test.describe("Checkout / Stripe mock", () => {
     await page.goto("http://localhost:3000/checkout");
 
     // intercept backend create-session call and return a fake session url
-    await page.route("**/api/payments/create-session", async route => {
+    await page.route("**/payments/create-session", async route => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

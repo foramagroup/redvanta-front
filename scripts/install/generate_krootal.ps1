@@ -215,15 +215,15 @@ app.use(helmet());
 app.use(cors());
 app.use(bodyParser.json({ verify: (req,res,buf) => { req.rawBody = buf; } }));
 
-app.use("/api/products", products);
-app.use("/api/payments", payments);
+app.use("/products", products);
+app.use("/payments", payments);
 app.use("/webhooks/stripe", webhooks);
 app.use("/api/orders", orders);
 app.use("/api/customization", customization);
-app.use("/api/affiliates", affiliates);
+app.use("/affiliates", affiliates);
 app.use("/r", affiliates); // redirect route handled in affiliates controller
 app.use("/api/reviews", reviews);
-app.use("/api/admin/stats", adminStats);
+app.use("/admin/stats", adminStats);
 
 app.get("/healthz", (req,res)=>res.json({ok:true}));
 
@@ -328,7 +328,7 @@ Write-File "$root\frontend\pages\products\index.js" "import Link from 'next/link
 $prodPage = @'
 import axios from "axios";
 export default function Product(){
-  return (<div style={{padding:20}}><h1>Product demo</h1><p>This is a demo product page. Click buy to open Stripe Checkout (requires backend).</p><button onClick={async ()=>{ const res = await axios.post("http://localhost:4000/api/payments/create-checkout-session",{ productId:"demo", successUrl:"http://localhost:3000/thanks", cancelUrl:"http://localhost:3000" }); if(res.data.url) window.location.href = res.data.url; }}>Buy</button></div>);
+  return (<div style={{padding:20}}><h1>Product demo</h1><p>This is a demo product page. Click buy to open Stripe Checkout (requires backend).</p><button onClick={async ()=>{ const res = await axios.post("http://localhost:4000/payments/create-checkout-session",{ productId:"demo", successUrl:"http://localhost:3000/thanks", cancelUrl:"http://localhost:3000" }); if(res.data.url) window.location.href = res.data.url; }}>Buy</button></div>);
 }
 '@
 Write-File "$root\frontend\pages\product\[slug].js" $prodPage
@@ -360,8 +360,8 @@ export default function AdminProducts(){
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ title:"", slug:"", priceCents:0, upsellPriceCents:0, description:"" });
   useEffect(()=>{ fetchProducts(); },[]);
-  async function fetchProducts(){ const r = await axios.get("/api/products"); setProducts(r.data || []); }
-  async function create(){ await axios.post("/api/products", form).catch(()=>{}); setForm({ title:"", slug:"", priceCents:0, upsellPriceCents:0, description:"" }); fetchProducts(); }
+  async function fetchProducts(){ const r = await axios.get("/products"); setProducts(r.data || []); }
+  async function create(){ await axios.post("/products", form).catch(()=>{}); setForm({ title:"", slug:"", priceCents:0, upsellPriceCents:0, description:"" }); fetchProducts(); }
   return (<div style={{padding:20}}><h1>Admin - Products</h1><div style={{marginBottom:20}}><input placeholder="title" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} /> <input placeholder="slug" value={form.slug} onChange={e=>setForm({...form, slug:e.target.value})} /> <input placeholder="priceCents" type="number" value={form.priceCents} onChange={e=>setForm({...form, priceCents:parseInt(e.target.value||0,10)})} /> <input placeholder="upsellPriceCents" type="number" value={form.upsellPriceCents} onChange={e=>setForm({...form, upsellPriceCents:parseInt(e.target.value||0,10)})} /> <button onClick={create}>Create</button></div><table border="1" cellPadding="6"><thead><tr><th>Title</th><th>Price</th><th>Upsell</th></tr></thead><tbody>{products.map(p=>(<tr key={p.id}><td>{p.title}</td><td>{(p.priceCents||0)/100}€</td><td>{p.upsellPriceCents? (p.upsellPriceCents/100).toFixed(2)+'€' : '-'}</td></tr>))}</tbody></table></div>);
 }
 '@
@@ -386,7 +386,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 export default function StatsPage(){
   const [series,setSeries]=useState([]);
   useEffect(()=>{ load(); },[]);
-  async function load(){ const r = await axios.get("/api/admin/stats"); setSeries(r.data.daily || []); }
+  async function load(){ const r = await axios.get("/admin/stats"); setSeries(r.data.daily || []); }
   return (<div style={{padding:20}}><h1>Statistiques</h1><div style={{height:320}}><ResponsiveContainer><LineChart data={series}><XAxis dataKey="date"/><YAxis/><Tooltip formatter={(v)=> (v/100).toFixed(2) + " €"} /><Line type="monotone" dataKey="revenueCents" stroke="#8884d8"/></LineChart></ResponsiveContainer></div></div>);
 }
 '@

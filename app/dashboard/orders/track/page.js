@@ -68,7 +68,7 @@ const TrackOrders = () => {
     const loadOrders = async () => {
       try {
         setLoadingList(true);
-        const response = await get("/api/admin/order-tracking", searchId ? { search: searchId } : {});
+        const response = await get("/admin/order-tracking", searchId ? { search: searchId } : {});
         if (cancelled) return;
         const nextOrders = Array.isArray(response?.data) ? response.data : [];
         setOrders(nextOrders);
@@ -112,7 +112,7 @@ const TrackOrders = () => {
 
       try {
         setLoadingDetail(true);
-        const response = await get(`/api/admin/order-tracking/${selectedOrder.orderNumber}`);
+        const response = await get(`/admin/order-tracking/${selectedOrder.orderNumber}`);
         if (cancelled) return;
         if (response?.data) {
           setSelectedOrder(response.data);

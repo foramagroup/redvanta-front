@@ -37,7 +37,7 @@ const AddOnManagement = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/addon-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/addon-settings`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => []);
@@ -92,7 +92,7 @@ const AddOnManagement = () => {
 
     try {
       const isEditing = Boolean(editAddon?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/addon-settings${isEditing ? `/${editAddon.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/addon-settings${isEditing ? `/${editAddon.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -134,7 +134,7 @@ const AddOnManagement = () => {
     setTogglingId(addon.id);
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/addon-settings/${addon.id}/toggle`, {
+      const res = await fetch(`${apiBase}/superadmin/addon-settings/${addon.id}/toggle`, {
         method: "PATCH",
         credentials: "include",
       });

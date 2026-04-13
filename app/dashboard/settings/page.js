@@ -111,7 +111,7 @@ const Settings = () => {
       setIsLoadingGeneral(true);
 
       try {
-        const settingsResponse = await get("/api/admin/general-settings");
+        const settingsResponse = await get("/admin/general-settings");
         const company = settingsResponse?.data;
 
         if (!company || cancelled) return;
@@ -188,8 +188,8 @@ const Settings = () => {
       setIsLoadingSubscription(true);
       try {
         const [subRes, invRes] = await Promise.all([
-          get("/api/admin/general-settings/subscription"),
-          get("/api/admin/general-settings/invoices?limit=10"),
+          get("/admin/general-settings/subscription"),
+          get("/admin/general-settings/invoices?limit=10"),
         ]);
         if (!cancelled) {
           setSubscription(subRes?.data || null);
@@ -225,7 +225,7 @@ const Settings = () => {
       const formData = new FormData();
       formData.append("logo", file);
 
-      const response = await fetch(`${apiBase}/api/admin/general-settings/logo`, {
+      const response = await fetch(`${apiBase}/admin/general-settings/logo`, {
         method: "POST",
         credentials: "include",
         body: formData,
@@ -265,7 +265,7 @@ const Settings = () => {
     setIsSavingGeneral(true);
 
     try {
-      const response = await put("/api/admin/general-settings/general", {
+      const response = await put("/admin/general-settings/general", {
         fullName: generalForm.fullName,
         name: generalForm.businessName,
         email: generalForm.email,
@@ -313,7 +313,7 @@ const Settings = () => {
     setIsSavingPlatforms(true);
 
     try {
-      const response = await put("/api/admin/general-settings/platforms", {
+      const response = await put("/admin/general-settings/platforms", {
         googleLink: platformsForm.googleLink,
         facebookLink: platformsForm.facebookLink,
         yelpLink: platformsForm.yelpLink,
@@ -359,7 +359,7 @@ const Settings = () => {
     setIsSavingSecurity(true);
 
     try {
-      const response = await put("/api/admin/general-settings/security", {
+      const response = await put("/admin/general-settings/security", {
         twoFactorEnabled: securityForm.twoFactorEnabled,
         twoFactorEmail: securityForm.twoFactorEmail,
         twoFactorPhone: securityForm.twoFactorPhone,
@@ -418,7 +418,7 @@ const Settings = () => {
     setIsChangingPassword(true);
 
     try {
-      const response = await post("/api/admin/auth/change-password", {
+      const response = await post("/admin/auth/change-password", {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });

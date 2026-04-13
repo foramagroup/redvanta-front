@@ -41,12 +41,12 @@ const NFCTagsPage = () => {
   const [defectModal, setDefectModal] = useState(null);
 
   const loadStats = async () => {
-    const response = await get("/api/superadmin/nfc-tags/stats");
+    const response = await get("/superadmin/nfc-tags/stats");
     return response?.data || EMPTY_STATS;
   };
 
   const loadTags = async () => {
-    const response = await get("/api/superadmin/nfc-tags", {
+    const response = await get("/superadmin/nfc-tags", {
       status: statusFilter,
       search,
       page: 1,
@@ -105,13 +105,13 @@ const NFCTagsPage = () => {
       setSubmitting(true);
 
       if (bulkCount === 1) {
-        await post("/api/superadmin/nfc-tags", { tagSerial: newSerial.trim() });
+        await post("/superadmin/nfc-tags", { tagSerial: newSerial.trim() });
         toast({
           title: "Tag added",
           description: `Tag ${newSerial.trim()} added`,
         });
       } else {
-        await post("/api/superadmin/nfc-tags", { count: bulkCount });
+        await post("/superadmin/nfc-tags", { count: bulkCount });
         toast({
           title: "Inventory updated",
           description: `${bulkCount} tags added to inventory`,
@@ -136,7 +136,7 @@ const NFCTagsPage = () => {
   const updateStatus = async (tag, status) => {
     try {
       setSubmitting(true);
-      await patch(`/api/superadmin/nfc-tags/${tag.id}/status`, { status });
+      await patch(`/superadmin/nfc-tags/${tag.id}/status`, { status });
       await refreshData();
       return true;
     } catch (error) {

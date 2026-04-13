@@ -59,7 +59,7 @@ const SuperAdminOrders = () => {
     setError(null);
 
     try {
-      const response = await api.get("/api/superadmin/orders", {
+      const response = await api.get("/superadmin/orders", {
         search: search || undefined,
         status: statusFilter,
         limit: 100,
@@ -91,7 +91,7 @@ const SuperAdminOrders = () => {
       setDetailLoading(true);
 
       try {
-        const response = await api.get(`/api/superadmin/orders/${selectedOrderId}`);
+        const response = await api.get(`/superadmin/orders/${selectedOrderId}`);
         const order = response?.data ?? null;
         setSelectedOrder(order);
         setStatusDraft(order?.status ?? "");
@@ -125,13 +125,13 @@ const SuperAdminOrders = () => {
     setError(null);
 
     try {
-      await api.patch(`/api/superadmin/orders/${selectedOrder.id}/status`, {
+      await api.patch(`/superadmin/orders/${selectedOrder.id}/status`, {
         status: statusDraft,
       });
 
       await fetchOrders();
 
-      const detailResponse = await api.get(`/api/superadmin/orders/${selectedOrder.id}`);
+      const detailResponse = await api.get(`/superadmin/orders/${selectedOrder.id}`);
       const updatedOrder = detailResponse?.data ?? null;
       setSelectedOrder(updatedOrder);
       setStatusDraft(updatedOrder?.status ?? statusDraft);

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUsers, inviteUser, exportUsersCsv } from "@/lib/api/users";
-import { nfcApi } from "@/lib/api/nfc";
+import { getUsers, inviteUser, exportUsersCsv } from "@/lib/users";
+import { nfcApi } from "@/lib/nfc";
 import { Dialog } from "@headlessui/react";
 
 export default function DashboardListPage({ type = "users" }) {

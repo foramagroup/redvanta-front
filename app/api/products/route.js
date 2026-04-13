@@ -31,26 +31,26 @@ async function forward(req, path) {
 
 export async function GET(request) {
   const { search } = new URL(request.url);
-  return forward(request, `/api/products${search}`);
+  return forward(request, `/products${search}`);
 }
 
 // export async function POST(request) {
-//   // support both /api/products and /api/products/bundle or others
+//   // support both /products and /products/bundle or others
 //   const url = new URL(request.url);
-//   const rel = url.pathname.replace("/api/products", "") || "";
-//   return forward(request, `/api/products${rel}`);
+//   const rel = url.pathname.replace("/products", "") || "";
+//   return forward(request, `/products${rel}`);
 // }
 
 export async function PUT(request) {
   const url = new URL(request.url);
-  const rel = url.pathname.replace("/api/products", "") || "";
-  return forward(request, `/api/products${rel}`);
+  const rel = url.pathname.replace("/products", "") || "";
+  return forward(request, `/products${rel}`);
 }
 
 export async function DELETE(request) {
   const url = new URL(request.url);
-  const rel = url.pathname.replace("/api/products", "") || "";
-  return forward(request, `/api/products${rel}`);
+  const rel = url.pathname.replace("/products", "") || "";
+  return forward(request, `/products${rel}`);
 }
 export async function POST(req) {
   try {

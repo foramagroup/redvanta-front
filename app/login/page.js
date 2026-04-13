@@ -64,7 +64,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiBase}/api/admin/auth/login`, {
+      const response = await fetch(`${apiBase}/admin/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -83,7 +83,7 @@ export default function LoginPage() {
           throw new Error("No active company available for this account");
         }
 
-        const selectResponse = await fetch(`${apiBase}/api/admin/auth/select-company`, {
+        const selectResponse = await fetch(`${apiBase}/admin/auth/select-company`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },

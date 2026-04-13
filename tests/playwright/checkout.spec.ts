@@ -5,7 +5,7 @@ test("Checkout flow: create session and redirect (mocked)", async ({ page }) => 
   await page.goto("/checkout", { waitUntil: "networkidle" });
 
   // 2) mock endpoint create-session
-  await page.route("**/api/payments/create-session", async (route) => {
+  await page.route("**/payments/create-session", async (route) => {
     const fake = { url: "https://checkout.stripe.mock/session123", sessionId: "sess_test_123" };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fake) });
   });

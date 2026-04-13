@@ -12,7 +12,7 @@ export default function UserInviteModal({ onClose = () => {} }) {
     if (!email) return alert("Email requis");
     setSending(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/users/invite`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/users/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role }),

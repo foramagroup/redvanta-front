@@ -63,12 +63,12 @@ const Reviews = () => {
   }), [page, search, selectedRating, selectedStatus]);
 
   const loadStats = async () => {
-    const response = await get("/api/admin/reviews/stats");
+    const response = await get("/admin/reviews/stats");
     setStats(response?.data || null);
   };
 
   const loadReviews = async () => {
-    const response = await get("/api/admin/reviews", queryParams);
+    const response = await get("/admin/reviews", queryParams);
     setReviews(Array.isArray(response?.data) ? response.data : []);
     setMeta(response?.meta || { total: 0, page: 1, limit: 20, last_page: 1, showing: 0 });
   };
@@ -80,8 +80,8 @@ const Reviews = () => {
       try {
         setLoading(true);
         const [statsResponse, reviewsResponse] = await Promise.all([
-          get("/api/admin/reviews/stats"),
-          get("/api/admin/reviews", queryParams),
+          get("/admin/reviews/stats"),
+          get("/admin/reviews", queryParams),
         ]);
 
         if (!mounted) return;
@@ -126,7 +126,7 @@ const Reviews = () => {
   const openReview = async (review) => {
     try {
       setDetailLoading(true);
-      const response = await get(`/api/admin/reviews/${review.id}`);
+      const response = await get(`/admin/reviews/${review.id}`);
       const nextReview = response?.data || review;
       setSelectedReview(nextReview);
     } catch (error) {
@@ -164,7 +164,7 @@ const Reviews = () => {
         params.delete("limit");
       }
 
-      const response = await fetch(`${API_URL}/api/admin/reviews/export?${params.toString()}`, {
+      const response = await fetch(`${API_URL}/admin/reviews/export?${params.toString()}`, {
         credentials: "include",
       });
 
@@ -195,7 +195,7 @@ const Reviews = () => {
 
   const markResolved = async (reviewId) => {
     try {
-      const response = await patch(`/api/admin/reviews/${reviewId}/status`, { statusKey: "rev.resolved" });
+      const response = await patch(`/admin/reviews/${reviewId}/status`, { statusKey: "rev.resolved" });
       syncReviewInList(response?.data);
       await loadStats();
       toast({ title: t("rev.mark_resolved_btn"), description: "Review updated." });
@@ -213,7 +213,7 @@ const Reviews = () => {
 
     try {
       setBulkLoading(true);
-      await patch("/api/admin/reviews/bulk/status", {
+      await patch("/admin/reviews/bulk/status", {
         ids: selectedRows,
         statusKey: "rev.resolved",
       });
@@ -236,7 +236,7 @@ const Reviews = () => {
 
     try {
       setSavingNotes(true);
-      const response = await patch(`/api/admin/reviews/${selectedReview.id}/notes`, { notes: notesDraft });
+      const response = await patch(`/admin/reviews/${selectedReview.id}/notes`, { notes: notesDraft });
       syncReviewInList(response?.data);
       toast({ title: t("rev.internal_notes"), description: "Notes saved." });
     } catch (error) {
@@ -255,7 +255,7 @@ const Reviews = () => {
 
     try {
       setSendingReply(true);
-      const response = await post(`/api/admin/reviews/${selectedReview.id}/reply`, { reply: replyDraft });
+      const response = await post(`/admin/reviews/${selectedReview.id}/reply`, { reply: replyDraft });
       syncReviewInList(response?.data);
       setReplyDraft("");
       await loadStats();

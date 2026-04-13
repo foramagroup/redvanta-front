@@ -4,7 +4,7 @@ test("NFC buy flow: create checkout session and redirect (mocked)", async ({ pag
   await page.goto("/nfc/buy", { waitUntil: "networkidle" });
 
   // 1) mock API create checkout
-  await page.route("**/api/nfc/pay/checkout", async (route) => {
+  await page.route("**/nfc/pay/checkout", async (route) => {
     const fake = { url: "https://checkout.stripe.mock/session_nfc_123", sessionId: "sess_nfc_123" };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fake) });
   });

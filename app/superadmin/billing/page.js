@@ -391,10 +391,10 @@ const BillingRevenue = () => {
 
     try {
       const [statsRes, companiesRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/billing/stats`, {
+        fetch(`${apiBase}/superadmin/billing/stats`, {
           credentials: "include",
         }),
-        fetch(`${apiBase}/api/superadmin/companies?limit=100`, {
+        fetch(`${apiBase}/superadmin/companies?limit=100`, {
           credentials: "include",
         }),
       ]);
@@ -439,7 +439,7 @@ const BillingRevenue = () => {
       if (dateTo) params.set("to", dateTo);
 
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/invoices?${params.toString()}`,
+        `${apiBase}/superadmin/billing/invoices?${params.toString()}`,
         {
           credentials: "include",
         }
@@ -479,7 +479,7 @@ const BillingRevenue = () => {
       if (searchFilter.trim()) params.set("search", searchFilter.trim());
 
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/payments?${params.toString()}`,
+        `${apiBase}/superadmin/billing/payments?${params.toString()}`,
         {
           credentials: "include",
         }
@@ -509,7 +509,7 @@ const BillingRevenue = () => {
 
   const refreshSummary = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/billing/stats`, {
+      const res = await fetch(`${apiBase}/superadmin/billing/stats`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));
@@ -700,7 +700,7 @@ const BillingRevenue = () => {
         })),
       };
 
-      const res = await fetch(`${apiBase}/api/superadmin/billing/invoices`, {
+      const res = await fetch(`${apiBase}/superadmin/billing/invoices`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -738,7 +738,7 @@ const BillingRevenue = () => {
 
     try {
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/invoices/${editInvoice.rawId}`,
+        `${apiBase}/superadmin/billing/invoices/${editInvoice.rawId}`,
         {
           method: "PUT",
           credentials: "include",
@@ -787,7 +787,7 @@ const BillingRevenue = () => {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/billing/payments`, {
+      const res = await fetch(`${apiBase}/superadmin/billing/payments`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -830,7 +830,7 @@ const BillingRevenue = () => {
 
     try {
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/invoices/${refundInvoice.rawId}/refund`,
+        `${apiBase}/superadmin/billing/invoices/${refundInvoice.rawId}/refund`,
         {
           method: "POST",
           credentials: "include",
@@ -871,7 +871,7 @@ const BillingRevenue = () => {
 
     try {
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/invoices/retry`,
+        `${apiBase}/superadmin/billing/invoices/retry`,
         {
           method: "POST",
           credentials: "include",
@@ -909,7 +909,7 @@ const BillingRevenue = () => {
       if (dateTo) params.set("to", dateTo);
 
       const res = await fetch(
-        `${apiBase}/api/superadmin/billing/invoices?${params.toString()}`,
+        `${apiBase}/superadmin/billing/invoices?${params.toString()}`,
         {
           credentials: "include",
         }

@@ -33,7 +33,7 @@ const PlatformSettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/platform-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/platform-settings`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => ({}));
@@ -76,7 +76,7 @@ const PlatformSettings = () => {
     setSaving(true);
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/platform-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/platform-settings`, {
         method: "PUT",
         credentials: "include",
         headers: {

@@ -14,7 +14,7 @@ export default function PayoutList({ items = [], onApprove = () => {}, onDecline
           <div className="flex gap-2">
             {p.status === "pending" && <button className="px-3 py-1 bg-green-600 text-white rounded" onClick={() => onApprove(p.id)}>Approuver & Payer</button>}
             {p.status === "pending" && <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={() => onDecline(p.id)}>Refuser</button>}
-            <a className="px-3 py-1 border rounded" href={`${process.env.NEXT_PUBLIC_API_URL}/api/admin/payouts/${p.id}`}>Détails</a>
+            <a className="px-3 py-1 border rounded" href={`${process.env.NEXT_PUBLIC_API_URL}/admin/payouts/${p.id}`}>Détails</a>
           </div>
         </div>
       ))}

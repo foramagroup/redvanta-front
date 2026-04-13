@@ -83,13 +83,13 @@ const PaymentGateways = () => {
 
     try {
       const [gatewaysRes, manualRes, settingsRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/payment-settings/payment-gateways`, {
+        fetch(`${apiBase}/superadmin/payment-settings/payment-gateways`, {
           credentials: "include",
         }),
-        fetch(`${apiBase}/api/superadmin/payment-settings/manual-payment-methods`, {
+        fetch(`${apiBase}/superadmin/payment-settings/manual-payment-methods`, {
           credentials: "include",
         }),
-        fetch(`${apiBase}/api/superadmin/payment-settings/payment-settings`, {
+        fetch(`${apiBase}/superadmin/payment-settings/payment-settings`, {
           credentials: "include",
         }),
       ]);
@@ -193,7 +193,7 @@ const PaymentGateways = () => {
 
     try {
       const isEditing = Boolean(editGateway?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/payment-settings/payment-gateways${isEditing ? `/${editGateway.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/payment-settings/payment-gateways${isEditing ? `/${editGateway.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -223,7 +223,7 @@ const PaymentGateways = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/payment-settings/payment-gateways/${gateway.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/payment-settings/payment-gateways/${gateway.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -252,7 +252,7 @@ const PaymentGateways = () => {
 
     try {
       const isEditing = Boolean(editManualMethod?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/payment-settings/manual-payment-methods${isEditing ? `/${editManualMethod.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/payment-settings/manual-payment-methods${isEditing ? `/${editManualMethod.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -282,7 +282,7 @@ const PaymentGateways = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/payment-settings/manual-payment-methods/${method.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/payment-settings/manual-payment-methods/${method.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -304,7 +304,7 @@ const PaymentGateways = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/payment-settings/payment-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/payment-settings/payment-settings`, {
         method: "PUT",
         credentials: "include",
         headers: {

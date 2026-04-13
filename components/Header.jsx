@@ -46,7 +46,7 @@ const Header = ({ showEditBar = false }) => {
 
     const loadAuth = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/client/auth/me`, {
+        const response = await fetch(`${apiBase}/client/auth/me`, {
           credentials: "include",
         });
 
@@ -71,7 +71,7 @@ const Header = ({ showEditBar = false }) => {
 
     const loadSettings = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/client/settings`, {
+        const response = await fetch(`${apiBase}/client/settings`, {
           credentials: "include",
         });
 
@@ -129,7 +129,7 @@ const Header = ({ showEditBar = false }) => {
 
     const loadCart = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/client/shop/cart`, {
+        const response = await fetch(`${apiBase}/client/shop/cart`, {
           credentials: "include",
         });
 
@@ -202,7 +202,7 @@ const Header = ({ showEditBar = false }) => {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${apiBase}/api/client/auth/logout`, {
+      await fetch(`${apiBase}/client/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

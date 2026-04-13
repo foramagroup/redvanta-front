@@ -53,7 +53,7 @@ const SmsTemplates = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/sms-templates`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-templates`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => []);
@@ -122,7 +122,7 @@ const SmsTemplates = () => {
 
     try {
       const isEditing = Boolean(editing?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/sms-templates${isEditing ? `/${editing.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-templates${isEditing ? `/${editing.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -152,7 +152,7 @@ const SmsTemplates = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/sms-templates/${template.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-templates/${template.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -174,7 +174,7 @@ const SmsTemplates = () => {
 
     try {
       const duplicateSlug = `${template.slug}_${Date.now()}`;
-      const res = await fetch(`${apiBase}/api/superadmin/sms-templates`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-templates`, {
         method: "POST",
         credentials: "include",
         headers: {

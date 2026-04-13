@@ -69,7 +69,7 @@ const PlansAndPricing = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/plan-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/plan-settings`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => []);
@@ -124,7 +124,7 @@ const PlansAndPricing = () => {
 
     try {
       const isEditing = Boolean(editId);
-      const res = await fetch(`${apiBase}/api/superadmin/plan-settings${isEditing ? `/${editId}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/plan-settings${isEditing ? `/${editId}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -165,7 +165,7 @@ const PlansAndPricing = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/plan-settings/${id}`, {
+      const res = await fetch(`${apiBase}/superadmin/plan-settings/${id}`, {
         method: "DELETE",
         credentials: "include",
       });

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 export default function StatsCard({ onRefresh }) {
   const [stats, setStats] = useState(null);
   useEffect(() => {
-    fetch("/api/products/stats").then(r=>r.json()).then(setStats);
+    fetch("/products/stats").then(r=>r.json()).then(setStats);
   }, []);
 
   return (

@@ -43,7 +43,7 @@ export default function VerifyEmailPage() {
 
     const verify = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/client/auth/verify-email?token=${encodeURIComponent(token)}`, {
+        const response = await fetch(`${apiBase}/client/auth/verify-email?token=${encodeURIComponent(token)}`, {
           method: "GET",
           credentials: "include",
         });
@@ -87,7 +87,7 @@ export default function VerifyEmailPage() {
     setResendMessage("");
 
     try {
-      const response = await fetch(`${apiBase}/api/client/auth/resend-verification`, {
+      const response = await fetch(`${apiBase}/client/auth/resend-verification`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -133,7 +133,7 @@ const EmailServerConfig = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/email-server-config`, {
+      const response = await fetch(`${apiBase}/superadmin/email-server-config`, {
         credentials: "include",
       });
       const payload = await response.json().catch(() => ({}));
@@ -213,7 +213,7 @@ const EmailServerConfig = () => {
     };
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/email-server-config${editingServerId ? `/${editingServerId}` : ""}`, {
+      const response = await fetch(`${apiBase}/superadmin/email-server-config${editingServerId ? `/${editingServerId}` : ""}`, {
         method: editingServerId ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -243,7 +243,7 @@ const EmailServerConfig = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/email-server-config/${serverId}`, {
+      const response = await fetch(`${apiBase}/superadmin/email-server-config/${serverId}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -265,7 +265,7 @@ const EmailServerConfig = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/email-server-config/settings`, {
+      const response = await fetch(`${apiBase}/superadmin/email-server-config/settings`, {
         method: "PUT",
         credentials: "include",
         headers: {

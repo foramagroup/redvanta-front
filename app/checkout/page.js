@@ -177,7 +177,7 @@ const Checkout = () => {
 
   useEffect(() => {
     setLoadingMethods(true);
-    api.get("/api/client/shop/payment-methods")
+    api.get("/client/shop/payment-methods")
       .then((res) => {
         const methods = res?.data ?? [];
         setPaymentMethods(methods);
@@ -279,7 +279,7 @@ const Checkout = () => {
     setError(null);
 
     try {
-      const payload = await api.post("/api/client/orders", {
+      const payload = await api.post("/client/orders", {
         shippingFullName: address.fullName,
         shippingAddress: address.address,
         shippingCity: address.city,

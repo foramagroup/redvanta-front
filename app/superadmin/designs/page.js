@@ -121,7 +121,7 @@ const AllDesigns = () => {
       if (search.trim())           params.set("search", search.trim());
       if (statusFilter !== "all")  params.set("status", statusFilter);
 
-      const json = await apiFetch(`/api/superadmin/nfc/cards?${params}`);
+      const json = await apiFetch(`/superadmin/nfc/cards?${params}`);
       const data = json.data || [];
       setCards(data);
       setTotal(json.meta?.total || data.length);
@@ -151,7 +151,7 @@ const AllDesigns = () => {
     if (!statusCard || !newStatus) return;
     setSubmitting(true);
     try {
-      await apiFetch(`/api/superadmin/nfc/cards/${statusCard.uid}/status`, {
+      await apiFetch(`/superadmin/nfc/cards/${statusCard.uid}/status`, {
         method: "PATCH",
         body:   JSON.stringify({ status: newStatus }),
       });
@@ -174,7 +174,7 @@ const AllDesigns = () => {
     if (!regenCard) return;
     setSubmitting(true);
     try {
-      await apiFetch(`/api/superadmin/nfc/cards/${regenCard.uid}/regenerate-qr`, {
+      await apiFetch(`/superadmin/nfc/cards/${regenCard.uid}/regenerate-qr`, {
         method: "PATCH",
       });
       toast({
@@ -196,9 +196,9 @@ const AllDesigns = () => {
     const key = `${card.uid}-${format}`;
     setDownloading(key);
     try {
-      // GET /api/superadmin/nfc/cards/:uid/export?format=svg|png|pdf
+      // GET /superadmin/nfc/cards/:uid/export?format=svg|png|pdf
       const res = await fetch(
-        `${API}/api/superadmin/nfc/cards/${card.uid}/export?format=${format}`,
+        `${API}/superadmin/nfc/cards/${card.uid}/export?format=${format}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Erreur téléchargement");
@@ -222,9 +222,9 @@ const AllDesigns = () => {
     const key = `qr-${card.uid}-${format}`;
     setDownloading(key);
     try {
-      // GET /api/superadmin/nfc/cards/:uid/qr?format=svg|png|pdf
+      // GET /superadmin/nfc/cards/:uid/qr?format=svg|png|pdf
       const res = await fetch(
-        `${API}/api/superadmin/nfc/cards/${card.uid}/qr?format=${format}`,
+        `${API}/superadmin/nfc/cards/${card.uid}/qr?format=${format}`,
         { credentials: "include" }
       );
       if (!res.ok) {

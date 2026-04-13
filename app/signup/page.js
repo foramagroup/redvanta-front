@@ -44,7 +44,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiBase}/api/client/auth/signup`, {
+      const response = await fetch(`${apiBase}/client/auth/signup`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

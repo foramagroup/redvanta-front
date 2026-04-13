@@ -16,7 +16,7 @@ export default function UsersToolbar({ onSearch }) {
 
   const exportCsv = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/users/export?q=${encodeURIComponent(q)}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/users/export?q=${encodeURIComponent(q)}`, {
         headers: { accept: "text/csv" },
       });
       if (!res.ok) throw new Error("Export failed");

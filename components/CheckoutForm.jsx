@@ -11,7 +11,7 @@ export default function CheckoutForm() {
   const handle = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/api/payments/checkout", { items: [{ price: "price_xxx", quantity: 1 }], email });
+      const res = await api.post("/payments/checkout", { items: [{ price: "price_xxx", quantity: 1 }], email });
       const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PK);
       await stripe.redirectToCheckout({ sessionId: res.data.sessionId || res.data.session.id || res.data.session_id });
     } catch (err) {

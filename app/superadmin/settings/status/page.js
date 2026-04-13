@@ -33,7 +33,7 @@ const SystemStatus = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/superadmin/status-settings`, {
+      const response = await fetch(`${apiBase}/superadmin/status-settings`, {
         credentials: "include",
       });
       const payload = await response.json().catch(() => ({}));

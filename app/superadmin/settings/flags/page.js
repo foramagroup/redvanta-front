@@ -23,7 +23,7 @@ const FeatureFlags = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/feature-flags-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/feature-flags-settings`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => []);
@@ -50,7 +50,7 @@ const FeatureFlags = () => {
     setTogglingId(flag.id);
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/feature-flags-settings/${flag.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/feature-flags-settings/${flag.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: {

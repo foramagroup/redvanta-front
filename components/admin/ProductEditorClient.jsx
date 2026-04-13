@@ -41,7 +41,7 @@ export default function ProductEditor({ productId = null }) {
   // Fetch product if editing
   useEffect(() => {
     if (productId) {
-      fetch(`/api/products/${productId}`)
+      fetch(`/products/${productId}`)
         .then(r => r.json())
         .then(j => setData(j));
     }
@@ -60,7 +60,7 @@ export default function ProductEditor({ productId = null }) {
     if (file) payload.append("image", file);
 
     const res = await fetch(
-      productId ? `/api/products/${productId}` : "/api/products",
+      productId ? `/products/${productId}` : "/products",
       { method: productId ? "PUT" : "POST", body: payload }
     );
 
@@ -71,7 +71,7 @@ export default function ProductEditor({ productId = null }) {
   // ---------------- AUTO UPSELL ----------------
   async function autoUpsell() {
     if (!productId) return alert("Sauvegardez le produit d'abord");
-    const res = await fetch(`/api/products/${productId}/upsell`, { method: "POST" });
+    const res = await fetch(`/products/${productId}/upsell`, { method: "POST" });
     const j = await res.json();
     setData(prev => ({ ...prev, upsell: j.upsell.map(x => x.id) }));
     alert("Upsell généré automatiquement");
@@ -80,7 +80,7 @@ export default function ProductEditor({ productId = null }) {
   // ---------------- ADD / REMOVE CROSSSELL ----------------
   async function addCrossSell(product) {
     if (!productId) return alert("Sauvegardez le produit d'abord");
-    await fetch(`/api/products/${productId}/cross-sell`, {
+    await fetch(`/products/${productId}/cross-sell`, {
       method: "POST",
       body: JSON.stringify({ targetId: product.id }),
       headers: { "Content-Type": "application/json" }
@@ -99,7 +99,7 @@ export default function ProductEditor({ productId = null }) {
   // ---------------- ADD / REMOVE BUNDLE ----------------
   async function addBundle(bundle) {
     if (!productId) return alert("Sauvegardez le produit d'abord");
-    await fetch(`/api/products/${productId}/bundles`, {
+    await fetch(`/products/${productId}/bundles`, {
       method: "POST",
       body: JSON.stringify({ bundleId: bundle.id }),
       headers: { "Content-Type": "application/json" }
@@ -120,7 +120,7 @@ export default function ProductEditor({ productId = null }) {
     if (!productId) return alert("Sauvegardez le produit d'abord");
 
     const exists = data.designs.some(d => d.id === design.id);
-    const url = `/api/products/${productId}/designs`;
+    const url = `/products/${productId}/designs`;
     if (exists) {
       await fetch(url, { method: "DELETE", body: JSON.stringify({ designId: design.id }), headers: { "Content-Type": "application/json" } });
       setData(prev => ({ ...prev, designs: prev.designs.filter(d => d.id !== design.id) }));

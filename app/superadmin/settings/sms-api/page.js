@@ -72,7 +72,7 @@ const SmsApiConfig = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/sms-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-settings`, {
         credentials: "include",
       });
 
@@ -116,7 +116,7 @@ const SmsApiConfig = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/sms-settings/${id}`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-settings/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -167,7 +167,7 @@ const SmsApiConfig = () => {
 
     try {
       const isEditing = Boolean(editingId);
-      const res = await fetch(`${apiBase}/api/superadmin/sms-settings${isEditing ? `/${editingId}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-settings${isEditing ? `/${editingId}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -210,7 +210,7 @@ const SmsApiConfig = () => {
     setSavingGlobals(true);
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/sms-settings/global-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/sms-settings/global-settings`, {
         method: "PUT",
         credentials: "include",
         headers: {

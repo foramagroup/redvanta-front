@@ -38,7 +38,7 @@ export default function ProductForm({
         image: null
       });
     } else if (productId) {
-      fetch(`/api/products/${productId}`)
+      fetch(`/products/${productId}`)
         .then(r => r.json())
         .then(p => {
           setForm({
@@ -75,7 +75,7 @@ export default function ProductForm({
       const id = productId || initial?.id || "";
       const method = id ? "PUT" : "POST";
 
-      const res = await fetch(`/api/products/${id}`, { method, body: fd });
+      const res = await fetch(`/products/${id}`, { method, body: fd });
 
       if (!res.ok) throw new Error(await res.text());
 

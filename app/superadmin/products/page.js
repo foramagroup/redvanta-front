@@ -557,9 +557,9 @@ const Products = () => {
       try {
         setLoading(true);
         const [productsResponse, cardTypesResponse, languagesResponse] = await Promise.all([
-          get("/api/superadmin/products"),
-          get("/api/superadmin/card-types"),
-          get("/api/superadmin/language-settings", { page: 1, limit: 100 }),
+          get("/superadmin/products"),
+          get("/superadmin/card-types"),
+          get("/superadmin/language-settings", { page: 1, limit: 100 }),
         ]);
 
         if (cancelled) return;
@@ -683,11 +683,11 @@ const Products = () => {
 
     try {
       if (editing) {
-        const response = await put(`/api/superadmin/products/${editing.id}`, payload);
+        const response = await put(`/superadmin/products/${editing.id}`, payload);
         const nextProduct = { ...normalizeProduct(response?.data), cardSettings: { ...form.cardSettings } };
         setProducts(ps => ps.map(p => p.id === editing.id ? nextProduct : p));
       } else {
-        const response = await post("/api/superadmin/products", payload);
+        const response = await post("/superadmin/products", payload);
         const nextProduct = { ...normalizeProduct(response?.data), cardSettings: { ...form.cardSettings } };
         setProducts(ps => [...ps, nextProduct]);
       }
@@ -704,7 +704,7 @@ const Products = () => {
 
   const deleteProduct = async (id) => {
     try {
-      await remove(`/api/superadmin/products/${id}`);
+      await remove(`/superadmin/products/${id}`);
       setProducts(ps => ps.filter(p => p.id !== id));
       toast({ title: "Products", description: "Product deleted." });
     } catch (error) {
@@ -744,10 +744,10 @@ const Products = () => {
 
     try {
       if (editingCardType) {
-        const response = await put(`/api/superadmin/card-types/${editingCardType.id}`, payload);
+        const response = await put(`/superadmin/card-types/${editingCardType.id}`, payload);
         setCardTypes(cts => cts.map(ct => ct.id === editingCardType.id ? normalizeCardType(response?.data) : ct));
       } else {
-        const response = await post("/api/superadmin/card-types", payload);
+        const response = await post("/superadmin/card-types", payload);
         setCardTypes(cts => [...cts, normalizeCardType(response?.data)]);
       }
       setCardTypeDialogOpen(false);
@@ -763,7 +763,7 @@ const Products = () => {
 
   const deleteCardType = async (id) => {
     try {
-      await remove(`/api/superadmin/card-types/${id}`);
+      await remove(`/superadmin/card-types/${id}`);
       setCardTypes(cts => cts.filter(ct => ct.id !== id));
       setProducts(ps => ps.map(p => ({
         ...p,

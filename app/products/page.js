@@ -91,7 +91,7 @@ const Products = () => {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/client`);
+      const response = await fetch(`${apiBase}/client`);
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {

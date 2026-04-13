@@ -53,10 +53,10 @@ const SecurityPage = () => {
 
     try {
       const [settingsRes, adminsRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/security-settings`, {
+        fetch(`${apiBase}/superadmin/security-settings`, {
           credentials: "include",
         }),
-        fetch(`${apiBase}/api/superadmin/security-settings/admins`, {
+        fetch(`${apiBase}/superadmin/security-settings/admins`, {
           credentials: "include",
         }),
       ]);
@@ -117,7 +117,7 @@ const SecurityPage = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/security-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/security-settings`, {
         method: "PUT",
         credentials: "include",
         headers: {
@@ -163,7 +163,7 @@ const SecurityPage = () => {
 
     try {
       const isEditing = Boolean(editAdmin?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/security-settings/admins${isEditing ? `/${editAdmin.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/security-settings/admins${isEditing ? `/${editAdmin.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {

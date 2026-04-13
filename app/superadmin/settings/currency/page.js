@@ -81,10 +81,10 @@ const CurrencySettings = () => {
 
     try {
       const [currenciesRes, settingsRes] = await Promise.all([
-        fetch(`${apiBase}/api/superadmin/currency-settings/global-currencies?page=1&limit=100`, {
+        fetch(`${apiBase}/superadmin/currency-settings/global-currencies?page=1&limit=100`, {
           credentials: "include",
         }),
-        fetch(`${apiBase}/api/superadmin/currency-settings/global-currency-settings`, {
+        fetch(`${apiBase}/superadmin/currency-settings/global-currency-settings`, {
           credentials: "include",
         }),
       ]);
@@ -162,7 +162,7 @@ const CurrencySettings = () => {
 
     try {
       const isEditing = Boolean(editingCurrency?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/currency-settings/global-currencies${isEditing ? `/${editingCurrency.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/currency-settings/global-currencies${isEditing ? `/${editingCurrency.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -193,7 +193,7 @@ const CurrencySettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/currency-settings/global-currencies/${currency.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/currency-settings/global-currencies/${currency.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -215,7 +215,7 @@ const CurrencySettings = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/currency-settings/global-currency-settings`, {
+      const res = await fetch(`${apiBase}/superadmin/currency-settings/global-currency-settings`, {
         method: "PUT",
         credentials: "include",
         headers: {

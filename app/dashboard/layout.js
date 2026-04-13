@@ -14,7 +14,7 @@ async function getInitialDashboardAccount() {
     "http://localhost:4000";
 
   try {
-    const response = await fetch(`${apiBase}/api/client/auth/me`, {
+    const response = await fetch(`${apiBase}/client/auth/me`, {
       headers: {
         Cookie: `admin_token=${adminToken}`,
       },

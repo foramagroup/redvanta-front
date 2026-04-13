@@ -85,17 +85,17 @@ const Locations = () => {
   const [availableCards, setAvailableCards] = useState([]);
 
   const loadLocations = async () => {
-    const response = await get("/api/admin/locations");
+    const response = await get("/admin/locations");
     return Array.isArray(response?.data) ? response.data : [];
   };
 
   const loadStats = async () => {
-    const response = await get("/api/admin/locations/stats");
+    const response = await get("/admin/locations/stats");
     return response?.data || EMPTY_STATS;
   };
 
   const loadAvailableCards = async () => {
-    const response = await get("/api/admin/locations/list-company-card");
+    const response = await get("/admin/locations/list-company-card");
     return Array.isArray(response?.data) ? response.data : [];
   };
 
@@ -147,7 +147,7 @@ const Locations = () => {
 
   const openEdit = async (loc) => {
     try {
-      const response = await get(`/api/admin/locations/${loc.id}`);
+      const response = await get(`/admin/locations/${loc.id}`);
       const nextLoc = response?.data || loc;
       const assignedCard = nextLoc.assignedCard || nextLoc.assignedCards?.[0] || null;
       setEditLocation(nextLoc);
@@ -170,14 +170,14 @@ const Locations = () => {
     if (!editLocation) return;
     try {
       setSubmitting(true);
-      const response = await put(`/api/admin/locations/${editLocation.id}`, {
+      const response = await put(`/admin/locations/${editLocation.id}`, {
         name: editForm.name,
         address: editForm.address,
         placeId: editForm.placeId || undefined,
       });
 
       if (editForm.selectedCardId) {
-        await post(`/api/admin/locations/${editLocation.id}/assign-card`, {
+        await post(`/admin/locations/${editLocation.id}/assign-card`, {
           cardId: Number(editForm.selectedCardId),
         });
       }
@@ -199,14 +199,14 @@ const Locations = () => {
   const createLocation = async () => {
     try {
       setSubmitting(true);
-      const response = await post("/api/admin/locations", {
+      const response = await post("/admin/locations", {
         name: addForm.name,
         address: addForm.address,
         placeId: addForm.placeId || undefined,
       });
 
       if (response?.data?.id && addForm.selectedCardId) {
-        await post(`/api/admin/locations/${response.data.id}/assign-card`, {
+        await post(`/admin/locations/${response.data.id}/assign-card`, {
           cardId: Number(addForm.selectedCardId),
         });
       }
@@ -228,7 +228,7 @@ const Locations = () => {
 
   const toggleLocation = async (loc) => {
     try {
-      const response = await patch(`/api/admin/locations/${loc.id}/toggle`);
+      const response = await patch(`/admin/locations/${loc.id}/toggle`);
       const updated = response?.data;
       if (updated) {
         setLocations((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
@@ -247,7 +247,7 @@ const Locations = () => {
   const deleteLocation = async () => {
     if (!showDelete) return;
     try {
-      await remove(`/api/admin/locations/${showDelete}`);
+      await remove(`/admin/locations/${showDelete}`);
       setLocations((prev) => prev.filter((loc) => loc.id !== showDelete));
       const nextStats = await loadStats();
       setStats(nextStats);
@@ -266,7 +266,7 @@ const Locations = () => {
     try {
       setAnalyticsLocation(loc);
       setAnalyticsLoading(true);
-      const response = await get(`/api/admin/locations/${loc.id}/analytics`);
+      const response = await get(`/admin/locations/${loc.id}/analytics`);
       setAnalyticsData(response?.data || EMPTY_ANALYTICS);
     } catch (error) {
       toast({
@@ -284,11 +284,11 @@ const Locations = () => {
     if (!analyticsLocation) return;
     try {
       setAnalyticsLoading(true);
-      await post(`/api/admin/locations/${analyticsLocation.id}/refresh-google`);
+      await post(`/admin/locations/${analyticsLocation.id}/refresh-google`);
       await refreshDashboard();
-      const analyticsResponse = await get(`/api/admin/locations/${analyticsLocation.id}/analytics`);
+      const analyticsResponse = await get(`/admin/locations/${analyticsLocation.id}/analytics`);
       setAnalyticsData(analyticsResponse?.data || EMPTY_ANALYTICS);
-      const locationResponse = await get(`/api/admin/locations/${analyticsLocation.id}`);
+      const locationResponse = await get(`/admin/locations/${analyticsLocation.id}`);
       setAnalyticsLocation(locationResponse?.data || analyticsLocation);
       toast({ title: "Locations", description: "Google data refreshed." });
     } catch (error) {

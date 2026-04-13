@@ -27,7 +27,7 @@ export default function SuperadminLoginPage() {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/auth/login`, {
+      const res = await fetch(`${apiBase}/superadmin/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

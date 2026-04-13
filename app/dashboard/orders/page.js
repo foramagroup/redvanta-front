@@ -70,7 +70,7 @@ const MyOrders = () => {
       setError("");
 
       try {
-        const response = await get("/api/admin/orders", {
+        const response = await get("/admin/orders", {
           page,
           limit: 20,
           status: statusFilter === "all" ? undefined : statusFilter,
@@ -128,7 +128,7 @@ const MyOrders = () => {
     setError("");
 
     try {
-      const response = await get(`/api/admin/orders/${encodeURIComponent(order.id)}`);
+      const response = await get(`/admin/orders/${encodeURIComponent(order.id)}`);
       if (response?.data) {
         setSelectedOrder(response.data);
       }

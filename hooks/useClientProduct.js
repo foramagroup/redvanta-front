@@ -88,7 +88,7 @@ export function useClientProduct(slug, lang, fallback) {
       setError("");
 
       try {
-        const response = await fetch(`${apiBase}/api/client/by-slug/${encodeURIComponent(slug)}`);
+        const response = await fetch(`${apiBase}/client/by-slug/${encodeURIComponent(slug)}`);
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
@@ -98,7 +98,7 @@ export function useClientProduct(slug, lang, fallback) {
         const product = payload?.data || null;
 
         if (product?.id) {
-          const tiersResponse = await fetch(`${apiBase}/api/client/${product.id}/package-tiers`);
+          const tiersResponse = await fetch(`${apiBase}/client/${product.id}/package-tiers`);
 
           if (tiersResponse.ok) {
             const tiersPayload = await tiersResponse.json().catch(() => ({}));

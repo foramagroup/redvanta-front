@@ -67,7 +67,7 @@ const EmailTemplates = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/email-templates`, {
+      const res = await fetch(`${apiBase}/superadmin/email-templates`, {
         credentials: "include",
       });
       const payload = await res.json().catch(() => []);
@@ -145,7 +145,7 @@ const EmailTemplates = () => {
 
     try {
       const isEditing = Boolean(editing?.id);
-      const res = await fetch(`${apiBase}/api/superadmin/email-templates${isEditing ? `/${editing.id}` : ""}`, {
+      const res = await fetch(`${apiBase}/superadmin/email-templates${isEditing ? `/${editing.id}` : ""}`, {
         method: isEditing ? "PUT" : "POST",
         credentials: "include",
         headers: {
@@ -175,7 +175,7 @@ const EmailTemplates = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/email-templates/${template.id}`, {
+      const res = await fetch(`${apiBase}/superadmin/email-templates/${template.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -196,7 +196,7 @@ const EmailTemplates = () => {
     setError("");
 
     try {
-      const res = await fetch(`${apiBase}/api/superadmin/email-templates/${template.id}/duplicate`, {
+      const res = await fetch(`${apiBase}/superadmin/email-templates/${template.id}/duplicate`, {
         method: "POST",
         credentials: "include",
       });

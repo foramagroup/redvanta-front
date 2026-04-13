@@ -14,7 +14,7 @@ export default function OnboardComplete({ params }) {
       setLoading(true);
       try {
         if (affiliateId) {
-          const res = await api.get(`/api/affiliate/connect/status/${affiliateId}`);
+          const res = await api.get(`/affiliate/connect/status/${affiliateId}`);
           setStatus(res.data.account);
         } else {
           setStatus({ message: "Aucun affiliateId fourni : vérifie dans ton compte." });
