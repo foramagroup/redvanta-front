@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDesigns } from "@/contexts/DesignsContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import SharedCardPreview from "@/components/designs/SharedCardPreview";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const resolveAssetUrl = (value) => {
     if (!value)
@@ -2503,7 +2504,7 @@ const Customize = () => {
                   </div>
                 </div>
 
-                <CardPreview design={design} orientation={orientation} side={previewSide} frontLine1={frontLine1} frontLine2={frontLine2} backLine1={backLine1} backLine2={backLine2} gradient1={gradient1} gradient2={gradient2} accentBand1={accentBand1} accentBand2={accentBand2} pattern={activeTemplate.pattern} bandPosition={bandPosition} colorMode={colorMode} nameFont={nameFont} sloganFont={sloganFont} nameFontSize={nameFontSize} sloganFontSize={sloganFontSize} nameLetterSpacing={nameLetterSpacing} sloganLetterSpacing={sloganLetterSpacing} nameTextTransform={nameTextTransform} sloganTextTransform={sloganTextTransform} nameLineHeight={nameLineHeight} sloganLineHeight={sloganLineHeight} nameTextAlign={nameTextAlign} sloganTextAlign={sloganTextAlign} qrPosition={qrPosition} logoPosition={logoPosition} logoSize={logoSize} qrSize={qrSize} instructionFont={instructionFont} instructionFontSize={instructionFontSize} instructionLetterSpacing={instructionLetterSpacing} instructionLineHeight={instructionLineHeight} instructionTextAlign={instructionTextAlign} nameFontWeight={nameFontWeight} sloganFontWeight={sloganFontWeight} instructionFontWeight={instructionFontWeight} checkStrokeWidth={checkStrokeWidth} starsColor={starsColor} iconsColor={iconsColor} nfcIconSize={nfcIconSize} showNfcIcon={showNfcIcon} showGoogleIcon={showGoogleIcon} frontBandHeight={frontBandHeight} backBandHeight={backBandHeight} textShadow={textShadow} ctaPaddingTop={ctaPaddingTop} googleIconSize={googleIconSize} dragMode={dragMode} elementOffsets={elementOffsets} onElementDrag={handleElementDrag}/>
+                <SharedCardPreview design={design} orientation={orientation} side={previewSide} frontLine1={frontLine1} frontLine2={frontLine2} backLine1={backLine1} backLine2={backLine2} gradient1={gradient1} gradient2={gradient2} accentBand1={accentBand1} accentBand2={accentBand2} pattern={activeTemplate.pattern} bandPosition={bandPosition} colorMode={colorMode} nameFont={nameFont} sloganFont={sloganFont} nameFontSize={nameFontSize} sloganFontSize={sloganFontSize} nameLetterSpacing={nameLetterSpacing} sloganLetterSpacing={sloganLetterSpacing} nameTextTransform={nameTextTransform} sloganTextTransform={sloganTextTransform} nameLineHeight={nameLineHeight} sloganLineHeight={sloganLineHeight} nameTextAlign={nameTextAlign} sloganTextAlign={sloganTextAlign} qrPosition={qrPosition} logoPosition={logoPosition} logoSize={logoSize} qrSize={qrSize} instructionFont={instructionFont} instructionFontSize={instructionFontSize} instructionLetterSpacing={instructionLetterSpacing} instructionLineHeight={instructionLineHeight} instructionTextAlign={instructionTextAlign} nameFontWeight={nameFontWeight} sloganFontWeight={sloganFontWeight} instructionFontWeight={instructionFontWeight} checkStrokeWidth={checkStrokeWidth} starsColor={starsColor} iconsColor={iconsColor} nfcIconSize={nfcIconSize} showNfcIcon={showNfcIcon} showGoogleIcon={showGoogleIcon} frontBandHeight={frontBandHeight} backBandHeight={backBandHeight} textShadow={textShadow} ctaPaddingTop={ctaPaddingTop} googleIconSize={googleIconSize} dragMode={dragMode} elementOffsets={elementOffsets} onElementDrag={handleElementDrag}/>
 
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
@@ -2670,3 +2671,5 @@ const Customize = () => {
     </div>);
 };
 export default Customize;
+
+

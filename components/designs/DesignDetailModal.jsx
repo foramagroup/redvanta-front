@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import SharedCardPreview from "@/components/designs/SharedCardPreview";
 
 // ─── Constants (miroir de Customize.tsx) ─────────────────────
 const STATUS_CONFIG = {
@@ -303,7 +304,7 @@ function PatternOverlay({ pattern, color = "rgba(255,255,255,0.06)" }) {
 // ─── Stars ────────────────────────────────────────────────────
 function StarsRow({ color = "#FBBF24", size = 12 }) {
   return (
-    <div className="flex gap-0.5 mt-1">
+    <div style={{ display: "flex", gap: "2px", marginTop: "10px", alignItems: "center", lineHeight: 1 }}>
       {[...Array(5)].map((_, i) => (
         <Star key={i} size={size} fill={color} stroke="none" />
       ))}
@@ -347,7 +348,6 @@ function FaithfulCardPreview({ design, side }) {
   const shadowStyle   = TEXT_SHADOW_MAP[design.textShadow?.toLowerCase()] ?? undefined;
 
   const isLandscape   = design.orientation === "landscape";
-  const aspectClass   = isLandscape ? "aspect-[1.6/1]" : "aspect-[1/1.6]";
   const colorMode     = design.colorMode ?? "template";
 
   // Styles de fond
@@ -358,6 +358,16 @@ function FaithfulCardPreview({ design, side }) {
   const bgStyleBack = colorMode === "single"
     ? { background: design.bgColor, color: design.textColor }
     : { background: `linear-gradient(160deg, ${design.gradient2} 0%, ${design.gradient1} 100%)`, color: design.textColor };
+
+  const cardBaseStyle = {
+    ...((side === "front" ? bgStyle : bgStyleBack) || {}),
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: "12px",
+    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.28)",
+    width: "100%",
+    aspectRatio: isLandscape ? "1.6 / 1" : "1 / 1.6",
+  };
 
   // Styles typo
   const nameStyle = {
@@ -400,11 +410,11 @@ function FaithfulCardPreview({ design, side }) {
     opacity:    0.9,
   };
 
-  const instrJustify = design.instrAlign === "center"
-    ? "justify-center"
+  const justifyContent = design.instrAlign === "center"
+    ? "center"
     : design.instrAlign === "right"
-    ? "justify-end"
-    : "justify-start";
+    ? "flex-end"
+    : "flex-start";
 
   const qrSize    = design.qrCodeSize  ?? 80;
   const logoSize  = design.logoSize    ?? 32;
@@ -421,8 +431,7 @@ function FaithfulCardPreview({ design, side }) {
       src={resolvedLogoUrl}
       alt="Logo"
       draggable={false}
-      className="w-auto object-contain"
-      style={{ height: `${logoSize}px` }}
+      style={{ height: `${logoSize}px`, width: "auto", objectFit: "contain", display: "block" }}
     />
   ) : null;
 
@@ -431,25 +440,33 @@ function FaithfulCardPreview({ design, side }) {
     const isLogoLeft = (design.logoPosition ?? "left") === "left";
 
     const businessBlock = (
-      <div style={{ textAlign: design.businessAlign ?? "left" }}>
-        <p style={nameStyle}>{design.businessName || "Business Name"}</p>
-        {design.slogan && <p style={sloganStyle} className="mt-1">{design.slogan}</p>}
+      <div style={{ textAlign: design.businessAlign ?? "left", display: "flex", flexDirection: "column" }}>
+        <p style={{ ...nameStyle, margin: 0 }}>{design.businessName || "Business Name"}</p>
+        {design.slogan && <p style={{ ...sloganStyle, margin: "4px 0 0" }}>{design.slogan}</p>}
         <StarsRow color={design.starColor ?? "#FBBF24"} size={isLandscape ? 14 : 12} />
       </div>
     );
 
     const instructionsBlock = (
-      <div className="space-y-1.5">
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         {design.frontInstruction1 && (
-          <div className={`flex items-center gap-1.5 ${instrJustify}`}>
-            <Check size={12} strokeWidth={design.checkStrokeWidth ?? 3.5} className="shrink-0" style={{ color: design.iconsColor ?? "#22C55E" }} />
-            <span style={instrStyle}>{design.frontInstruction1}</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent, gap: "6px" }}>
+            <Check
+              size={12}
+              strokeWidth={design.checkStrokeWidth ?? 3.5}
+              style={{ color: design.iconsColor ?? "#22C55E", flexShrink: 0, display: "block" }}
+            />
+            <span style={{ ...instrStyle, margin: 0 }}>{design.frontInstruction1}</span>
           </div>
         )}
         {design.frontInstruction2 && (
-          <div className={`flex items-center gap-1.5 ${instrJustify}`}>
-            <Check size={12} strokeWidth={design.checkStrokeWidth ?? 3.5} className="shrink-0" style={{ color: design.iconsColor ?? "#22C55E" }} />
-            <span style={instrStyle}>{design.frontInstruction2}</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent, gap: "6px" }}>
+            <Check
+              size={12}
+              strokeWidth={design.checkStrokeWidth ?? 3.5}
+              style={{ color: design.iconsColor ?? "#22C55E", flexShrink: 0, display: "block" }}
+            />
+            <span style={{ ...instrStyle, margin: 0 }}>{design.frontInstruction2}</span>
           </div>
         )}
       </div>
@@ -457,19 +474,28 @@ function FaithfulCardPreview({ design, side }) {
 
     const ctaBlock = (
       <div style={{ paddingTop: `${design.ctaPaddingTop ?? 8}px` }}>
-        <p className="text-xs font-medium opacity-80" style={{ textShadow: shadowStyle }}>
+        <p style={{ margin: 0, fontSize: "12px", fontWeight: 500, opacity: 0.8, textShadow: shadowStyle }}>
           {design.callToAction || "Powered by RedVanta"}
         </p>
       </div>
     );
 
     return (
-      <div className={`${aspectClass} rounded-xl overflow-hidden shadow-2xl relative`} style={bgStyle}>
+      <div style={cardBaseStyle}>
         {colorMode === "template" && <PatternOverlay pattern={pattern} />}
 
         {/* NFC icon */}
         {(design.showNfcIcon ?? true) && (
-          <div className="absolute top-3 right-3 opacity-30 z-20" style={offset("nfcIcon")}>
+          <div
+            style={{
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              opacity: 0.3,
+              zIndex: 20,
+              ...offset("nfcIcon"),
+            }}
+          >
             <svg width={nfcSize} height={nfcSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/>
               <path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/>
@@ -480,21 +506,50 @@ function FaithfulCardPreview({ design, side }) {
 
         {/* Google icon */}
         {(design.showGoogleIcon ?? true) && (
-          <div className="absolute bottom-3 right-3 opacity-60 z-20" style={offset("googleIcon")}>
+          <div
+            style={{
+              position: "absolute",
+              right: "12px",
+              bottom: "12px",
+              opacity: 0.6,
+              zIndex: 20,
+              ...offset("googleIcon"),
+            }}
+          >
             <GoogleIcon size={gIconSize} />
           </div>
         )}
 
         {/* Main content */}
-        <div className="h-full flex flex-col justify-center gap-3 relative z-10 p-5">
+        <div
+          style={{
+            position: "relative",
+            zIndex: 10,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: "16px",
+            padding: "20px",
+            boxSizing: "border-box",
+          }}
+        >
           {isLandscape ? (
             <>
               {/* Landscape : logo + business side by side */}
-              <div className={`flex items-center gap-1.5 w-full ${isLogoLeft ? "flex-row" : "flex-row-reverse"}`}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: isLogoLeft ? "row" : "row-reverse",
+                  alignItems: "center",
+                  gap: "6px",
+                  width: "100%",
+                }}
+              >
                 {logoImg && (
-                  <div className="shrink-0" style={offset("logo")}>{logoImg}</div>
+                  <div style={{ flexShrink: 0, ...offset("logo") }}>{logoImg}</div>
                 )}
-                <div className="flex-1" style={offset("businessInfo")}>{businessBlock}</div>
+                <div style={{ flex: 1, minWidth: 0, ...offset("businessInfo") }}>{businessBlock}</div>
               </div>
               <div style={offset("instructions")}>{instructionsBlock}</div>
               <div style={offset("cta")}>{ctaBlock}</div>
@@ -503,12 +558,12 @@ function FaithfulCardPreview({ design, side }) {
             <>
               {/* Portrait : logo top-center optionnel */}
               {logoImg && design.logoPosition === "top-center" && (
-                <div className="flex justify-center" style={offset("logo")}>{logoImg}</div>
+                <div style={{ display: "flex", justifyContent: "center", ...offset("logo") }}>{logoImg}</div>
               )}
               <div style={offset("businessInfo")}>{businessBlock}</div>
               <div style={offset("instructions")}>{instructionsBlock}</div>
               {logoImg && design.logoPosition === "bottom-center" && (
-                <div className="mt-1 flex justify-center" style={offset("logo")}>{logoImg}</div>
+                <div style={{ marginTop: "4px", display: "flex", justifyContent: "center", ...offset("logo") }}>{logoImg}</div>
               )}
               <div style={offset("cta")}>{ctaBlock}</div>
             </>
@@ -518,8 +573,13 @@ function FaithfulCardPreview({ design, side }) {
         {/* Accent band */}
         {showBand && (
           <div
-            className={`absolute left-0 right-0 ${bandPosition === "top" ? "top-0" : "bottom-0"}`}
-            style={bandStyle}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              ...(bandPosition === "top" ? { top: 0 } : { bottom: 0 }),
+              ...bandStyle,
+            }}
           />
         )}
       </div>
@@ -529,10 +589,14 @@ function FaithfulCardPreview({ design, side }) {
   // ── BACK ───────────────────────────────────────────────────
   const qrEl = (
     <div
-      className="rounded-lg flex items-center justify-center shrink-0"
       style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
         height:          `${qrSize}px`,
         width:           `${qrSize}px`,
+        borderRadius: "8px",
         backgroundColor: (design.accentColor ?? "#E10600") + "18",
         border:          `1px solid ${design.accentColor ?? "#E10600"}33`,
       }}
@@ -546,12 +610,12 @@ function FaithfulCardPreview({ design, side }) {
   const isQrFirst  = qrPos === "left" || qrPos === "top";
 
   const backBizBlock = (
-    <div className="flex flex-col items-center gap-1">
-      <p className="text-center" style={{ ...nameStyle, fontSize: `${Math.max((design.businessFontSize ?? 16) - 4, 8)}px` }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+      <p style={{ ...nameStyle, fontSize: `${Math.max((design.businessFontSize ?? 16) - 4, 8)}px`, margin: 0, textAlign: "center" }}>
         {design.businessName || "Business Name"}
       </p>
       {design.slogan && (
-        <p className="opacity-70 text-center" style={{ ...sloganStyle, fontSize: `${Math.max((design.sloganFontSize ?? 12) - 2, 7)}px` }}>
+        <p style={{ ...sloganStyle, fontSize: `${Math.max((design.sloganFontSize ?? 12) - 2, 7)}px`, margin: 0, textAlign: "center" }}>
           {design.slogan}
         </p>
       )}
@@ -560,19 +624,19 @@ function FaithfulCardPreview({ design, side }) {
   );
 
   const backInstrBlock = (
-    <div className="flex flex-col items-center gap-1.5">
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
       {design.backInstruction1 && (
-        <div className={`flex items-center gap-1.5 ${instrJustify}`}>
-          <Check size={11} strokeWidth={design.checkStrokeWidth ?? 3.5} className="shrink-0" style={{ color: design.iconsColor ?? "#22C55E" }} />
-          <span style={{ ...instrStyle, fontSize: `${Math.max((design.instrFontSize ?? 10) - 1, 7)}px` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent, gap: "6px" }}>
+          <Check size={11} strokeWidth={design.checkStrokeWidth ?? 3.5} style={{ color: design.iconsColor ?? "#22C55E", flexShrink: 0, display: "block" }} />
+          <span style={{ ...instrStyle, fontSize: `${Math.max((design.instrFontSize ?? 10) - 1, 7)}px`, margin: 0 }}>
             {design.backInstruction1}
           </span>
         </div>
       )}
       {design.backInstruction2 && (
-        <div className={`flex items-center gap-1.5 ${instrJustify}`}>
-          <Check size={11} strokeWidth={design.checkStrokeWidth ?? 3.5} className="shrink-0" style={{ color: design.iconsColor ?? "#22C55E" }} />
-          <span style={{ ...instrStyle, fontSize: `${Math.max((design.instrFontSize ?? 10) - 1, 7)}px` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent, gap: "6px" }}>
+          <Check size={11} strokeWidth={design.checkStrokeWidth ?? 3.5} style={{ color: design.iconsColor ?? "#22C55E", flexShrink: 0, display: "block" }} />
+          <span style={{ ...instrStyle, fontSize: `${Math.max((design.instrFontSize ?? 10) - 1, 7)}px`, margin: 0 }}>
             {design.backInstruction2}
           </span>
         </div>
@@ -581,25 +645,54 @@ function FaithfulCardPreview({ design, side }) {
   );
 
   return (
-    <div className={`${aspectClass} rounded-xl overflow-hidden shadow-2xl relative`} style={bgStyleBack}>
+    <div style={cardBaseStyle}>
       {colorMode === "template" && <PatternOverlay pattern={pattern} />}
 
       {/* Google icon */}
       {(design.showGoogleIcon ?? true) && (
-        <div className="absolute bottom-3 right-3 opacity-60 z-20" style={offset("googleIcon")}>
+        <div
+          style={{
+            position: "absolute",
+            right: "12px",
+            bottom: "12px",
+            opacity: 0.6,
+            zIndex: 20,
+            ...offset("googleIcon"),
+          }}
+        >
           <GoogleIcon size={gIconSize} />
         </div>
       )}
 
-      <div className="h-full flex flex-col items-center justify-center gap-4 relative z-10 p-5">
-        <div className={`flex ${isQrHoriz ? "flex-row" : "flex-col"} items-center gap-3`}>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 10,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "16px",
+          padding: "20px",
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isQrHoriz ? "row" : "column",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
           {isQrFirst && <div style={offset("qrCode")}>{qrEl}</div>}
           <div style={offset("businessInfo")}>{backBizBlock}</div>
           {!isQrFirst && <div style={offset("qrCode")}>{qrEl}</div>}
         </div>
         <div style={offset("instructions")}>{backInstrBlock}</div>
         <div style={offset("cta")}>
-          <p className="text-[10px] font-medium opacity-70" style={{ textShadow: shadowStyle }}>
+          <p style={{ margin: 0, fontSize: "10px", fontWeight: 500, opacity: 0.7, textShadow: shadowStyle }}>
             {design.callToAction || "Powered by RedVanta"}
           </p>
         </div>
@@ -608,125 +701,119 @@ function FaithfulCardPreview({ design, side }) {
       {/* Accent band */}
       {showBand && (
         <div
-          className={`absolute left-0 right-0 ${bandPosition === "top" ? "top-0" : "bottom-0"}`}
-          style={bandStyle}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            ...(bandPosition === "top" ? { top: 0 } : { bottom: 0 }),
+            ...bandStyle,
+          }}
         />
       )}
     </div>
   );
 }
 
-// ─── PrintReadyPage — version fidèle pour PDF ─────────────────
-// Reprend les mêmes données visuelles mais dans un layout A4/print
-function PrintReadyPage({ design, side, previewRef }) {
-  const tpl     = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
-  const pattern = tpl?.pattern ?? "none";
+// ─── PrintReadyPage — capture PDF basée sur le vrai rendu carte ───────────
+function PrintReadyPage({ design, side, previewRef, cardWidth }) {
   const isLandscape = design?.orientation === "landscape";
-
-  const cardW = isLandscape ? 408 : 257;
-  const cardH = isLandscape ? 257 : 408;
-
-  const pageTitle   = side === "front" ? "RECTO (Front)" : "VERSO (Back)";
-  const footerLabel = side === "front" ? "RECTO" : "VERSO";
-
-  const g1 = side === "front" ? (design?.gradient1 ?? "#0D0D0D") : (design?.gradient2 ?? "#1A1A1A");
-  const g2 = side === "front" ? (design?.gradient2 ?? "#1A1A1A") : (design?.gradient1 ?? "#0D0D0D");
-
-  const instr1 = side === "front" ? design?.frontInstruction1 : design?.backInstruction1;
-  const instr2 = side === "front" ? design?.frontInstruction2 : design?.backInstruction2;
+  const fallbackCardW = isLandscape ? 408 : 257;
+  const effectiveCardW = cardWidth || fallbackCardW;
+  const pageTitle = side === "front" ? "RECTO (Front)" : "VERSO (Back)";
+  const tpl = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
+  const previewProps = {
+    design: { ...design, cta: design?.callToAction ?? design?.cta },
+    orientation: design?.orientation,
+    side,
+    frontLine1: design?.frontInstruction1,
+    frontLine2: design?.frontInstruction2,
+    backLine1: design?.backInstruction1,
+    backLine2: design?.backInstruction2,
+    gradient1: design?.gradient1,
+    gradient2: design?.gradient2,
+    accentBand1: design?.accentBand1,
+    accentBand2: design?.accentBand2,
+    pattern: tpl?.pattern ?? "none",
+    bandPosition: design?.bandPosition,
+    colorMode: design?.colorMode,
+    nameFont: design?.businessFont,
+    sloganFont: design?.sloganFont,
+    nameFontSize: design?.businessFontSize,
+    sloganFontSize: design?.sloganFontSize,
+    nameLetterSpacing: design?.businessFontSpacing,
+    sloganLetterSpacing: design?.sloganFontSpacing,
+    nameTextTransform: design?.businessTextTransform,
+    sloganTextTransform: design?.sloganTextTransform,
+    nameLineHeight: String(design?.businessLineHeight ?? "1.2"),
+    sloganLineHeight: String(design?.sloganLineHeight ?? "1.4"),
+    nameTextAlign: design?.businessAlign,
+    sloganTextAlign: design?.sloganAlign,
+    qrPosition: design?.qrCodeStyle ?? "top",
+    logoPosition: design?.logoPosition,
+    logoSize: design?.logoSize,
+    qrSize: design?.qrCodeSize,
+    instructionFont: design?.instrFont,
+    instructionFontSize: design?.instrFontSize,
+    instructionLetterSpacing: design?.instrFontSpacing,
+    instructionLineHeight: String(design?.instrLineHeight ?? "1.4"),
+    instructionTextAlign: design?.instrAlign,
+    nameFontWeight: String(design?.businessFontWeight ?? "700"),
+    sloganFontWeight: String(design?.sloganFontWeight ?? "400"),
+    instructionFontWeight: String(design?.instrFontWeight ?? "400"),
+    checkStrokeWidth: design?.checkStrokeWidth,
+    starsColor: design?.starColor,
+    iconsColor: design?.iconsColor,
+    nfcIconSize: design?.nfcIconSize,
+    showNfcIcon: design?.showNfcIcon,
+    showGoogleIcon: design?.showGoogleIcon,
+    frontBandHeight: design?.frontBandHeight,
+    backBandHeight: design?.backBandHeight,
+    textShadow: design?.textShadow,
+    ctaPaddingTop: design?.ctaPaddingTop,
+    googleIconSize: design?.googleLogoSize,
+    dragMode: false,
+    elementOffsets: design?.elementOffsets?.[design?.orientation]?.[side] ?? {},
+  };
 
   return (
     <div
       ref={previewRef}
       style={{
-        width: "1000px",
-        minHeight: "760px",
+        width: "760px",
+        minHeight: "520px",
         background: "#ffffff",
-        color: "#111111",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        paddingTop: "72px",
+        justifyContent: "flex-start",
+        padding: "28px 24px 40px",
         boxSizing: "border-box",
+        color: "#111111",
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <div style={{ textAlign: "center", marginBottom: "28px" }}>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <div style={{ fontSize: "26px", fontWeight: 700, marginBottom: "8px" }}>{pageTitle}</div>
         <div style={{ fontSize: "12px", color: "#6b7280" }}>
           {design?.businessName} · 85.6mm × 54.0mm · Print-ready
         </div>
       </div>
 
-      <div style={{ border: "2px dashed #d1d5db", padding: "8px", borderRadius: "12px" }}>
-        <div
-          style={{
-            width:        `${cardW}px`,
-            height:       `${cardH}px`,
-            borderRadius: "16px",
-            background:   `linear-gradient(160deg, ${g1} 0%, ${g2} 70%)`,
-            display:      "flex",
-            flexDirection: "column",
-            alignItems:   "center",
-            justifyContent: "center",
-            textAlign:    "center",
-            padding:      "28px",
-            boxSizing:    "border-box",
-            position:     "relative",
-            overflow:     "hidden",
-          }}
-        >
-          {side === "front" && (
-            <div style={{ fontSize: "22px", color: design?.starColor ?? "#fbbf24", marginBottom: "14px", letterSpacing: "2px" }}>
-              ★★★★★
-            </div>
-          )}
-
-          <div style={{
-            fontSize:   `${design?.businessFontSize ?? 16}px`,
-            fontWeight: design?.businessFontWeight ?? "700",
-            color:      design?.textColor ?? "#FFFFFF",
-            marginBottom: "8px",
-          }}>
-            {design?.businessName || "Business Name"}
-          </div>
-
-          {design?.slogan && (
-            <div style={{ fontSize: `${design?.sloganFontSize ?? 12}px`, color: design?.textColor ?? "#FFFFFF", opacity: 0.7, marginBottom: "12px" }}>
-              {design.slogan}
-            </div>
-          )}
-
-          {(instr1 || instr2) && (
-            <div style={{ marginTop: "8px", textAlign: "left" }}>
-              {instr1 && (
-                <div style={{ fontSize: `${design?.instrFontSize ?? 10}px`, color: design?.textColor ?? "#FFFFFF", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ color: design?.iconsColor ?? "#22C55E" }}>✓</span> {instr1}
-                </div>
-              )}
-              {instr2 && (
-                <div style={{ fontSize: `${design?.instrFontSize ?? 10}px`, color: design?.textColor ?? "#FFFFFF", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ color: design?.iconsColor ?? "#22C55E" }}>✓</span> {instr2}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ marginTop: "auto", fontSize: "10px", color: design?.textColor ?? "#FFFFFF", opacity: 0.55 }}>
-            {design?.callToAction || "Powered by RedVanta"} · {footerLabel}
-          </div>
-
-          {/* Bande accent */}
-          {design?.bandPosition !== "hidden" && design?.colorMode === "template" && (
-            <div style={{
-              position:   "absolute",
-              left:       0, right: 0,
-              [design?.bandPosition === "top" ? "top" : "bottom"]: 0,
-              height:     `${side === "front" ? (design?.frontBandHeight ?? 22) : (design?.backBandHeight ?? 12)}%`,
-              background: `linear-gradient(90deg, ${design?.accentBand1 ?? "#E10600"} 0%, ${design?.accentBand2 ?? "#FF4444"} 100%)`,
-              opacity:    0.9,
-            }} />
-          )}
+      <div
+        style={{
+          width: "fit-content",
+          maxWidth: "100%",
+          border: "2px dashed #d1d5db",
+          borderRadius: "16px",
+          padding: "10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ width: `${effectiveCardW}px` }}>
+          <SharedCardPreview {...previewProps} />
         </div>
       </div>
     </div>
@@ -744,26 +831,196 @@ export default function DesignDetailModal({
 }) {
   const [previewSide, setPreviewSide] = useState("front");
   const [isGenerating, setIsGenerating] = useState(false);
-  const frontPreviewRef = useRef(null);
-  const backPreviewRef  = useRef(null);
+  const livePreviewWrapRef = useRef(null);
 
   const status = STATUS_CONFIG[design?.status] ?? STATUS_CONFIG.draft;
+  const currentTemplate = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
+  const previewProps = design ? {
+    design: { ...design, cta: design?.callToAction ?? design?.cta },
+    orientation: design.orientation,
+    side: previewSide,
+    frontLine1: design.frontInstruction1,
+    frontLine2: design.frontInstruction2,
+    backLine1: design.backInstruction1,
+    backLine2: design.backInstruction2,
+    gradient1: design.gradient1,
+    gradient2: design.gradient2,
+    accentBand1: design.accentBand1,
+    accentBand2: design.accentBand2,
+    pattern: currentTemplate?.pattern ?? "none",
+    bandPosition: design.bandPosition,
+    colorMode: design.colorMode,
+    nameFont: design.businessFont,
+    sloganFont: design.sloganFont,
+    nameFontSize: design.businessFontSize,
+    sloganFontSize: design.sloganFontSize,
+    nameLetterSpacing: design.businessFontSpacing,
+    sloganLetterSpacing: design.sloganFontSpacing,
+    nameTextTransform: design.businessTextTransform,
+    sloganTextTransform: design.sloganTextTransform,
+    nameLineHeight: String(design.businessLineHeight ?? "1.2"),
+    sloganLineHeight: String(design.sloganLineHeight ?? "1.4"),
+    nameTextAlign: design.businessAlign,
+    sloganTextAlign: design.sloganAlign,
+    qrPosition: design.qrCodeStyle ?? "top",
+    logoPosition: design.logoPosition,
+    logoSize: design.logoSize,
+    qrSize: design.qrCodeSize,
+    instructionFont: design.instrFont,
+    instructionFontSize: design.instrFontSize,
+    instructionLetterSpacing: design.instrFontSpacing,
+    instructionLineHeight: String(design.instrLineHeight ?? "1.4"),
+    instructionTextAlign: design.instrAlign,
+    nameFontWeight: String(design.businessFontWeight ?? "700"),
+    sloganFontWeight: String(design.sloganFontWeight ?? "400"),
+    instructionFontWeight: String(design.instrFontWeight ?? "400"),
+    checkStrokeWidth: design.checkStrokeWidth,
+    starsColor: design.starColor,
+    iconsColor: design.iconsColor,
+    nfcIconSize: design.nfcIconSize,
+    showNfcIcon: design.showNfcIcon,
+    showGoogleIcon: design.showGoogleIcon,
+    frontBandHeight: design.frontBandHeight,
+    backBandHeight: design.backBandHeight,
+    textShadow: design.textShadow,
+    ctaPaddingTop: design.ctaPaddingTop,
+    googleIconSize: design.googleLogoSize,
+    dragMode: false,
+    elementOffsets: design.elementOffsets?.[design.orientation]?.[previewSide] ?? {},
+  } : null;
 
   const handleClose = () => { setPreviewSide("front"); onClose(); };
   const handleEdit  = () => { setPreviewSide("front"); onEdit?.(design); };
 
+  const cropCanvasToContent = (sourceCanvas) => {
+    const ctx = sourceCanvas.getContext("2d");
+    if (!ctx) return sourceCanvas;
+
+    const { width, height } = sourceCanvas;
+    const { data } = ctx.getImageData(0, 0, width, height);
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const alpha = data[(y * width + x) * 4 + 3];
+        if (alpha > 0) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) return sourceCanvas;
+
+    const croppedWidth = maxX - minX + 1;
+    const croppedHeight = maxY - minY + 1;
+    const croppedCanvas = document.createElement("canvas");
+    croppedCanvas.width = croppedWidth;
+    croppedCanvas.height = croppedHeight;
+    const croppedCtx = croppedCanvas.getContext("2d");
+
+    if (!croppedCtx) return sourceCanvas;
+
+    croppedCtx.drawImage(
+      sourceCanvas,
+      minX,
+      minY,
+      croppedWidth,
+      croppedHeight,
+      0,
+      0,
+      croppedWidth,
+      croppedHeight
+    );
+
+    return croppedCanvas;
+  };
+
   const handleDownloadPdf = async () => {
-    if (!design || !frontPreviewRef.current || !backPreviewRef.current) return;
+    if (!design || !livePreviewWrapRef.current) return;
     setIsGenerating(true);
     try {
-      const frontCanvas = await html2canvas(frontPreviewRef.current, { backgroundColor: "#ffffff", scale: 2, useCORS: true });
-      const backCanvas  = await html2canvas(backPreviewRef.current,  { backgroundColor: "#ffffff", scale: 2, useCORS: true });
+      if (document?.fonts?.ready) {
+        await document.fonts.ready;
+      }
 
-      const w = frontCanvas.width, h = frontCanvas.height;
-      const pdf = new jsPDF({ orientation: w > h ? "landscape" : "portrait", unit: "px", format: [w, h] });
-      pdf.addImage(frontCanvas.toDataURL("image/png"), "PNG", 0, 0, w, h);
-      pdf.addPage([backCanvas.width, backCanvas.height], backCanvas.width > backCanvas.height ? "landscape" : "portrait");
-      pdf.addImage(backCanvas.toDataURL("image/png"), "PNG", 0, 0, backCanvas.width, backCanvas.height);
+      const captureOptions = {
+        backgroundColor: null,
+        scale: Math.max(window.devicePixelRatio || 1, 2),
+        useCORS: true,
+        removeContainer: true,
+        logging: false,
+      };
+
+      const waitForSide = async (nextSide) => {
+        setPreviewSide(nextSide);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      };
+
+      const previousSide = previewSide;
+      await waitForSide("front");
+      const frontCanvasRaw = await html2canvas(livePreviewWrapRef.current, captureOptions);
+      await waitForSide("back");
+      const backCanvasRaw = await html2canvas(livePreviewWrapRef.current, captureOptions);
+      await waitForSide(previousSide);
+      const frontCanvas = cropCanvasToContent(frontCanvasRaw);
+      const backCanvas = cropCanvasToContent(backCanvasRaw);
+
+      const pageWidth = 760;
+      const pageHeight = 520;
+      const frameX = 20;
+      const frameY = 110;
+      const frameWidth = pageWidth - 40;
+      const frameHeight = pageHeight - 140;
+      const innerPadding = 10;
+
+      const renderPrintPage = (pdf, canvas, title) => {
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+        pdf.setTextColor(17, 17, 17);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(26);
+        pdf.text(title, pageWidth / 2, 48, { align: "center" });
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(12);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(`${design.businessName} · 85.6mm × 54.0mm · Print-ready`, pageWidth / 2, 78, { align: "center" });
+
+        pdf.setDrawColor(209, 213, 219);
+        pdf.setLineWidth(2);
+        pdf.setLineDashPattern([6, 4], 0);
+        pdf.roundedRect(frameX, frameY, frameWidth, frameHeight, 16, 16, "S");
+        pdf.setLineDashPattern([], 0);
+
+        const innerWidth = frameWidth - innerPadding * 2;
+        const innerHeight = frameHeight - innerPadding * 2;
+        const availableWidth = innerWidth * 0.6;
+        const availableHeight = innerHeight * 0.6;
+        const imageRatio = canvas.width / canvas.height;
+        let imageWidth = availableWidth;
+        let imageHeight = imageWidth / imageRatio;
+
+        if (imageHeight > availableHeight) {
+          imageHeight = availableHeight;
+          imageWidth = imageHeight * imageRatio;
+        }
+
+        const imageX = frameX + innerPadding + (innerWidth - imageWidth) / 2;
+        const imageY = frameY + innerPadding + (innerHeight - imageHeight) / 2;
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", imageX, imageY, imageWidth, imageHeight);
+      };
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [pageWidth, pageHeight] });
+      renderPrintPage(pdf, frontCanvas, "RECTO (Front)");
+      pdf.addPage([pageWidth, pageHeight], "landscape");
+      renderPrintPage(pdf, backCanvas, "VERSO (Back)");
       pdf.save(`${design.name || "design"}.pdf`);
     } catch {
       toast({ title: "Download failed", description: "Unable to generate the PDF file.", variant: "destructive" });
@@ -827,7 +1084,9 @@ export default function DesignDetailModal({
             )}
 
             {/* ── RENDU FIDÈLE ─────────────────────────────────── */}
-            <FaithfulCardPreview design={design} side={previewSide} />
+            <div ref={livePreviewWrapRef}>
+              {previewProps && <SharedCardPreview {...previewProps} />}
+            </div>
 
             {/* ── Détails (inchangés) ─────────────────────────── */}
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -856,13 +1115,6 @@ export default function DesignDetailModal({
         </DialogFooter>
 
         {/* ── Pages print pour PDF (hors écran) ──────────────── */}
-        {design && (
-          <div className="pointer-events-none absolute -left-[9999px] top-0 w-[1000px]">
-            <PrintReadyPage design={design} side="front" previewRef={frontPreviewRef} />
-            <div className="h-8" />
-            <PrintReadyPage design={design} side="back" previewRef={backPreviewRef} />
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
