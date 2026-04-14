@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter,  useSearchParams  } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2, Minus, Plus, AlertTriangle, CheckCircle2, Pencil, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,19 +13,72 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fadeUp } from "@/lib/animations";
 import { MODEL_LABELS } from "@/types/shop";
 
+const PENDING_CUSTOMIZE_KEY = "krootal_pending_customize";
+
 const Cart = () => {
   const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
   const { formatPrice } = useCurrency();
-    const router = useRouter();
-    const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const router = useRouter();
   const { t } = useLanguage();
 
   const isDraftDesignBlockingCheckout = (design) =>
     !!design && design.status === "draft" && !!design.googlePlaceId;
+
+  useEffect(() => {
+    if (!isCartReady || !isAuthenticated || !items.length) {
+      return;
+    }
+
+    try {
+      const rawPendingCustomize = sessionStorage.getItem(PENDING_CUSTOMIZE_KEY);
+      if (!rawPendingCustomize) {
+        return;
+      }
+
+      const pendingCustomize = JSON.parse(rawPendingCustomize);
+      const matchedItem = items.find((item) => {
+        const sameProduct = String(item?.productId || "") === String(pendingCustomize?.productId || "");
+        const samePackageTier = String(item?.packageTierId || "") === String(pendingCustomize?.packageTierId || "");
+        const sameCardType = String(item?.cardType?.id || "") === String(pendingCustomize?.cardTypeId || "");
+        return sameProduct && samePackageTier && sameCardType;
+      });
+
+      if (!matchedItem?.id) {
+        return;
+      }
+
+      sessionStorage.removeItem(PENDING_CUSTOMIZE_KEY);
+      router.replace(`/customize/${matchedItem.id}`);
+    } catch {}
+  }, [isAuthenticated, isCartReady, items, router]);
+
+  const handleCustomize = (itemId) => {
+    const customizePath = `/customize/${itemId}`;
+    const item = items.find((entry) => String(entry.id) === String(itemId));
+
+    if (!isAuthenticated) {
+      try {
+        sessionStorage.setItem(
+          PENDING_CUSTOMIZE_KEY,
+          JSON.stringify({
+            itemId,
+            productId: item?.productId || null,
+            packageTierId: item?.packageTierId || null,
+            cardTypeId: item?.cardType?.id || null,
+          })
+        );
+      } catch {}
+
+      router.push(`/login?redirect=${encodeURIComponent("/cart")}`);
+      return;
+    }
+
+    router.push(customizePath);
+  };
+
   const handleProceedCheckout = () => {
     if (!isAuthenticated) {
-       router.push("/login?redirect=/checkout");
+      router.push("/login?redirect=/checkout");
       return;
     }
 
@@ -151,12 +204,15 @@ const Cart = () => {
                         <span className="text-xs text-muted-foreground">{item.design.businessName}</span>
                       </>
                     )}
-                    <Link href={`/customize/${item.id}`}>
-                      <Button variant="outline" size="sm" className="text-xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => handleCustomize(item.id)}
+                    >
                         <Pencil size={12} className="mr-1" />
                         {item.design ? (t("cart.edit_design") || "Edit design") : t("shop.customize_design")}
-                      </Button>
-                    </Link>
+                    </Button>
                   </div>
                 </div>
               </motion.div>
