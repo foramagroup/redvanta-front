@@ -1,18 +1,19 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import SharedCardPreview from "@/components/designs/SharedCardPreview";
 import { useCardTemplates } from "@/hooks/useCardTemplates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Image as ImageIcon, LayoutGrid, Loader2, Palette, Pencil, Plus, QrCode, RotateCcw, Search, Smartphone, Star, Trash2, Type, Upload } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2, Copy, Image as ImageIcon, LayoutGrid, Loader2, MoreHorizontal, Palette, Pencil, Plus, QrCode, RotateCcw, Search, Smartphone, Star, Trash2, Type, Upload } from "lucide-react";
 
 const PLATFORMS = [
   { id: "google", label: "Google", icon: "G", color: "#4285F4" },
@@ -38,14 +39,14 @@ const TEMPLATE_CATEGORIES = [
   { id: "tech", label: "Tech" },
 ];
 const QUICK_TEMPLATES = [
-  { id: "crimson-noir", label: "Crimson Noir", gradient1: "#B91C1C", gradient2: "#0D0D0D", accentBand1: "#FFFFFF", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", pattern: "none", category: "classic" },
-  { id: "midnight-gold", label: "Midnight Gold", gradient1: "#1E1B4B", gradient2: "#0F172A", accentBand1: "#FBBF24", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", pattern: "none", category: "classic" },
-  { id: "glass-frost", label: "Frosted Glass", gradient1: "#6366F1", gradient2: "#312E81", accentBand1: "#E0E7FF", accentBand2: "#818CF8", textColor: "#FFFFFF", qrColor: "#C7D2FE", pattern: "glow", category: "premium" },
-  { id: "metal-gold", label: "Brushed Gold", gradient1: "#D4A574", gradient2: "#78350F", accentBand1: "#FDE68A", accentBand2: "#451A03", textColor: "#FFFBEB", qrColor: "#FDE68A", pattern: "stripes", category: "premium" },
-  { id: "dot-luxe", label: "Luxe Dots", gradient1: "#292524", gradient2: "#0C0A09", accentBand1: "#D4A574", accentBand2: "#292524", textColor: "#FAFAF9", qrColor: "#D4A574", pattern: "dots", category: "elegant" },
-  { id: "diamond-sapphire", label: "Sapphire Diamond", gradient1: "#1D4ED8", gradient2: "#1E1B4B", accentBand1: "#60A5FA", accentBand2: "#312E81", textColor: "#FFFFFF", qrColor: "#93C5FD", pattern: "grid", category: "elegant" },
-  { id: "hex-cyber", label: "Cyber Hex", gradient1: "#0E7490", gradient2: "#042F2E", accentBand1: "#22D3EE", accentBand2: "#134E4A", textColor: "#ECFEFF", qrColor: "#67E8F9", pattern: "grid", category: "tech" },
-  { id: "circuit-neon", label: "Neon Circuit", gradient1: "#14532D", gradient2: "#052E16", accentBand1: "#4ADE80", accentBand2: "#14532D", textColor: "#F0FDF4", qrColor: "#4ADE80", pattern: "diagonal-lines", category: "tech" },
+  { id: "crimson-noir", label: "Crimson Noir", gradient1: "#B91C1C", gradient2: "#0D0D0D", accentBand1: "#FFFFFF", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "none", category: "classic" },
+  { id: "midnight-gold", label: "Midnight Gold", gradient1: "#1E1B4B", gradient2: "#0F172A", accentBand1: "#FBBF24", accentBand2: "#1A1A1A", textColor: "#FFFFFF", qrColor: "#FBBF24", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "none", category: "classic" },
+  { id: "glass-frost", label: "Frosted Glass", gradient1: "#6366F1", gradient2: "#312E81", accentBand1: "#E0E7FF", accentBand2: "#818CF8", textColor: "#FFFFFF", qrColor: "#C7D2FE", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "glow", category: "premium" },
+  { id: "metal-gold", label: "Brushed Gold", gradient1: "#D4A574", gradient2: "#78350F", accentBand1: "#FDE68A", accentBand2: "#451A03", textColor: "#FFFBEB", qrColor: "#FDE68A", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "stripes", category: "premium" },
+  { id: "dot-luxe", label: "Luxe Dots", gradient1: "#292524", gradient2: "#0C0A09", accentBand1: "#D4A574", accentBand2: "#292524", textColor: "#FAFAF9", qrColor: "#D4A574", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "dots", category: "elegant" },
+  { id: "diamond-sapphire", label: "Sapphire Diamond", gradient1: "#1D4ED8", gradient2: "#1E1B4B", accentBand1: "#60A5FA", accentBand2: "#312E81", textColor: "#FFFFFF", qrColor: "#93C5FD", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "grid", category: "elegant" },
+  { id: "hex-cyber", label: "Cyber Hex", gradient1: "#0E7490", gradient2: "#042F2E", accentBand1: "#22D3EE", accentBand2: "#134E4A", textColor: "#ECFEFF", qrColor: "#67E8F9", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "grid", category: "tech" },
+  { id: "circuit-neon", label: "Neon Circuit", gradient1: "#14532D", gradient2: "#052E16", accentBand1: "#4ADE80", accentBand2: "#14532D", textColor: "#F0FDF4", qrColor: "#4ADE80", starsColor: "#FBBF24", iconsColor: "#22C55E", pattern: "diagonal-lines", category: "tech" },
 ];
 const SINGLE_COLOR_PRESETS = [
   { bg: "#0D0D0D", text: "#FFFFFF", qr: "#E10600", label: "Noir" },
@@ -73,12 +74,14 @@ const INSTR_SIZES = [8, 9, 10, 11, 12, 14];
 const BANDS = [8, 12, 16, 20, 22, 28, 35];
 const PADDINGS = [0, 4, 8, 12, 16, 20, 24];
 const ICON_SIZES = [16, 20, 24, 28, 32, 36];
+const TEXT_SHADOWS = ["none", "subtle", "medium", "strong", "outline"];
 const OFFSETS = { businessInfo:{x:0,y:0}, instructions:{x:0,y:0}, nfcIcon:{x:0,y:0}, googleIcon:{x:0,y:0}, logo:{x:0,y:0}, qrCode:{x:0,y:0}, cta:{x:0,y:0} };
 const buildOffsets = () => ({ landscape:{ front:{...OFFSETS}, back:{...OFFSETS} }, portrait:{ front:{...OFFSETS}, back:{...OFFSETS} }, square:{ front:{...OFFSETS}, back:{...OFFSETS} }, circle:{ front:{...OFFSETS}, back:{...OFFSETS} } });
+const REUSABLE_TEMPLATES_STORAGE_KEY = "krootal_reusable_card_template_ids";
 
 const EMPTY_FORM = {
   name:"", platform:"google", gradient:["#FFFFFF","#F1F5F9"], accentColor:"#4285F4", pattern:"none", textColor:"#1A1A1A", isActive:true, isDefault:false,
-  bandColor1:"#4285F4", bandColor2:"#E8F0FE", qrColor:"#4285F4", starsColor:"#FBBF24", iconsColor:"#4285F4", businessName:"", slogan:"", cta:"Powered by RedVanta",
+  bandColor1:"#4285F4", bandColor2:"#E8F0FE", qrColor:"#4285F4", starsColor:"#FBBF24", iconsColor:"#22C55E", businessName:"", slogan:"", cta:"Powered by RedVanta",
   logoUrl:null, orientation:"landscape", bandPosition:"bottom", frontBandHeight:22, backBandHeight:12, logoPosition:"left", logoSize:32, qrPosition:"right", qrSize:80,
   nameFont:FONTS[0].family, sloganFont:FONTS[0].family, instructionFont:FONTS[0].family, nameFontSize:16, sloganFontSize:12, instructionFontSize:10,
   nameFontWeight:"700", sloganFontWeight:"400", instructionFontWeight:"400", nameLetterSpacing:"normal", sloganLetterSpacing:"normal", instructionLetterSpacing:"normal",
@@ -151,6 +154,8 @@ export default function TemplateManager() {
   const [dragMode, setDragMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateFilter, setTemplateFilter] = useState("all");
+  const [reusableTemplateIds, setReusableTemplateIds] = useState([]);
+  const [showReusableOnly, setShowReusableOnly] = useState(false);
   const logoInputRef = useRef(null);
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const handleElementDrag = (key, x, y) => {
@@ -188,8 +193,36 @@ export default function TemplateManager() {
       bandColor2: template.accentBand2,
       textColor: template.textColor,
       qrColor: template.qrColor,
+      starsColor: template.starsColor,
+      iconsColor: template.iconsColor,
       pattern: template.pattern,
     });
+  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(REUSABLE_TEMPLATES_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setReusableTemplateIds(parsed.map(String));
+    } catch (error) {
+      console.error("Failed to restore reusable templates:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(REUSABLE_TEMPLATES_STORAGE_KEY, JSON.stringify(reusableTemplateIds));
+    window.dispatchEvent(new CustomEvent("reusable-card-templates-updated", { detail: reusableTemplateIds }));
+  }, [reusableTemplateIds]);
+
+  const toggleReusableTemplate = (templateId) => {
+    const normalizedId = String(templateId);
+    setReusableTemplateIds((current) =>
+      current.includes(normalizedId)
+        ? current.filter((id) => id !== normalizedId)
+        : [...current, normalizedId]
+    );
   };
 
   const filtered = useMemo(() => {
@@ -201,8 +234,11 @@ export default function TemplateManager() {
       const q = filters.search.toLowerCase();
       list = list.filter((item) => item.name.toLowerCase().includes(q) || item.platform.includes(q));
     }
+    if (showReusableOnly) {
+      list = list.filter((item) => reusableTemplateIds.includes(String(item.id)));
+    }
     return list;
-  }, [filters, templates]);
+  }, [filters, reusableTemplateIds, showReusableOnly, templates]);
 
   const previewDesign = useMemo(() => ({
     businessName: form.businessName || form.name || "Template Name",
@@ -301,18 +337,65 @@ export default function TemplateManager() {
         <Select value={filters.isActive} onValueChange={(value)=>updateFilters({ isActive:value })}><SelectTrigger className="w-full sm:w-36"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant="outline" className="gap-1 text-xs">
+          <CheckCircle2 size={12} />
+          {reusableTemplateIds.length} reusable template{reusableTemplateIds.length > 1 ? "s" : ""}
+        </Badge>
+        <Button
+          type="button"
+          variant={showReusableOnly ? "default" : "outline"}
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowReusableOnly((current) => !current)}
+        >
+          <CheckCircle2 size={14} />
+          {showReusableOnly ? "Show all templates" : "Show reusable only"}
+        </Button>
+      </div>
+
       {stats && <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{[{ label:"Total Templates", value:stats.total, color:"text-foreground" }, { label:"Active", value:stats.active, color:"text-green-500" }, { label:"Inactive", value:stats.inactive, color:"text-muted-foreground" }, { label:"Platforms", value:stats.platforms, color:"text-primary" }].map((stat)=><div key={stat.label} className="rounded-xl border border-border/50 bg-card p-4"><p className="text-xs text-muted-foreground">{stat.label}</p><p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p></div>)}</div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filtered.map((template) => {
           const platform = PLATFORMS.find((item) => item.id === template.platform);
+          const isReusable = reusableTemplateIds.includes(String(template.id));
           return <div key={template.id} className={`overflow-hidden rounded-xl border bg-card transition-all hover:shadow-lg ${template.isActive ? "border-border/50" : "border-border/30 opacity-60"}`}>
             <TemplateTile template={template}/>
             <div className="space-y-2 p-3">
               <div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-medium">{template.name}</p><Badge variant={template.isActive ? "default" : "outline"} className="text-[9px]">{template.isActive ? "Active" : "Inactive"}</Badge></div>
-              <div className="flex items-center gap-2"><Badge variant="outline" className="gap-1 text-[10px]"><span style={{ color:platform?.color }}>{platform?.icon}</span>{platform?.label}</Badge><Badge variant="outline" className="text-[10px]">{template.pattern}</Badge></div>
+              <div className="flex items-center gap-2 flex-wrap"><Badge variant="outline" className="gap-1 text-[10px]"><span style={{ color:platform?.color }}>{platform?.icon}</span>{platform?.label}</Badge><Badge variant="outline" className="text-[10px]">{template.pattern}</Badge>{isReusable && <Badge className="border-emerald-500/30 bg-emerald-500/15 text-[10px] text-emerald-400">Reusable</Badge>}</div>
               <div className="flex gap-1">{template.gradient.map((color, index)=><div key={`${template.id}-${index}`} className="h-5 w-5 rounded border border-border/50" style={{ background:color }}/>)}</div>
-              <div className="flex items-center gap-1 border-t border-border/30 pt-1"><Button size="sm" variant="ghost" onClick={()=>openEdit(template)} className="h-7 flex-1 gap-1 text-xs"><Pencil size={12}/>Edit</Button><Button size="sm" variant="ghost" onClick={()=>duplicateTemplate(template.id)} className="h-7 flex-1 gap-1 text-xs"><Copy size={12}/>Clone</Button><Button size="sm" variant="ghost" onClick={()=>setDeleteModal(template)} className="h-7 gap-1 text-xs text-destructive hover:text-destructive" disabled={template.isDefault}><Trash2 size={12}/></Button><Switch checked={template.isActive} onCheckedChange={()=>toggleTemplate(template.id)} className="ml-auto scale-75"/></div>
+              <div className="flex items-center gap-2 border-t border-border/30 pt-1">
+                <Switch checked={template.isActive} onCheckedChange={()=>toggleTemplate(template.id)} className="scale-75"/>
+                <div className="ml-auto">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={()=>toggleReusableTemplate(template.id)}>
+                        <CheckCircle2 size={14} className="mr-2" />
+                        {isReusable ? "Unselect" : "Select"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={()=>openEdit(template)}>
+                        <Pencil size={14} className="mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={()=>duplicateTemplate(template.id)}>
+                        <Copy size={14} className="mr-2" />
+                        Clone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={()=>setDeleteModal(template)} disabled={template.isDefault} className="text-destructive focus:text-destructive">
+                        <Trash2 size={14} className="mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             </div>
           </div>;
         })}
@@ -355,14 +438,17 @@ export default function TemplateManager() {
                         { id:"portrait",  cls:"h-[30px] w-[18px] rounded-[3px]" },
                         { id:"square",    cls:"h-[22px] w-[22px] rounded-[3px]" },
                         { id:"circle",    cls:"h-[22px] w-[22px] rounded-full"  },
-                      ].map(({ id, cls })=>(
+                      ].map(({ id, cls })=>{
+                        const mappedOrientation = id === "portrait" ? "portrait" : "landscape";
+                        const selected = previewLayout === id;
+                        return (
                         <button key={id} type="button"
-                          onClick={()=>{ setPreviewLayout(id); updateForm({ orientation:id, qrPosition: id==="portrait"?"top":"right", logoPosition: id==="portrait"?"top-center":"left" }); }}
-                          className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-xs font-medium capitalize transition-all ${form.orientation===id ? "border-primary/50 bg-primary/10 text-primary":"border-border/50 text-muted-foreground hover:border-border hover:text-foreground"}`}>
-                          <div className={`border-2 ${cls} ${form.orientation===id ? "border-current opacity-100" : "border-current opacity-40"}`}/>
+                          onClick={()=>{ setPreviewLayout(id); updateForm({ orientation:mappedOrientation, qrPosition: mappedOrientation==="portrait"?"top":"right", logoPosition: mappedOrientation==="portrait"?"top-center":"left" }); }}
+                          className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-xs font-medium capitalize transition-all ${selected ? "border-primary/50 bg-primary/10 text-primary":"border-border/50 text-muted-foreground hover:border-border hover:text-foreground"}`}>
+                          <div className={`border-2 ${cls} ${selected ? "border-current opacity-100" : "border-current opacity-40"}`}/>
                           {id}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   </div>
                   <div><label className="text-xs text-muted-foreground">Band Position</label><div className="mt-2 grid grid-cols-3 gap-2">{["top","bottom","hidden"].map((position)=><button key={position} type="button" onClick={()=>updateForm({ bandPosition:position })} className={`rounded-lg border px-3 py-2 text-xs font-medium ${form.bandPosition===position ? "border-primary/50 bg-primary/10 text-primary":"border-border/50"}`}>{position}</button>)}</div></div>
@@ -392,17 +478,86 @@ export default function TemplateManager() {
               </Section>
 
               <Section icon={Palette} title="Colors">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <ColorField label="Gradient Start" value={form.gradient[0]} onChange={(value)=>updateForm({ gradient:[value, form.gradient[1] || value] })}/>
-                  <ColorField label="Gradient End" value={form.gradient[1] || form.gradient[0]} onChange={(value)=>updateForm({ gradient:[form.gradient[0], value] })}/>
-                  <ColorField label="Band Color 1" value={form.bandColor1} onChange={(value)=>updateForm({ bandColor1:value })}/>
-                  <ColorField label="Band Color 2" value={form.bandColor2} onChange={(value)=>updateForm({ bandColor2:value })}/>
-                  <ColorField label="Text Color" value={form.textColor} onChange={(value)=>updateForm({ textColor:value })}/>
-                  <ColorField label="QR Color" value={form.qrColor} onChange={(value)=>updateForm({ qrColor:value })}/>
-                  <ColorField label="Stars Color" value={form.starsColor} onChange={(value)=>updateForm({ starsColor:value })}/>
-                  <ColorField label="Icons Color" value={form.iconsColor} onChange={(value)=>updateForm({ iconsColor:value })}/>
-                  <ColorField label="Accent Color" value={form.accentColor} onChange={(value)=>updateForm({ accentColor:value })}/>
-                </div>
+                <Tabs value={form.colorMode} onValueChange={(value)=>updateForm({ colorMode:value })} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="single">Single Color</TabsTrigger>
+                    <TabsTrigger value="template">From Template</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="single" className="space-y-4 pt-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Quick Presets</label>
+                      <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
+                        {SINGLE_COLOR_PRESETS.map((preset)=>(
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={()=>updateForm({ colorMode:"single", gradient:[preset.bg, preset.bg], textColor:preset.text, qrColor:preset.qr, iconsColor:"#22C55E", starsColor:preset.qr })}
+                            className={`rounded-lg border p-2 text-center transition-all ${form.gradient[0]===preset.bg && form.gradient[1]===preset.bg && form.textColor===preset.text && form.qrColor===preset.qr ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30":"border-border/50 hover:border-border"}`}
+                          >
+                            <div className="mx-auto h-6 w-6 rounded-full border border-border/30" style={{ background:preset.bg }}/>
+                            <span className="mt-1 block text-[10px] text-muted-foreground">{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <ColorField label="Background" value={form.gradient[0]} onChange={(value)=>updateForm({ gradient:[value, value] })}/>
+                      <ColorField label="Text Color" value={form.textColor} onChange={(value)=>updateForm({ textColor:value })}/>
+                      <ColorField label="QR Color" value={form.qrColor} onChange={(value)=>updateForm({ qrColor:value })}/>
+                      <ColorField label="Stars Color" value={form.starsColor} onChange={(value)=>updateForm({ starsColor:value })}/>
+                      <ColorField label="Icons Color" value={form.iconsColor} onChange={(value)=>updateForm({ iconsColor:value })}/>
+                      <ColorField label="Accent Color" value={form.accentColor} onChange={(value)=>updateForm({ accentColor:value })}/>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="template" className="space-y-4 pt-4">
+                    <div className="flex flex-wrap gap-2">
+                      {TEMPLATE_CATEGORIES.map((category)=>(
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={()=>setTemplateFilter(category.id)}
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${templateFilter===category.id ? "bg-primary text-primary-foreground":"bg-secondary text-secondary-foreground hover:bg-muted"}`}
+                        >
+                          {category.label}
+                          <span className="ml-1.5 opacity-60">
+                            {category.id === "all" ? QUICK_TEMPLATES.length : QUICK_TEMPLATES.filter((item)=>item.category===category.id).length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {QUICK_TEMPLATES.filter((item)=>templateFilter==="all" || item.category===templateFilter).map((template)=>(
+                        <button
+                          key={template.id}
+                          type="button"
+                          onClick={()=>applyTemplate(template)}
+                          className={`rounded-lg border p-3 text-left transition-all ${form.gradient[0]===template.gradient1 && form.gradient[1]===template.gradient2 && form.pattern===template.pattern ? "border-primary/50 bg-primary/10":"border-border/50 hover:border-border"}`}
+                        >
+                          <div className="relative mb-2 aspect-[1.6/1] overflow-hidden rounded-md" style={{ background:`linear-gradient(160deg, ${template.gradient1} 0%, ${template.gradient2} 70%)` }}>
+                            <div className="absolute inset-x-0 bottom-0 h-[22%]" style={{ background:`linear-gradient(90deg, ${template.accentBand1} 0%, ${template.accentBand2} 100%)`, opacity:0.9 }}/>
+                            <div className="relative z-10 p-2">
+                              <div className="h-1.5 w-10 rounded bg-white/60"/>
+                              <div className="mt-1 h-1 w-6 rounded bg-white/30"/>
+                            </div>
+                          </div>
+                          <span className="text-xs font-medium">{template.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <ColorField label="Gradient Start" value={form.gradient[0]} onChange={(value)=>updateForm({ gradient:[value, form.gradient[1] || value] })}/>
+                      <ColorField label="Gradient End" value={form.gradient[1] || form.gradient[0]} onChange={(value)=>updateForm({ gradient:[form.gradient[0], value] })}/>
+                      <ColorField label="Band Color 1" value={form.bandColor1} onChange={(value)=>updateForm({ bandColor1:value })}/>
+                      <ColorField label="Band Color 2" value={form.bandColor2} onChange={(value)=>updateForm({ bandColor2:value })}/>
+                      <ColorField label="Text Color" value={form.textColor} onChange={(value)=>updateForm({ textColor:value })}/>
+                      <ColorField label="QR Color" value={form.qrColor} onChange={(value)=>updateForm({ qrColor:value })}/>
+                      <ColorField label="Stars Color" value={form.starsColor} onChange={(value)=>updateForm({ starsColor:value })}/>
+                      <ColorField label="Icons Color" value={form.iconsColor} onChange={(value)=>updateForm({ iconsColor:value })}/>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </Section>
 
               <Section icon={Type} title="Typography">
@@ -411,11 +566,17 @@ export default function TemplateManager() {
                   <div><label className="text-xs text-muted-foreground">Slogan Font</label><Select value={form.sloganFont} onValueChange={(value)=>updateForm({ sloganFont:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{FONTS.map((font)=><SelectItem key={font.id} value={font.family}>{font.label}</SelectItem>)}</SelectContent></Select></div>
                   <div><label className="text-xs text-muted-foreground">Business Size ({form.nameFontSize}px)</label><Presets values={TEXT_SIZES} active={form.nameFontSize} onSelect={(value)=>updateForm({ nameFontSize:value })}/></div>
                   <div><label className="text-xs text-muted-foreground">Slogan Size ({form.sloganFontSize}px)</label><Presets values={TEXT_SIZES} active={form.sloganFontSize} onSelect={(value)=>updateForm({ sloganFontSize:value })}/></div>
-                  <div><label className="text-xs text-muted-foreground">Weight</label><Select value={form.nameFontWeight} onValueChange={(value)=>updateForm({ nameFontWeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{WEIGHTS.map((option)=><SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
-                  <div><label className="text-xs text-muted-foreground">Align</label><Select value={form.nameTextAlign} onValueChange={(value)=>updateForm({ nameTextAlign:value, sloganTextAlign:value, instructionTextAlign:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{ALIGNS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
-                  <div><label className="text-xs text-muted-foreground">Spacing</label><Select value={form.nameLetterSpacing} onValueChange={(value)=>updateForm({ nameLetterSpacing:value, sloganLetterSpacing:value, instructionLetterSpacing:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{SPACINGS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
-                  <div><label className="text-xs text-muted-foreground">Transform</label><Select value={form.nameTextTransform} onValueChange={(value)=>updateForm({ nameTextTransform:value, sloganTextTransform:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{TRANSFORMS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
-                  <div><label className="text-xs text-muted-foreground">Line Height</label><Select value={form.nameLineHeight} onValueChange={(value)=>updateForm({ nameLineHeight:value, sloganLineHeight:value, instructionLineHeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{LINE_HEIGHTS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Business Weight</label><Select value={form.nameFontWeight} onValueChange={(value)=>updateForm({ nameFontWeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{WEIGHTS.map((option)=><SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Slogan Weight</label><Select value={form.sloganFontWeight} onValueChange={(value)=>updateForm({ sloganFontWeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{WEIGHTS.map((option)=><SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Business Align</label><Select value={form.nameTextAlign} onValueChange={(value)=>updateForm({ nameTextAlign:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{ALIGNS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Slogan Align</label><Select value={form.sloganTextAlign} onValueChange={(value)=>updateForm({ sloganTextAlign:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{ALIGNS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Business Spacing</label><Select value={form.nameLetterSpacing} onValueChange={(value)=>updateForm({ nameLetterSpacing:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{SPACINGS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Slogan Spacing</label><Select value={form.sloganLetterSpacing} onValueChange={(value)=>updateForm({ sloganLetterSpacing:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{SPACINGS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Business Transform</label><Select value={form.nameTextTransform} onValueChange={(value)=>updateForm({ nameTextTransform:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{TRANSFORMS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Slogan Transform</label><Select value={form.sloganTextTransform} onValueChange={(value)=>updateForm({ sloganTextTransform:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{TRANSFORMS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Business Line Height</label><Select value={form.nameLineHeight} onValueChange={(value)=>updateForm({ nameLineHeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{LINE_HEIGHTS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Slogan Line Height</label><Select value={form.sloganLineHeight} onValueChange={(value)=>updateForm({ sloganLineHeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{LINE_HEIGHTS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Text Shadow</label><div className="mt-2 flex flex-wrap gap-2">{TEXT_SHADOWS.map((shadow)=><button key={shadow} type="button" onClick={()=>updateForm({ textShadow:shadow })} className={`rounded-md border px-2.5 py-1 text-xs font-medium ${form.textShadow===shadow ? "border-primary/50 bg-primary/10 text-primary":"border-border/50 text-muted-foreground hover:border-border"}`}>{shadow}</button>)}</div></div>
                 </div>
               </Section>
 
@@ -427,9 +588,16 @@ export default function TemplateManager() {
                   <div><label className="text-xs text-muted-foreground">Back Line 2</label><Input value={form.backLine2} onChange={(e)=>updateForm({ backLine2:e.target.value })} className="mt-1"/></div>
                   <div><label className="text-xs text-muted-foreground">Instruction Font</label><Select value={form.instructionFont} onValueChange={(value)=>updateForm({ instructionFont:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{FONTS.map((font)=><SelectItem key={font.id} value={font.family}>{font.label}</SelectItem>)}</SelectContent></Select></div>
                   <div><label className="text-xs text-muted-foreground">Instruction Size ({form.instructionFontSize}px)</label><Presets values={INSTR_SIZES} active={form.instructionFontSize} onSelect={(value)=>updateForm({ instructionFontSize:value })}/></div>
+                  <div><label className="text-xs text-muted-foreground">Instruction Weight</label><Select value={form.instructionFontWeight} onValueChange={(value)=>updateForm({ instructionFontWeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{WEIGHTS.map((option)=><SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Instruction Align</label><Select value={form.instructionTextAlign} onValueChange={(value)=>updateForm({ instructionTextAlign:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{ALIGNS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Instruction Spacing</label><Select value={form.instructionLetterSpacing} onValueChange={(value)=>updateForm({ instructionLetterSpacing:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{SPACINGS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Instruction Line Height</label><Select value={form.instructionLineHeight} onValueChange={(value)=>updateForm({ instructionLineHeight:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{LINE_HEIGHTS.map((option)=><SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select></div>
+                  <div><label className="text-xs text-muted-foreground">Check Stroke ({form.checkStrokeWidth})</label><Input type="range" min={1} max={5} step={0.5} value={form.checkStrokeWidth} onChange={(e)=>updateForm({ checkStrokeWidth:Number(e.target.value) })} className="mt-2"/></div>
                   <div><label className="text-xs text-muted-foreground">CTA Padding ({form.ctaPaddingTop}px)</label><Presets values={PADDINGS} active={form.ctaPaddingTop} onSelect={(value)=>updateForm({ ctaPaddingTop:value })}/></div>
+                  <div><label className="text-xs text-muted-foreground">Google Icon Size ({form.googleIconSize}px)</label><Presets values={ICON_SIZES} active={form.googleIconSize} onSelect={(value)=>updateForm({ googleIconSize:value })}/></div>
                 </div>
               </Section>
+
             </div>
           </ScrollArea>
 
@@ -463,7 +631,7 @@ export default function TemplateManager() {
                     <Badge variant="outline" className="gap-1 text-xs" style={{ borderColor: `${currentPlatform?.color || "#666"}40`, color: currentPlatform?.color || "#666" }}>
                       <span className="text-[10px]">{currentPlatform?.icon || "?"}</span> {currentPlatform?.label || "Platform"}
                     </Badge>
-                    <Badge variant="outline" className="text-xs">{form.model}</Badge>
+                    <Badge variant="outline" className="text-xs">{MODEL_LABELS[form.model] || form.model}</Badge>
                     <Badge variant="outline" className="text-xs capitalize">{form.orientation}</Badge>
                     <Badge variant="outline" className="text-xs capitalize">{previewSide}</Badge>
                   </div>

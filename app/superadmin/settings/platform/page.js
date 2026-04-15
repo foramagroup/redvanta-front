@@ -21,7 +21,7 @@ const PlatformSettings = () => {
   const [error, setError] = useState("");
   const [smsSettings, setSmsSettings] = useState([]);
   const [form, setForm] = useState({
-    platform_name: "",
+    companyName: "",
     default_email_sender: "",
     sms_setting_id: "",
     rate_limit: "60",
@@ -45,7 +45,7 @@ const PlatformSettings = () => {
       const platformSetting = payload?.platformSetting || {};
       setSmsSettings(Array.isArray(payload?.smsSettings) ? payload.smsSettings : []);
       setForm({
-        platform_name: platformSetting.platform_name || "",
+        companyName: platformSetting.companyName || "",
         default_email_sender: platformSetting.default_email_sender || "",
         sms_setting_id: platformSetting.sms_setting_id ? String(platformSetting.sms_setting_id) : "",
         rate_limit: platformSetting.rate_limit != null ? String(platformSetting.rate_limit) : "60",
@@ -68,7 +68,7 @@ const PlatformSettings = () => {
   const handleSave = async () => {
     setError("");
 
-    if (!form.platform_name || !form.default_email_sender || !form.rate_limit) {
+    if (!form.companyName || !form.default_email_sender || !form.rate_limit) {
       setError("Please fill in platform name, sender email and API rate limit.");
       return;
     }
@@ -83,7 +83,7 @@ const PlatformSettings = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          platform_name: form.platform_name,
+          companyName: form.companyName,
           default_email_sender: form.default_email_sender,
           sms_setting_id: form.sms_setting_id ? Number(form.sms_setting_id) : null,
           rate_limit: Number(form.rate_limit),
@@ -120,10 +120,10 @@ const PlatformSettings = () => {
             <div>
               <Label>{t("sa.plat_name")}</Label>
               <Input
-                value={form.platform_name}
+                value={form.companyName}
                 disabled={loading || saving}
                 className="mt-1 bg-secondary border-border/50"
-                onChange={(e) => setForm((current) => ({ ...current, platform_name: e.target.value }))}
+                onChange={(e) => setForm((current) => ({ ...current, companyName: e.target.value }))}
               />
             </div>
             <div>
