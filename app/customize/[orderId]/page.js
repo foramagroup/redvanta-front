@@ -1572,6 +1572,7 @@ const Customize = () => {
         instrAlign: instructionTextAlign,
         checkStrokeWidth,
         qrCodeSize: qrSize,
+        qrCodeStyle: qrPosition,
         cardModel: design.model,
         elementOffsets: allOffsets,
     });

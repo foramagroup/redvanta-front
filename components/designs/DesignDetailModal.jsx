@@ -722,7 +722,7 @@ function PrintReadyPage({ design, side, previewRef, cardWidth }) {
   const pageTitle = side === "front" ? "RECTO (Front)" : "VERSO (Back)";
   const tpl = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
   const previewProps = {
-    design: { ...design, cta: design?.callToAction ?? design?.cta },
+    design: { ...design, cta: design?.callToAction ?? design?.cta, qrColor: design?.qrColor ?? design?.accentColor },
     orientation: design?.orientation,
     side,
     frontLine1: design?.frontInstruction1,
@@ -836,7 +836,7 @@ export default function DesignDetailModal({
   const status = STATUS_CONFIG[design?.status] ?? STATUS_CONFIG.draft;
   const currentTemplate = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
   const previewProps = design ? {
-    design: { ...design, cta: design?.callToAction ?? design?.cta },
+    design: { ...design, cta: design?.callToAction ?? design?.cta, qrColor: design?.qrColor ?? design?.accentColor },
     orientation: design.orientation,
     side: previewSide,
     frontLine1: design.frontInstruction1,
@@ -959,7 +959,8 @@ export default function DesignDetailModal({
 
       const waitForSide = async (nextSide) => {
         setPreviewSide(nextSide);
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        // Attendre que React re-rende + que le navigateur peigne le DOM
+        await new Promise((resolve) => setTimeout(resolve, 150));
       };
 
       const previousSide = previewSide;

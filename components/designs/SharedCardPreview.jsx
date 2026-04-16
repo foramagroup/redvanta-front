@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, QrCode, Star } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const resolveAssetUrl = (value) => {
@@ -423,9 +424,50 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
       </div>);
     }
     // ── Back side ───────────────────────────────────────────
-    const qrElement = (<div className="rounded-lg flex items-center justify-center shrink-0" style={{ height: `${qrSize}px`, width: `${qrSize}px`, backgroundColor: design.qrColor + "18", border: `1px solid ${design.qrColor}33` }}>
-      <QrCode size={Math.round(qrSize * 0.6)} style={{ color: design.qrColor }}/>
-    </div>);
+    const qrUrl = design.googleReviewUrl ?? design.googleReviewLink ?? design.platformUrl ?? null;
+    // Couleur des crochets = couleur du fond de la carte (dos)
+    const bracketColor = colorMode === "single" ? (design.bgColor ?? "#000000") : (gradient2 ?? "#000000");
+    const bracketSize  = Math.round(qrSize * 0.28);
+    const bracketW     = 3;
+    const bracketCornerStyle = (pos) => ({
+      position: "absolute",
+      width:  bracketSize,
+      height: bracketSize,
+      zIndex: 3,
+      ...(pos.top    !== undefined ? { top:    pos.top    } : { bottom: pos.bottom }),
+      ...(pos.left   !== undefined ? { left:   pos.left   } : { right:  pos.right  }),
+      borderTop:    pos.top    !== undefined ? `${bracketW}px solid ${bracketColor}` : "none",
+      borderBottom: pos.bottom !== undefined ? `${bracketW}px solid ${bracketColor}` : "none",
+      borderLeft:   pos.left   !== undefined ? `${bracketW}px solid ${bracketColor}` : "none",
+      borderRight:  pos.right  !== undefined ? `${bracketW}px solid ${bracketColor}` : "none",
+      borderRadius: pos.top !== undefined && pos.left  !== undefined ? "3px 0 0 0" :
+                    pos.top !== undefined && pos.right !== undefined ? "0 3px 0 0" :
+                    pos.bottom !== undefined && pos.left !== undefined ? "0 0 0 3px" : "0 0 3px 0",
+    });
+    const qrElement = (
+      <div style={{ position: "relative", display: "inline-flex", padding: "6px" }}>
+        {/* Crochets de coin */}
+        <div style={bracketCornerStyle({ top: 0,    left:  0   })} />
+        <div style={bracketCornerStyle({ top: 0,    right: 0   })} />
+        <div style={bracketCornerStyle({ bottom: 0, left:  0   })} />
+        <div style={bracketCornerStyle({ bottom: 0, right: 0   })} />
+        {/* QR code */}
+        <div className="rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+          style={{ height: `${qrSize}px`, width: `${qrSize}px`, backgroundColor: "#FFFFFF", padding: "4px" }}>
+          {qrUrl ? (
+            <QRCodeSVG
+              value={qrUrl}
+              size={qrSize - 10}
+              fgColor={design.qrColor ?? "#000000"}
+              bgColor="#FFFFFF"
+              level="M"
+            />
+          ) : (
+            <QrCode size={Math.round(qrSize * 0.6)} style={{ color: design.qrColor }}/>
+          )}
+        </div>
+      </div>
+    );
     const isQrHorizontal = qrPosition === "left" || qrPosition === "right";
     const isQrFirst = qrPosition === "left" || qrPosition === "top";
     const backBusinessInfo = (<div className="flex flex-col items-center gap-1">
