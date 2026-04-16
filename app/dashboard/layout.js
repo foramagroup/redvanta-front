@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { DashboardAccountProvider } from "@/contexts/DashboardAccountContext";
 
 async function getInitialDashboardAccount() {
@@ -32,6 +33,10 @@ async function getInitialDashboardAccount() {
 
 export default async function DashboardRouteLayout({ children }) {
   const initialAccount = await getInitialDashboardAccount();
+
+  if (!initialAccount) {
+    redirect("/login");
+  }
 
   return (
     <DashboardAccountProvider initialAccount={initialAccount}>

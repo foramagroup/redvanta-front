@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -48,8 +48,9 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const initialEmail = useMemo(() => searchParams.get("email") || "", [searchParams]);
   const { t } = useLanguage();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,12 @@ function LoginForm() {
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [isSwitchingCompany, setIsSwitchingCompany] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   const finalizeLogin = () => {
     window.dispatchEvent(new Event("app:login"));

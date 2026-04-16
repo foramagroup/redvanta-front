@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleAlert, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,14 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const hasExistingAccountError =
+    error &&
+    (
+      error.toLowerCase().includes("already") ||
+      error.toLowerCase().includes("existe deja") ||
+      error.toLowerCase().includes("already registered") ||
+      error.toLowerCase().includes("already exists")
+    );
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -83,7 +91,45 @@ export default function Signup() {
           <p className="mt-2 text-sm text-muted-foreground">{t("signup.subtitle")}</p>
         </motion.div>
 
-        <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
+      <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
+          {hasExistingAccountError ? (
+            <div className="mb-6 rounded-2xl border border-orange-500/30 bg-zinc-950/95 p-4 text-zinc-100 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-500/40 bg-orange-500/10">
+                  <CircleAlert size={16} className="text-orange-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-orange-200 sm:text-base">
+                    This email is already registered
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    An account with <strong className="text-white">{form.email || "this email"}</strong> already exists.
+                    You can add another company from your existing account.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-orange-500/20 bg-orange-500/8 p-4">
+                <div className="flex items-center gap-2 text-orange-300">
+                  <Info size={16} />
+                  <span className="text-sm font-medium">Here&apos;s what to do:</span>
+                </div>
+                <ol className="mt-3 space-y-2 pl-5 text-sm leading-6 text-zinc-300">
+                  <li>Log in with your existing account</li>
+                  <li>You&apos;ll be redirected to add your new company</li>
+                  <li>Manage all companies from one dashboard</li>
+                </ol>
+              </div>
+
+              <Button asChild className="glow-red-hover w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/login?redirect=${encodeURIComponent("/add-company")}&email=${encodeURIComponent(form.email || "")}`}>
+                  Log in & add company
+                  <ArrowRight size={16} />
+                </Link>
+              </Button>
+            </div>
+          ) : null}
+
           <div className="space-y-3">
             {socialProviders.map((provider) => (
               <Button key={provider.name} type="button" variant="outline" className="w-full justify-center gap-3 border-border/50 bg-secondary hover:bg-secondary/80">
@@ -100,7 +146,9 @@ export default function Signup() {
             </span>
           </div>
 
-          {error && <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+          {error && !hasExistingAccountError ? (
+            <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+          ) : null}
           {success && <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600">{success}</div>}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
