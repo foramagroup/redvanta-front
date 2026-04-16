@@ -13,6 +13,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const isSuperadmin = pathname?.startsWith("/superadmin");
   const isDashboard = pathname?.startsWith("/dashboard");
+  const isReview = pathname?.startsWith("/review");
   const [canEditPages, setCanEditPages] = useState(false);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function AppShell({ children }) {
     };
   }, [pathname]);
 
-  if (isSuperadmin) {
+  if (isSuperadmin || isReview) {
     return children;
   }
 

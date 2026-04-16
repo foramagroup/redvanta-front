@@ -9,15 +9,7 @@ import { WelcomeModal } from "@/components/review/WelcomeModal";
 import { StarRating } from "@/components/review/StarRating";
 import { PositiveResult } from "@/components/review/PositiveResult";
 import { NegativeFeedback } from "@/components/review/NegativeFeedback";
-import { fetchBusiness, submitFeedback, trackEvent } from "@/services/api";
-
-const DEMO_BUSINESS = {
-  name: "The Grand Bistro",
-  slug: "the-grand-bistro",
-  logoUrl: "",
-  googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-  thankYouMessage: "Thank you for dining with us!",
-};
+import { fetchBusiness, submitRating, submitFeedback, trackEvent } from "@/services/reviewService";
 
 export default function ReviewPage() {
   const params = useParams();
@@ -25,6 +17,7 @@ export default function ReviewPage() {
   const [phase, setPhase] = useState("loading");
   const [business, setBusiness] = useState(null);
   const [rating, setRating] = useState(0);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(null);
 
   const track = useCallback((event, metadata) => {
     if (slug) {
@@ -48,7 +41,8 @@ export default function ReviewPage() {
         if (!data || !data.name) throw new Error("Invalid response");
         biz = data;
       } catch {
-        biz = { ...DEMO_BUSINESS, slug };
+        if (!cancelled) setPhase("error");
+        return;
       }
 
       if (cancelled) return;
@@ -66,15 +60,19 @@ export default function ReviewPage() {
     };
   }, [slug, track]);
 
-  useEffect(() => {
-    if (business) {
-      document.title = `Review ${business.name} | Opinoor`;
-    }
-  }, [business]);
-
-  const handleRate = (value) => {
+  const handleRate = async (value) => {
     setRating(value);
     track("rating_selected", { rating: value });
+
+    try {
+      const result = await submitRating(slug, value);
+      if (result?.action === "GOOGLE_REDIRECT" && result?.googleReviewUrl) {
+        setGoogleReviewUrl(result.googleReviewUrl);
+      }
+    } catch {
+      // non-bloquant
+    }
+
     window.setTimeout(() => {
       setPhase(value >= 4 ? "positive" : "negative");
     }, 400);
@@ -139,7 +137,12 @@ export default function ReviewPage() {
               {phase === "rating" && <StarRating onRate={handleRate} />}
               {phase === "positive" && (
                 <PositiveResult
-                  googlePlaceId={business.googlePlaceId}
+                  googleReviewUrl={
+                    googleReviewUrl ??
+                    (business.googlePlaceId
+                      ? `https://search.google.com/local/writereview?placeid=${business.googlePlaceId}`
+                      : null)
+                  }
                   onRedirect={handleGoogleRedirect}
                 />
               )}

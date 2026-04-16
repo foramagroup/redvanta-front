@@ -2,13 +2,12 @@ import { motion } from "framer-motion";
 import { ExternalLink, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function PositiveResult({ googlePlaceId, onRedirect }) {
+export function PositiveResult({ googleReviewUrl, onRedirect }) {
   const handleClick = () => {
     onRedirect();
-    window.open(
-      `https://search.google.com/local/writereview?placeid=${googlePlaceId}`,
-      "_blank"
-    );
+    if (googleReviewUrl) {
+      window.open(googleReviewUrl, "_blank");
+    }
   };
 
   return (

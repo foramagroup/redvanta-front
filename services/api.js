@@ -4,5 +4,4 @@ export default {
     const response = await fetch("/products");
     return response.json();
   },
-  // Add other API methods as needed
 };
