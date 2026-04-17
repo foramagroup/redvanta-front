@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { Download, Pencil, RefreshCw, Star, Check, QrCode, Move } from "lucide-react";
@@ -829,9 +830,15 @@ export default function DesignDetailModal({
   onRegenerateCard,
   cardActionLoading = false,
 }) {
-  const [previewSide, setPreviewSide] = useState("front");
+  const [previewSide, setPreviewSide]   = useState("front");
+  const [printSide,   setPrintSide]     = useState("front");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
   const livePreviewWrapRef = useRef(null);
+  const printRef           = useRef(null);
+
+  // Monter le portail uniquement côté client (évite les erreurs SSR)
+  useEffect(() => { setPortalMounted(true); }, []);
 
   const status = STATUS_CONFIG[design?.status] ?? STATUS_CONFIG.draft;
   const currentTemplate = CARD_TEMPLATES.find((t) => t.id === design?.templateName);
@@ -942,33 +949,52 @@ export default function DesignDetailModal({
   };
 
   const handleDownloadPdf = async () => {
-    if (!design || !livePreviewWrapRef.current) return;
+    if (!design || !printRef.current) return;
     setIsGenerating(true);
     try {
       if (document?.fonts?.ready) {
         await document.fonts.ready;
       }
 
-      const captureOptions = {
-        backgroundColor: null,
-        scale: Math.max(window.devicePixelRatio || 1, 2),
-        useCORS: true,
-        removeContainer: true,
-        logging: false,
+      // Capture depuis le portail (rendu sur document.body, hors de tout transform Dialog)
+      const captureFromPortal = async (targetSide) => {
+        setPrintSide(targetSide);
+        // Attendre le re-render React + paint
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        // Attendre les images
+        if (printRef.current) {
+          const imgs = Array.from(printRef.current.querySelectorAll("img"));
+          await Promise.all(
+            imgs.map((img) =>
+              img.complete
+                ? Promise.resolve()
+                : new Promise((res) => { img.onload = res; img.onerror = res; })
+            )
+          );
+        }
+        // Double RAF post-images pour s'assurer du repaint
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return html2canvas(printRef.current, {
+          backgroundColor: null,
+          scale: Math.max(window.devicePixelRatio || 1, 2),
+          useCORS: true,
+          allowTaint: false,
+          removeContainer: true,
+          logging: false,
+          // Désactiver transitions/animations dans le clone capturé
+          onclone: (_clonedDoc, clonedEl) => {
+            clonedEl.style.transition = "none";
+            clonedEl.querySelectorAll("*").forEach((el) => {
+              el.style.transition  = "none";
+              el.style.animation   = "none";
+            });
+          },
+        });
       };
 
-      const waitForSide = async (nextSide) => {
-        setPreviewSide(nextSide);
-        // Attendre que React re-rende + que le navigateur peigne le DOM
-        await new Promise((resolve) => setTimeout(resolve, 150));
-      };
-
-      const previousSide = previewSide;
-      await waitForSide("front");
-      const frontCanvasRaw = await html2canvas(livePreviewWrapRef.current, captureOptions);
-      await waitForSide("back");
-      const backCanvasRaw = await html2canvas(livePreviewWrapRef.current, captureOptions);
-      await waitForSide(previousSide);
+      const frontCanvasRaw = await captureFromPortal("front");
+      const backCanvasRaw  = await captureFromPortal("back");
       const frontCanvas = cropCanvasToContent(frontCanvasRaw);
       const backCanvas = cropCanvasToContent(backCanvasRaw);
 
@@ -1115,8 +1141,31 @@ export default function DesignDetailModal({
           </Button>
         </DialogFooter>
 
-        {/* ── Pages print pour PDF (hors écran) ──────────────── */}
       </DialogContent>
+
+      {/* ── Portail de capture PDF — rendu sur document.body (hors Dialog transform) ── */}
+      {portalMounted && design && previewProps && createPortal(
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            top: "-9999px",
+            left: "-9999px",
+            width: `${livePreviewWrapRef.current?.offsetWidth ?? 460}px`,
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+        >
+          <div ref={printRef}>
+            <SharedCardPreview
+              {...previewProps}
+              side={printSide}
+              elementOffsets={design.elementOffsets?.[design.orientation]?.[printSide] ?? {}}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </Dialog>
   );
 }

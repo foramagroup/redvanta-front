@@ -257,7 +257,10 @@ function LoginForm() {
 
           <motion.p variants={fadeUp} custom={2} className="mt-6 text-center text-sm text-muted-foreground">
             {t("login.no_account")}{" "}
-            <Link href="/signup" className="text-primary hover:underline">
+            <Link
+              href={redirectTo && redirectTo !== "/dashboard" ? `/signup?redirect=${encodeURIComponent(redirectTo)}` : "/signup"}
+              className="text-primary hover:underline"
+            >
               {t("auth.start_free_trial")}
             </Link>
           </motion.p>

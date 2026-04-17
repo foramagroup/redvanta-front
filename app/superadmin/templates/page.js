@@ -30,7 +30,6 @@ const PLATFORMS = [
 
 const PATTERNS = ["none", "dots", "grid", "diagonal-lines", "stripes", "glow"];
 const MODEL_LABELS = { classic: "Classic", premium: "Premium", metal: "Metal", transparent: "Transparent" };
-const MODEL_PRICES = { classic: 19, premium: 29, metal: 39, transparent: 49 };
 const TEMPLATE_CATEGORIES = [
   { id: "all", label: "All" },
   { id: "classic", label: "Classic" },
@@ -77,8 +76,6 @@ const ICON_SIZES = [16, 20, 24, 28, 32, 36];
 const TEXT_SHADOWS = ["none", "subtle", "medium", "strong", "outline"];
 const OFFSETS = { businessInfo:{x:0,y:0}, instructions:{x:0,y:0}, nfcIcon:{x:0,y:0}, googleIcon:{x:0,y:0}, logo:{x:0,y:0}, qrCode:{x:0,y:0}, cta:{x:0,y:0} };
 const buildOffsets = () => ({ landscape:{ front:{...OFFSETS}, back:{...OFFSETS} }, portrait:{ front:{...OFFSETS}, back:{...OFFSETS} }, square:{ front:{...OFFSETS}, back:{...OFFSETS} }, circle:{ front:{...OFFSETS}, back:{...OFFSETS} } });
-const REUSABLE_TEMPLATES_STORAGE_KEY = "krootal_reusable_card_template_ids";
-
 const EMPTY_FORM = {
   name:"", platform:"google", gradient:["#FFFFFF","#F1F5F9"], accentColor:"#4285F4", pattern:"none", textColor:"#1A1A1A", isActive:true, isDefault:false,
   bandColor1:"#4285F4", bandColor2:"#E8F0FE", qrColor:"#4285F4", starsColor:"#FBBF24", iconsColor:"#22C55E", businessName:"", slogan:"", cta:"Powered by RedVanta",
@@ -144,7 +141,7 @@ const TemplateTile = ({ template }) => {
 };
 
 export default function TemplateManager() {
-  const { templates, stats, loading, filters, updateFilters, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate, toggleTemplate } = useCardTemplates();
+  const { templates, stats, loading, filters, updateFilters, getTemplateById, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate, toggleTemplate, toggleCardSetting } = useCardTemplates();
   const [editModal, setEditModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -154,8 +151,6 @@ export default function TemplateManager() {
   const [dragMode, setDragMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateFilter, setTemplateFilter] = useState("all");
-  const [reusableTemplateIds, setReusableTemplateIds] = useState([]);
-  const [showReusableOnly, setShowReusableOnly] = useState(false);
   const logoInputRef = useRef(null);
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const handleElementDrag = (key, x, y) => {
@@ -198,32 +193,6 @@ export default function TemplateManager() {
       pattern: template.pattern,
     });
   };
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(REUSABLE_TEMPLATES_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) setReusableTemplateIds(parsed.map(String));
-    } catch (error) {
-      console.error("Failed to restore reusable templates:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(REUSABLE_TEMPLATES_STORAGE_KEY, JSON.stringify(reusableTemplateIds));
-    window.dispatchEvent(new CustomEvent("reusable-card-templates-updated", { detail: reusableTemplateIds }));
-  }, [reusableTemplateIds]);
-
-  const toggleReusableTemplate = (templateId) => {
-    const normalizedId = String(templateId);
-    setReusableTemplateIds((current) =>
-      current.includes(normalizedId)
-        ? current.filter((id) => id !== normalizedId)
-        : [...current, normalizedId]
-    );
-  };
 
   const filtered = useMemo(() => {
     let list = templates;
@@ -234,11 +203,8 @@ export default function TemplateManager() {
       const q = filters.search.toLowerCase();
       list = list.filter((item) => item.name.toLowerCase().includes(q) || item.platform.includes(q));
     }
-    if (showReusableOnly) {
-      list = list.filter((item) => reusableTemplateIds.includes(String(item.id)));
-    }
     return list;
-  }, [filters, reusableTemplateIds, showReusableOnly, templates]);
+  }, [filters, templates]);
 
   const previewDesign = useMemo(() => ({
     businessName: form.businessName || form.name || "Template Name",
@@ -265,26 +231,86 @@ export default function TemplateManager() {
     setEditModal(true);
   };
 
-  const openEdit = (template) => {
+  const openEdit = async (template) => {
     setEditingId(template.id);
+    let t = template;
+    try { t = await getTemplateById(template.id); } catch {}
     setForm({
       ...resetForm(),
-      name: template.name,
-      businessName: template.name,
-      platform: template.platform,
-      gradient: [...template.gradient],
-      accentColor: template.accentColor,
-      pattern: template.pattern,
-      textColor: template.textColor,
-      isActive: template.isActive,
-      isDefault: template.isDefault,
-      bandColor1: template.bandColor1,
-      bandColor2: template.bandColor2,
-      qrColor: template.qrColor,
-      starsColor: template.starsColor,
-      iconsColor: template.iconsColor,
+      // Basic
+      name: t.name,
+      platform: t.platform,
+      pattern: t.pattern,
+      isActive: t.isActive,
+      isDefault: t.isDefault,
+      // Content
+      businessName: t.businessName ?? t.name,
+      slogan: t.slogan ?? "",
+      cta: t.cta ?? "Powered by RedVanta",
+      logoUrl: t.logoUrl ?? null,
+      // Layout
+      orientation: t.orientation ?? "landscape",
+      bandPosition: t.bandPosition ?? "bottom",
+      frontBandHeight: t.frontBandHeight ?? 22,
+      backBandHeight: t.backBandHeight ?? 12,
+      // Logo and QR
+      logoPosition: t.logoPosition ?? "left",
+      logoSize: t.logoSize ?? 32,
+      qrPosition: t.qrPosition ?? "right",
+      qrSize: t.qrSize ?? 80,
+      // Colors
+      gradient: Array.isArray(t.gradient) ? [...t.gradient] : ["#FFFFFF", "#F1F5F9"],
+      accentColor: t.accentColor ?? "#4285F4",
+      textColor: t.textColor ?? "#1A1A1A",
+      bandColor1: t.bandColor1 ?? "#4285F4",
+      bandColor2: t.bandColor2 ?? "#E8F0FE",
+      qrColor: t.qrColor ?? "#4285F4",
+      starsColor: t.starsColor ?? "#FBBF24",
+      iconsColor: t.iconsColor ?? "#22C55E",
+      colorMode: t.colorMode ?? "template",
+      // Typography - Name
+      nameFont: t.nameFont ?? FONTS[0].family,
+      nameFontSize: t.nameFontSize ?? 16,
+      nameFontWeight: t.nameFontWeight ?? "700",
+      nameLetterSpacing: t.nameLetterSpacing ?? "normal",
+      nameTextTransform: t.nameTextTransform ?? "none",
+      nameLineHeight: t.nameLineHeight ?? "1.2",
+      nameTextAlign: t.nameTextAlign ?? "left",
+      // Typography - Slogan
+      sloganFont: t.sloganFont ?? FONTS[0].family,
+      sloganFontSize: t.sloganFontSize ?? 12,
+      sloganFontWeight: t.sloganFontWeight ?? "400",
+      sloganLetterSpacing: t.sloganLetterSpacing ?? "normal",
+      sloganTextTransform: t.sloganTextTransform ?? "none",
+      sloganLineHeight: t.sloganLineHeight ?? "1.4",
+      sloganTextAlign: t.sloganTextAlign ?? "left",
+      // Typography - Instructions
+      instructionFont: t.instructionFont ?? FONTS[0].family,
+      instructionFontSize: t.instructionFontSize ?? 10,
+      instructionFontWeight: t.instructionFontWeight ?? "400",
+      instructionLetterSpacing: t.instructionLetterSpacing ?? "normal",
+      instructionLineHeight: t.instructionLineHeight ?? "1.4",
+      instructionTextAlign: t.instructionTextAlign ?? "left",
+      // Instructions text
+      frontLine1: t.frontLine1 ?? "Approach your phone to the card",
+      frontLine2: t.frontLine2 ?? "Tap to leave a review",
+      backLine1: t.backLine1 ?? "Scan the QR code with your camera",
+      backLine2: t.backLine2 ?? "Write a review on our profile page",
+      // Icons
+      checkStrokeWidth: t.checkStrokeWidth ?? 3.5,
+      nfcIconSize: t.nfcIconSize ?? 24,
+      googleIconSize: t.googleIconSize ?? 20,
+      showNfcIcon: t.showNfcIcon ?? true,
+      showGoogleIcon: t.showGoogleIcon ?? true,
+      // Visual
+      textShadow: t.textShadow ?? "none",
+      ctaPaddingTop: t.ctaPaddingTop ?? 8,
+      // Model
+      model: t.model ?? "classic",
+      // Element offsets
+      elementOffsets: t.elementOffsets ?? buildOffsets(),
     });
-    setPreviewLayout("landscape");
+    setPreviewLayout(t.orientation ?? "landscape");
     setPreviewSide("front");
     setDragMode(false);
     setTemplateFilter("all");
@@ -337,34 +363,21 @@ export default function TemplateManager() {
         <Select value={filters.isActive} onValueChange={(value)=>updateFilters({ isActive:value })}><SelectTrigger className="w-full sm:w-36"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Badge variant="outline" className="gap-1 text-xs">
-          <CheckCircle2 size={12} />
-          {reusableTemplateIds.length} reusable template{reusableTemplateIds.length > 1 ? "s" : ""}
-        </Badge>
-        <Button
-          type="button"
-          variant={showReusableOnly ? "default" : "outline"}
-          size="sm"
-          className="gap-2"
-          onClick={() => setShowReusableOnly((current) => !current)}
-        >
-          <CheckCircle2 size={14} />
-          {showReusableOnly ? "Show all templates" : "Show reusable only"}
-        </Button>
-      </div>
 
       {stats && <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{[{ label:"Total Templates", value:stats.total, color:"text-foreground" }, { label:"Active", value:stats.active, color:"text-green-500" }, { label:"Inactive", value:stats.inactive, color:"text-muted-foreground" }, { label:"Platforms", value:stats.platforms, color:"text-primary" }].map((stat)=><div key={stat.label} className="rounded-xl border border-border/50 bg-card p-4"><p className="text-xs text-muted-foreground">{stat.label}</p><p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p></div>)}</div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filtered.map((template) => {
           const platform = PLATFORMS.find((item) => item.id === template.platform);
-          const isReusable = reusableTemplateIds.includes(String(template.id));
           return <div key={template.id} className={`overflow-hidden rounded-xl border bg-card transition-all hover:shadow-lg ${template.isActive ? "border-border/50" : "border-border/30 opacity-60"}`}>
             <TemplateTile template={template}/>
             <div className="space-y-2 p-3">
               <div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-medium">{template.name}</p><Badge variant={template.isActive ? "default" : "outline"} className="text-[9px]">{template.isActive ? "Active" : "Inactive"}</Badge></div>
-              <div className="flex items-center gap-2 flex-wrap"><Badge variant="outline" className="gap-1 text-[10px]"><span style={{ color:platform?.color }}>{platform?.icon}</span>{platform?.label}</Badge><Badge variant="outline" className="text-[10px]">{template.pattern}</Badge>{isReusable && <Badge className="border-emerald-500/30 bg-emerald-500/15 text-[10px] text-emerald-400">Reusable</Badge>}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="gap-1 text-[10px]"><span style={{ color:platform?.color }}>{platform?.icon}</span>{platform?.label}</Badge>
+                <Badge variant="outline" className="text-[10px]">{template.pattern}</Badge>
+{template.isCardSetting && <Badge className="border-blue-500/30 bg-blue-500/15 text-[10px] text-blue-400">Card Setting</Badge>}
+              </div>
               <div className="flex gap-1">{template.gradient.map((color, index)=><div key={`${template.id}-${index}`} className="h-5 w-5 rounded border border-border/50" style={{ background:color }}/>)}</div>
               <div className="flex items-center gap-2 border-t border-border/30 pt-1">
                 <Switch checked={template.isActive} onCheckedChange={()=>toggleTemplate(template.id)} className="scale-75"/>
@@ -375,10 +388,10 @@ export default function TemplateManager() {
                         <MoreHorizontal size={16} />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem onClick={()=>toggleReusableTemplate(template.id)}>
-                        <CheckCircle2 size={14} className="mr-2" />
-                        {isReusable ? "Unselect" : "Select"}
+                    <DropdownMenuContent align="end" className="w-48">
+<DropdownMenuItem onClick={()=>toggleCardSetting(template.id)}>
+                        <CheckCircle2 size={14} className={`mr-2 ${template.isCardSetting ? "text-blue-400" : ""}`} />
+                        {template.isCardSetting ? "Remove card setting" : "Add card setting"}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={()=>openEdit(template)}>
                         <Pencil size={14} className="mr-2" />

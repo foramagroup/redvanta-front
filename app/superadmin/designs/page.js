@@ -720,3 +720,4 @@ const AllDesigns = () => {
 };
 
 export default AllDesigns;
+

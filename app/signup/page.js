@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, CircleAlert, Info } from "lucide-react";
@@ -22,8 +22,10 @@ const socialProviders = [
 
 const benefits = ["signup.free_trial", "signup.no_credit_card", "signup.cancel_anytime"];
 
-export default function Signup() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
   const { t } = useLanguage();
   const [form, setForm] = useState({
     name: "",
@@ -66,7 +68,9 @@ export default function Signup() {
 
       setSuccess(payload.message || "Account created successfully.");
       setTimeout(() => {
-        router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
+        const params = new URLSearchParams({ email: form.email });
+        if (redirectTo && redirectTo !== "/dashboard") params.set("redirect", redirectTo);
+        router.push(`/verify-email?${params.toString()}`);
       }, 800);
     } catch (err) {
       setError(err.message || "Failed to create account");
@@ -184,11 +188,19 @@ export default function Signup() {
 
         <motion.p variants={fadeUp} custom={2} className="mt-6 text-center text-sm text-muted-foreground">
           {t("signup.has_account")}{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href={redirectTo && redirectTo !== "/dashboard" ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"} className="text-primary hover:underline">
             {t("login.log_in")}
           </Link>
         </motion.p>
       </motion.div>
     </div>
+  );
+}
+
+export default function Signup() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

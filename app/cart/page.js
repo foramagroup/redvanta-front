@@ -78,6 +78,11 @@ const Cart = () => {
 
   const handleProceedCheckout = () => {
     if (!isAuthenticated) {
+      try {
+        // Vider le brouillon stale pour que le checkout pré-remplisse depuis le profil au retour
+        sessionStorage.removeItem("krootal_checkout_draft");
+        sessionStorage.setItem("krootal_checkout_autostart", "1");
+      } catch {}
       router.push("/login?redirect=/checkout");
       return;
     }

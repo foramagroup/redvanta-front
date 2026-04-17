@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import SharedCardPreview from "@/components/designs/SharedCardPreview";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Globe, Package, Upload, X, L
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
-import { PLATFORMS, ALL_CARD_TEMPLATES, getTemplatesForPlatform, getTemplateById, gradientCSS } from "@/data/cardTemplates";
+import { PLATFORMS } from "@/data/cardTemplates";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { get, post, put, remove } from "@/lib/api";
 
@@ -522,6 +523,7 @@ const Products = () => {
   const { t } = useLanguage();
   const [products, setProducts] = useState([]);
   const [cardTypes, setCardTypes] = useState([]);
+  const [cardSettingTemplates, setCardSettingTemplates] = useState([]);
   const [languages, setLanguages] = useState(DEFAULT_LANGUAGES);
   const [langLabels, setLangLabels] = useState(DEFAULT_LANG_LABELS);
   const [languageRows, setLanguageRows] = useState([]);
@@ -550,16 +552,28 @@ const Products = () => {
     cardSettings: { ...DEFAULT_CARD_SETTINGS },
   });
 
+  const getApiTemplatesForPlatform = (platform) =>
+    cardSettingTemplates.filter((t) => t.platform === platform);
+
+  const findApiTemplateById = (id) =>
+    cardSettingTemplates.find((t) => String(t.id) === String(id)) ?? null;
+
+  const apiGradientCSS = (gradient) => {
+    const g = Array.isArray(gradient) ? gradient : (typeof gradient === "string" ? JSON.parse(gradient) : ["#1a1a1a", "#1a1a1a"]);
+    return `linear-gradient(135deg, ${g[0]} 0%, ${g[1]} 100%)`;
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     const loadData = async () => {
       try {
         setLoading(true);
-        const [productsResponse, cardTypesResponse, languagesResponse] = await Promise.all([
+        const [productsResponse, cardTypesResponse, languagesResponse, templatesResponse] = await Promise.all([
           get("/superadmin/products"),
           get("/superadmin/card-types"),
           get("/superadmin/language-settings", { page: 1, limit: 100 }),
+          get("/superadmin/products/available-templates"),
         ]);
 
         if (cancelled) return;
@@ -571,9 +585,11 @@ const Products = () => {
           ? cardTypesResponse.data.map(normalizeCardType)
           : [];
         const languageRows = Array.isArray(languagesResponse?.data) ? languagesResponse.data : [];
+        const loadedTemplates = Array.isArray(templatesResponse?.data) ? templatesResponse.data : [];
 
         setProducts(loadedProducts);
         setCardTypes(loadedCardTypes);
+        setCardSettingTemplates(loadedTemplates);
 
         if (languageRows.length > 0) {
           const nextCodes = languageRows.map((lang) => lang.code);
@@ -659,7 +675,7 @@ const Products = () => {
 
   const openCreate = () => {
     setEditing(null); setActiveLang("en"); setSlugManualEdits({}); setPreviewSide("front");
-    const platformTemplates = getTemplatesForPlatform("google");
+    const platformTemplates = getApiTemplatesForPlatform("google");
     setForm({ slug: { en: "" }, price: 0, active: true, image: "/placeholder.svg", gallery: [], title: { en: "" }, seoTitle: { en: "" }, metaDescription: { en: "" }, metaImage: { en: "/placeholder.svg" }, packageTiers: [], cardTypePrices: [], cardSettings: { ...DEFAULT_CARD_SETTINGS, availableTemplates: platformTemplates.map(t => t.id) } });
     setDialogOpen(true);
   };
@@ -672,7 +688,7 @@ const Products = () => {
     const platform = p.cardSettings.reviewPlatform || "google";
     const availableTemplates = p.cardSettings.availableTemplates?.length > 0
       ? p.cardSettings.availableTemplates
-      : getTemplatesForPlatform(platform).map(t => t.id);
+      : getApiTemplatesForPlatform(platform).map(t => t.id);
 
     const cs = {
     ...p.cardSettings,
@@ -1077,7 +1093,7 @@ const Products = () => {
                     <Label className="text-xs">Review Platform</Label>
                     <Select value={form.cardSettings.reviewPlatform} 
                       onValueChange={(v) => {
-                      const platformTemplates = getTemplatesForPlatform(v);
+                      const platformTemplates = getApiTemplatesForPlatform(v);
                       const firstId = platformTemplates[0]?.id || "";
                       setForm(f => ({
                         ...f,
@@ -1109,7 +1125,7 @@ const Products = () => {
                           <button
                             key={p.id}
                             onClick={() => {
-                              const platformTemplates = getTemplatesForPlatform(p.id);
+                              const platformTemplates = getApiTemplatesForPlatform(p.id);
                               const firstId = platformTemplates[0]?.id || "";
                               setForm(f => ({
                                 ...f,
@@ -1129,10 +1145,10 @@ const Products = () => {
 
                 {/* Card Templates */}
                 <div className="space-y-2 col-span-2">
-                  <Label className="text-xs font-semibold flex items-center gap-2"><Palette size={12} /> Card Templates ({getTemplatesForPlatform(form.cardSettings.reviewPlatform).length} available)</Label>
+                  <Label className="text-xs font-semibold flex items-center gap-2"><Palette size={12} /> Card Templates ({getApiTemplatesForPlatform(form.cardSettings.reviewPlatform).length} available)</Label>
                   <ScrollArea className="max-h-[180px]">
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 pr-2">
-                      {getTemplatesForPlatform(form.cardSettings.reviewPlatform).map(tmpl => {
+                      {getApiTemplatesForPlatform(form.cardSettings.reviewPlatform).map(tmpl => {
                         const isDefault = form.cardSettings.defaultTemplateId === tmpl.id;
                         return (
                           <button
@@ -1143,7 +1159,7 @@ const Products = () => {
                               cardSettings: {
                                 ...f.cardSettings,
                                 defaultTemplateId:  tmpl.id,
-                                availableTemplates: getTemplatesForPlatform(
+                                availableTemplates: getApiTemplatesForPlatform(
                                   f.cardSettings.reviewPlatform
                                 ).map(t => t.id),
                               },
@@ -1153,7 +1169,7 @@ const Products = () => {
                               isDefault ? "border-primary ring-2 ring-primary/30 scale-[1.02]" : "border-border/40 hover:border-primary/40"
                             )}
                           >
-                            <div className="absolute inset-0" style={{ background: gradientCSS(tmpl.gradient) }} />
+                            <div className="absolute inset-0" style={{ background: apiGradientCSS(tmpl.gradient) }} />
                             {tmpl.pattern && tmpl.pattern !== "none" && (
                               <div className="absolute inset-0" style={{ background: tmpl.pattern }} />
                             )}
@@ -1195,62 +1211,83 @@ const Products = () => {
                   </div>
                   <div className="flex items-center justify-center bg-secondary/50 rounded-lg p-4 min-h-[200px]">
                     {(() => {
-                      const { width, height, cornerRadius, cornerRadiusEnabled, reviewPlatform, defaultTemplateId } = form.cardSettings;
-                      const isCircle = form.cardSettings.layouts.includes("circle");
-                      const maxW = 200;
-                      const maxH = 200;
-                      const scale = Math.min(maxW / width, maxH / height);
-                      const displayW = Math.round(width * scale);
-                      const displayH = Math.round(height * scale);
-                      const displayRadius = isCircle ? "50%" : cornerRadiusEnabled ? `${Math.round(cornerRadius * scale)}px` : "0px";
-                      const platform = PLATFORMS.find(p => p.id === reviewPlatform);
-                      const template = getTemplateById(defaultTemplateId);
-                      const bg = template ? gradientCSS(template.gradient) : `linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--secondary)) 100%)`;
-                      const textCol = template?.textColor || "#fff";
-                      const accent = template?.accentColor || platform?.color || "#fff";
-                      const pattern = template?.pattern || "none";
+                      const { defaultTemplateId } = form.cardSettings;
+                      const template = findApiTemplateById(defaultTemplateId);
+
+                      if (!template) {
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                            <span className="text-sm">No template selected</span>
+                          </div>
+                        );
+                      }
+
+                      const gradient = Array.isArray(template.gradient) ? template.gradient : JSON.parse(template.gradient || '["#1a1a1a","#1a1a1a"]');
+                      const offsets = template?.elementOffsets?.[template.orientation]?.[previewSide] || {};
 
                       return (
-                        <div className="flex flex-col items-center gap-2">
-                          <div
-                            className="relative flex flex-col items-center justify-center gap-1 shadow-lg overflow-hidden transition-all duration-300"
-                            style={{
-                              width: displayW,
-                              height: displayH,
-                              borderRadius: displayRadius,
-                              background: bg,
-                              border: `2px solid ${platform?.color || 'hsl(var(--border))'}44`,
+                        <div className="w-full max-w-[280px]">
+                          <SharedCardPreview
+                            design={{
+                              businessName: template.businessName || "Business Name",
+                              slogan: template.slogan,
+                              textColor: template.textColor || "#fff",
+                              cta: template.cta,
+                              logoUrl: template.logoUrl,
+                              qrColor: template.qrColor || "#000000",
                             }}
-                          >
-                            {pattern && pattern !== "none" && (
-                              <div className="absolute inset-0 pointer-events-none" style={{ background: pattern }} />
-                            )}
-                            <div className="relative z-10 flex flex-col items-center gap-0.5">
-                              {previewSide === "front" ? (
-                                <>
-                                  <div className="text-xl font-bold drop-shadow-sm" style={{ color: textCol }}>
-                                    {platform?.icon || "★"}
-                                  </div>
-                                  <span className="text-[8px] font-semibold drop-shadow-sm" style={{ color: textCol }}>{platform?.label}</span>
-                                  <div className="flex gap-0.5 mt-0.5">
-                                    {[1, 2, 3, 4, 5].map(s => (
-                                      <Star key={s} size={8} fill={accent} stroke="none" className="drop-shadow-sm" />
-                                    ))}
-                                  </div>
-                                  <span className="text-[6px] mt-0.5 drop-shadow-sm" style={{ color: `${textCol}cc` }}>Tap to review</span>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center mb-0.5">
-                                    <span className="text-[10px] font-bold" style={{ color: textCol }}>QR</span>
-                                  </div>
-                                  <span className="text-[7px] font-medium drop-shadow-sm" style={{ color: textCol }}>Scan to review</span>
-                                  <span className="text-[5px] mt-0.5 drop-shadow-sm" style={{ color: `${textCol}99` }}>Powered by Opinoor</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-[9px] text-muted-foreground">{previewSide === "front" ? "Front Side" : "Back Side"}</span>
+                            orientation={template.orientation || "landscape"}
+                            side={previewSide}
+                            frontLine1={template.frontLine1}
+                            frontLine2={template.frontLine2}
+                            backLine1={template.backLine1}
+                            backLine2={template.backLine2}
+                            gradient1={gradient[0]}
+                            gradient2={gradient[1]}
+                            accentBand1={template.bandColor1}
+                            accentBand2={template.bandColor2}
+                            pattern={template.pattern}
+                            bandPosition={template.bandPosition}
+                            colorMode={template.colorMode}
+                            nameFont={template.nameFont}
+                            sloganFont={template.sloganFont}
+                            nameFontSize={template.nameFontSize}
+                            sloganFontSize={template.sloganFontSize}
+                            nameLetterSpacing={template.nameLetterSpacing}
+                            sloganLetterSpacing={template.sloganLetterSpacing}
+                            nameTextTransform={template.nameTextTransform}
+                            sloganTextTransform={template.sloganTextTransform}
+                            nameLineHeight={template.nameLineHeight}
+                            sloganLineHeight={template.sloganLineHeight}
+                            nameTextAlign={template.nameTextAlign}
+                            sloganTextAlign={template.sloganTextAlign}
+                            qrPosition={template.qrPosition}
+                            logoPosition={template.logoPosition}
+                            logoSize={template.logoSize}
+                            qrSize={template.qrSize}
+                            instructionFont={template.instructionFont}
+                            instructionFontSize={template.instructionFontSize}
+                            instructionLetterSpacing={template.instructionLetterSpacing}
+                            instructionLineHeight={template.instructionLineHeight}
+                            instructionTextAlign={template.instructionTextAlign}
+                            nameFontWeight={template.nameFontWeight}
+                            sloganFontWeight={template.sloganFontWeight}
+                            instructionFontWeight={template.instructionFontWeight}
+                            checkStrokeWidth={template.checkStrokeWidth}
+                            starsColor={template.starsColor}
+                            iconsColor={template.iconsColor}
+                            nfcIconSize={template.nfcIconSize}
+                            showNfcIcon={template.showNfcIcon}
+                            showGoogleIcon={template.showGoogleIcon}
+                            frontBandHeight={template.frontBandHeight}
+                            backBandHeight={template.backBandHeight}
+                            textShadow={template.textShadow}
+                            ctaPaddingTop={template.ctaPaddingTop}
+                            googleIconSize={template.googleIconSize}
+                            dragMode={false}
+                            elementOffsets={offsets}
+                            onElementDrag={() => {}}
+                          />
                         </div>
                       );
                     })()}
@@ -1258,7 +1295,7 @@ const Products = () => {
                   <div className="text-[10px] text-muted-foreground text-center space-y-0.5">
                     <p>{form.cardSettings.width}×{form.cardSettings.height}mm · Ratio {(form.cardSettings.width / form.cardSettings.height).toFixed(2)}</p>
                     <p>Radius: {form.cardSettings.cornerRadiusEnabled ? `${form.cardSettings.cornerRadius}mm` : "Sharp"} · {PLATFORMS.find(p => p.id === form.cardSettings.reviewPlatform)?.label}</p>
-                    <p className="font-medium">{getTemplateById(form.cardSettings.defaultTemplateId)?.name || "No template"}</p>
+                    <p className="font-medium">{findApiTemplateById(form.cardSettings.defaultTemplateId)?.name || "No template"}</p>
                   </div>
                 </div>
               </div>

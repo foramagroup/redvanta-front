@@ -426,9 +426,11 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
     // ── Back side ───────────────────────────────────────────
     const qrUrl = design.googleReviewUrl ?? design.googleReviewLink ?? design.platformUrl ?? null;
     // Couleur des crochets = couleur du fond de la carte (dos)
-    const bracketColor = colorMode === "single" ? (design.bgColor ?? "#000000") : (gradient2 ?? "#000000");
+    // const bracketColor = colorMode === "single" ? (design.bgColor ?? "#000000") : (gradient2 ?? "#000000");
+    
+    const bracketColor = "#ffffff"; // Blanc semi-transparent pour assurer une bonne visibilité sur tous les fonds
     const bracketSize  = Math.round(qrSize * 0.28);
-    const bracketW     = 3;
+    const bracketW     = Math.round(bracketSize * 0.25);
     const bracketCornerStyle = (pos) => ({
       position: "absolute",
       width:  bracketSize,
@@ -445,14 +447,14 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
                     pos.bottom !== undefined && pos.left !== undefined ? "0 0 0 3px" : "0 0 3px 0",
     });
     const qrElement = (
-      <div style={{ position: "relative", display: "inline-flex", padding: "6px" }}>
+      <div style={{ position: "relative", display: "inline-flex", padding: `${Math.round(qrSize * 0.16)}px` }}>
         {/* Crochets de coin */}
         <div style={bracketCornerStyle({ top: 0,    left:  0   })} />
         <div style={bracketCornerStyle({ top: 0,    right: 0   })} />
         <div style={bracketCornerStyle({ bottom: 0, left:  0   })} />
         <div style={bracketCornerStyle({ bottom: 0, right: 0   })} />
         {/* QR code */}
-        <div className="rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+        <div className="flex items-center justify-center shrink-0 overflow-hidden"
           style={{ height: `${qrSize}px`, width: `${qrSize}px`, backgroundColor: "#FFFFFF", padding: "4px" }}>
           {qrUrl ? (
             <QRCodeSVG

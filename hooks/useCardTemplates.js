@@ -194,7 +194,7 @@ export function useCardTemplates() {
     }
   };
 
-  // Toggle template
+  // Toggle template active/inactive
   const toggleTemplate = async (id) => {
     try {
       const response = await fetch(`${API_URL}/superadmin/card-templates/${id}/toggle`, {
@@ -217,6 +217,53 @@ export function useCardTemplates() {
     }
   };
 
+  // Toggle card setting availability
+  const toggleCardSetting = async (id) => {
+    try {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}/toggle-card-setting`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) throw new Error('Failed to toggle card setting');
+
+      await fetchTemplates();
+    } catch (error) {
+      console.error('Error toggling card setting:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  // Get template by ID (données complètes fraîches)
+  const getTemplateById = async (id) => {
+    try {
+      const response = await fetch(`${API_URL}/superadmin/card-templates/${id}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch template');
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching template:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   const updateFilters = (newFilters) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   };
@@ -227,11 +274,13 @@ export function useCardTemplates() {
     loading,
     filters,
     updateFilters,
+    getTemplateById,
     createTemplate,
     updateTemplate,
     deleteTemplate,
     duplicateTemplate,
     toggleTemplate,
+    toggleCardSetting,
     refresh: fetchTemplates,
   };
 }
