@@ -642,6 +642,10 @@ const Products = () => {
     price: Number(productForm.price || 0),
     active: Boolean(productForm.active),
     image: productForm.image && productForm.image !== "/placeholder.svg" ? productForm.image : undefined,
+    defaultTemplateId: productForm.cardSettings?.defaultTemplateId || null,
+    availableTemplateIds: Array.isArray(productForm.cardSettings?.availableTemplates)
+      ? productForm.cardSettings.availableTemplates
+      : [],
     translations: buildTranslationsPayload(productForm),
     gallery: (productForm.gallery || []).map((item, index) => ({
       url: item.url,
@@ -1170,12 +1174,12 @@ const Products = () => {
                             )}
                           >
                             <div className="absolute inset-0" style={{ background: apiGradientCSS(tmpl.gradient) }} />
-                            {tmpl.pattern && tmpl.pattern !== "none" && (
-                              <div className="absolute inset-0" style={{ background: tmpl.pattern }} />
-                            )}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 z-10">
-                              <Star size={10} fill={tmpl.accentColor} stroke="none" />
-                              <span className="text-[7px] font-medium px-1 truncate max-w-full" style={{ color: tmpl.textColor }}>{tmpl.name}</span>
+                            {tmpl.bandColor1 && <div className="absolute top-0 left-0 right-0 h-1" style={{ background: tmpl.bandColor1 }} />}
+                            {tmpl.bandColor2 && <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: tmpl.bandColor2 }} />}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-10 p-2">
+                              <div className="flex gap-0.5">{[1,2,3,4,5].map(i => <Star key={i} size={8} fill={tmpl.starsColor || "#FBBF24"} color={tmpl.starsColor || "#FBBF24"} />)}</div>
+                              <span className="text-[8px] font-semibold text-center px-1 truncate max-w-full leading-tight" style={{ color: tmpl.textColor }}>{tmpl.name}</span>
+                              <span className="text-[7px] px-1.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white leading-none">{PLATFORMS.find(p => p.id === tmpl.platform)?.icon} {PLATFORMS.find(p => p.id === tmpl.platform)?.label}</span>
                             </div>
                             {isDefault && (
                               <div className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground rounded-full p-0.5 z-20">
@@ -1209,14 +1213,14 @@ const Products = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center justify-center bg-secondary/50 rounded-lg p-4 min-h-[200px]">
+                  <div>
                     {(() => {
                       const { defaultTemplateId } = form.cardSettings;
                       const template = findApiTemplateById(defaultTemplateId);
 
                       if (!template) {
                         return (
-                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground min-h-[120px]">
                             <span className="text-sm">No template selected</span>
                           </div>
                         );
@@ -1226,7 +1230,7 @@ const Products = () => {
                       const offsets = template?.elementOffsets?.[template.orientation]?.[previewSide] || {};
 
                       return (
-                        <div className="w-full max-w-[280px]">
+                        <div className="w-full max-w-[380px] mx-auto">
                           <SharedCardPreview
                             design={{
                               businessName: template.businessName || "Business Name",
