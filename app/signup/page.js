@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, CircleAlert, Info } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,29 +27,32 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/dashboard";
   const { t } = useLanguage();
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    companyName: "",
-    password: "",
+  const [form, setForm] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("signup_draft");
+      if (saved) return { ...JSON.parse(saved), password: "" };
+    } catch {}
+    return { name: "", email: "", companyName: "", password: "" };
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [success, setSuccess] = useState("");
-  const hasExistingAccountError =
-    error &&
-    (
-      error.toLowerCase().includes("already") ||
-      error.toLowerCase().includes("existe deja") ||
-      error.toLowerCase().includes("already registered") ||
-      error.toLowerCase().includes("already exists")
-    );
+  const hasExistingAccountError = errorCode === "EMAIL_EXISTS";
+  const errorRef = useRef(null);
+
+  useEffect(() => {
+    if (hasExistingAccountError && errorRef.current) {
+      window.scrollTo({ top: 90, behavior: "smooth" });
+    }
+  }, [hasExistingAccountError]);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setErrorCode("");
     setSuccess("");
     setLoading(true);
 
@@ -63,10 +66,14 @@ function SignupForm() {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (payload.code) setErrorCode(payload.code);
         throw new Error(payload.error || "Failed to create account");
       }
 
       setSuccess(payload.message || "Account created successfully.");
+      try {
+        sessionStorage.setItem("signup_draft", JSON.stringify({ name: form.name, email: form.email, companyName: form.companyName }));
+      } catch {}
       setTimeout(() => {
         const params = new URLSearchParams({ email: form.email });
         if (redirectTo && redirectTo !== "/dashboard") params.set("redirect", redirectTo);
@@ -97,35 +104,24 @@ function SignupForm() {
 
       <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
           {hasExistingAccountError ? (
-            <div className="mb-6 rounded-2xl border border-orange-500/30 bg-zinc-950/95 p-4 text-zinc-100 shadow-[0_0_0_1px_rgba(249,115,22,0.08)]">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-500/40 bg-orange-500/10">
-                  <CircleAlert size={16} className="text-orange-400" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-orange-200 sm:text-base">
-                    This email is already registered
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">
-                    An account with <strong className="text-white">{form.email || "this email"}</strong> already exists.
-                    You can add another company from your existing account.
-                  </p>
-                </div>
+            <div ref={errorRef} className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-primary">
+                <CircleAlert size={16} />
+                <span className="text-sm font-semibold">This email is already registered</span>
               </div>
-
-              <div className="mt-4 rounded-2xl border border-orange-500/20 bg-orange-500/8 p-4">
-                <div className="flex items-center gap-2 text-orange-300">
-                  <Info size={16} />
-                  <span className="text-sm font-medium">Here&apos;s what to do:</span>
-                </div>
-                <ol className="mt-3 space-y-2 pl-5 text-sm leading-6 text-zinc-300">
-                  <li>Log in with your existing account</li>
-                  <li>You&apos;ll be redirected to add your new company</li>
-                  <li>Manage all companies from one dashboard</li>
-                </ol>
-              </div>
-
-              <Button asChild className="glow-red-hover w-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <p className="mt-2 text-sm text-muted-foreground">
+                An account with <strong className="text-foreground">{form.email || "this email"}</strong> already exists.
+                You can add another company from your existing account.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {["Log in with your existing account", "You'll be redirected to add your new company", "Manage all companies from one dashboard"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 size={14} className="text-primary shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button asChild className="glow-red-hover mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90">
                 <Link href={`/login?redirect=${encodeURIComponent("/add-company")}&email=${encodeURIComponent(form.email || "")}`}>
                   Log in & add company
                   <ArrowRight size={16} />

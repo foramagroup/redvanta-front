@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { Info, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -119,7 +120,7 @@ function LoginForm() {
       const companies = normalizeCompanies(data?.user);
       const currentActiveCompanyId = data?.user?.activeCompany?.id ?? companies[0]?.id ?? null;
 
-      if (companies.length > 1) {
+      if (companies.length > 1 && redirectTo !== "/add-company") {
         setAvailableCompanies(companies);
         setActiveCompanyId(currentActiveCompanyId);
         setSelectedCompanyId(currentActiveCompanyId);
@@ -184,9 +185,35 @@ function LoginForm() {
             <Link href="/" className="font-display text-3xl font-bold tracking-tight">
               OPI<span className="text-gradient-red">NOOR</span>
             </Link>
-            <h1 className="mt-6 font-display text-2xl font-bold">{t("login.welcome_back")}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{t("login.subtitle")}</p>
+            {redirectTo === "/add-company" ? (
+              <>
+                <h1 className="mt-6 font-display text-2xl font-bold">Log in to add a company</h1>
+                <p className="mt-2 text-sm text-muted-foreground">Sign in to your existing account, then add your new company</p>
+              </>
+            ) : (
+              <>
+                <h1 className="mt-6 font-display text-2xl font-bold">{t("login.welcome_back")}</h1>
+                <p className="mt-2 text-sm text-muted-foreground">{t("login.subtitle")}</p>
+              </>
+            )}
           </motion.div>
+
+          {redirectTo === "/add-company" && (
+            <motion.div variants={fadeUp} custom={0.5} className="mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-primary">
+                <Info size={16} />
+                <span className="text-sm font-semibold">Adding a new company to your account</span>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {["Your existing companies stay untouched", "Manage everything from one dashboard", "Switch between companies anytime"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 size={14} className="text-primary shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
 
           <motion.div variants={fadeUp} custom={1} className="mt-8 rounded-2xl border border-border/50 bg-gradient-card p-8 shadow-2xl backdrop-blur">
             <div className="space-y-3">
