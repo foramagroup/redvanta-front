@@ -1399,6 +1399,33 @@ const Customize = () => {
         };
     }, [ensureRemoteDesign, isCartReady, isEditMode, item?.id, item?.productId, t]);
 
+    useEffect(() => {
+        if (!isEditMode || !editDesignId) return;
+        let active = true;
+        setIsSyncingRemoteDesign(true);
+        fetch(`${shopApiBase}/designs/${editDesignId}`, { credentials: "include" })
+            .then((res) => res.json())
+            .then((payload) => {
+                if (!active) return;
+                if (payload?.data) {
+                    applyRemoteDesignData(payload.data);
+                }
+            })
+            .catch((error) => {
+                if (active) {
+                    toast({
+                        title: t("customize.load_failed") || "Failed to load design",
+                        description: error?.message || "Unable to load the design.",
+                        variant: "destructive",
+                    });
+                }
+            })
+            .finally(() => {
+                if (active) setIsSyncingRemoteDesign(false);
+            });
+        return () => { active = false; };
+    }, [isEditMode, editDesignId, shopApiBase, applyRemoteDesignData, t]);
+
     const designErrors = Array.isArray(design?.errors) ? design.errors : [];
     const selectBusiness = async (biz) => {
         try {
@@ -1684,6 +1711,12 @@ const Customize = () => {
     const saveAndContinue = () => {
         if (design.status !== "validated") {
             toast({ title: t("customize.validate_first"), description: t("customize.validate_first_desc"), variant: "destructive" });
+            return;
+        }
+        if (isEditMode) {
+            setIsDirty(false);
+            toast({ title: t("customize.saved"), description: t("customize.saved_edit_desc") });
+            setTimeout(() => navigate("/dashboard/designs"), 500);
             return;
         }
         if (item) {
@@ -2415,7 +2448,7 @@ const Customize = () => {
             </div>
             <div className="flex gap-3 flex-wrap">
               {isEditMode && currentStep === 0 && (<Button variant="outline" onClick={() => safeNavigate("/dashboard/designs")}>
-                  ← {t("customize.back_to_designs") || "Back to My Designs"}
+                  ← {t("customize.back_to_designs")}
                 </Button>)}
               {currentStep > 0 && (<Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
                   {t("customize.btn_back")}
@@ -2536,17 +2569,17 @@ const Customize = () => {
       <Dialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("customize.unsaved_title") || "Unsaved Changes"}</DialogTitle>
+            <DialogTitle>{t("customize.unsaved_title")}</DialogTitle>
             <DialogDescription>
-              {t("customize.unsaved_desc") || "You have unsaved changes. Are you sure you want to leave? Your changes will be lost."}
+              {t("customize.unsaved_desc")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowLeaveDialog(false)}>
-              {t("customize.unsaved_stay") || "Stay"}
+              {t("customize.unsaved_stay")}
             </Button>
             <Button variant="destructive" onClick={confirmLeave}>
-              {t("customize.unsaved_leave") || "Leave"}
+              {t("customize.unsaved_leave")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -216,7 +216,7 @@ const Cart = () => {
                       onClick={() => handleCustomize(item.id)}
                     >
                         <Pencil size={12} className="mr-1" />
-                        {item.design ? (t("cart.edit_design") || "Edit design") : t("shop.customize_design")}
+                        {item.design ? t("cart.edit_design") : t("shop.customize_design")}
                     </Button>
                   </div>
                 </div>

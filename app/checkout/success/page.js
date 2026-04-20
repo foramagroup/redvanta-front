@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
-import { CheckCircle2, Package, Mail, ArrowRight, XCircle } from "lucide-react";
+import { CheckCircle2, Package, Mail, ArrowRight, XCircle, Truck, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
@@ -19,11 +19,11 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PK
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PK)
   : null;
 
-const MANUAL_STEPS = [
-  "Votre commande est bien enregistrée.",
-  "Le paiement sera effectué sur place.",
-  "Notre équipe validera ensuite la suite du traitement.",
-  "Vous recevrez un suivi dès que la commande avancera.",
+const MANUAL_STEP_KEYS = [
+  "confirmation.manual_step_1",
+  "confirmation.manual_step_2",
+  "confirmation.manual_step_3",
+  "confirmation.manual_step_4",
 ];
 
 const STRIPE_STEPS = [
@@ -120,9 +120,13 @@ export default function CheckoutSuccessPage() {
       ? successSnapshot.items
       : [];
   const displayEmail = user?.email || successSnapshot?.email || "your email";
+  const displayShipping = currentOrder?.shippingMethod || successSnapshot?.shippingMethod || null;
+  const displayShippingCost = successSnapshot?.shippingCost ?? null;
+  const displayShippingLabel = successSnapshot?.shippingLabel ?? null;
+  const displayShippingDescription = successSnapshot?.shippingDescription ?? null;
 
   const nextSteps = useMemo(
-    () => (isManual ? MANUAL_STEPS : STRIPE_STEPS.map((key) => t(key))),
+    () => (isManual ? MANUAL_STEP_KEYS : STRIPE_STEPS).map((key) => t(key)),
     [isManual, t]
   );
 
@@ -131,7 +135,7 @@ export default function CheckoutSuccessPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-dark px-6">
         <div className="text-center">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Vérification du paiement...</p>
+          <p className="text-sm text-muted-foreground">{t("confirmation.loading")}</p>
         </div>
       </div>
     );
@@ -148,15 +152,15 @@ export default function CheckoutSuccessPage() {
               </div>
             </motion.div>
             <motion.h1 variants={fadeUp} custom={1} className="mt-8 font-display text-3xl font-bold md:text-4xl">
-              Paiement <span className="text-gradient-red">échoué</span>
+              {t("confirmation.failed_title")} <span className="text-gradient-red">{t("confirmation.failed_highlight")}</span>
             </motion.h1>
             <motion.p variants={fadeUp} custom={2} className="mt-3 text-muted-foreground">
-              Le paiement n&apos;a pas pu être confirmé. Tu peux relancer le checkout.
+              {t("confirmation.failed_desc")}
             </motion.p>
             <motion.div variants={fadeUp} custom={3} className="mt-8">
               <Link href="/checkout">
                 <Button className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90">
-                  Revenir au checkout
+                  {t("confirmation.back_to_checkout")}
                 </Button>
               </Link>
             </motion.div>
@@ -176,12 +180,12 @@ export default function CheckoutSuccessPage() {
             </div>
           </motion.div>
           <motion.h1 variants={fadeUp} custom={1} className="mt-8 font-display text-3xl font-bold md:text-4xl">
-            {isManual ? "Commande" : t("confirmation.title_1")}{" "}
-            <span className="text-gradient-red">{isManual ? "enregistrée" : t("confirmation.title_2")}</span>
+            {isManual ? t("confirmation.manual_title") : t("confirmation.title_1")}{" "}
+            <span className="text-gradient-red">{isManual ? t("confirmation.manual_highlight") : t("confirmation.title_2")}</span>
           </motion.h1>
           <motion.p variants={fadeUp} custom={2} className="mt-3 text-muted-foreground">
             {isManual
-              ? manualMessage || successSnapshot?.message || "Votre commande a été enregistrée. Vous paierez sur place."
+              ? manualMessage || successSnapshot?.message || t("confirmation.manual_subtitle")
               : t("confirmation.subtitle")}
           </motion.p>
         </motion.div>
@@ -200,7 +204,7 @@ export default function CheckoutSuccessPage() {
                     : "border-green-500/30 bg-green-500/20 text-green-400"
                 }
               >
-                {isManual ? "PAY ON SITE" : "PAID"}
+                {isManual ? t("confirmation.pay_on_site") : t("confirmation.paid")}
               </Badge>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
@@ -214,12 +218,32 @@ export default function CheckoutSuccessPage() {
               </div>
               {displayInvoiceNumber && (
                 <div className="sm:col-span-2">
-                  <p className="text-muted-foreground">Facture</p>
+                  <p className="text-muted-foreground">{t("confirmation.invoice")}</p>
                   <p className="font-medium">{displayInvoiceNumber}</p>
                 </div>
               )}
             </div>
           </motion.div>
+
+          {displayShipping && (
+            <motion.div variants={fadeUp} custom={4.5} className="rounded-xl border border-border/50 bg-gradient-card p-6">
+              <h3 className="font-display text-lg font-semibold">{t("checkout.shipping_method")}</h3>
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-border/30 bg-background/40 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Truck size={16} className="shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold">{displayShippingLabel ?? displayShipping}</p>
+                    {displayShippingDescription && (
+                      <p className="text-xs text-muted-foreground">{displayShippingDescription}</p>
+                    )}
+                  </div>
+                </div>
+                {displayShippingCost !== null && (
+                  <span className="text-sm font-semibold">{formatPrice(displayShippingCost)}</span>
+                )}
+              </div>
+            </motion.div>
+          )}
 
           {displayItems.length > 0 && (
             <motion.div variants={fadeUp} custom={4} className="rounded-xl border border-border/50 bg-gradient-card p-6">
@@ -233,16 +257,21 @@ export default function CheckoutSuccessPage() {
                   return (
                     <div
                       key={getItemKey(item, index)}
-                      className="flex items-center justify-between gap-4 border-b border-border/30 py-2 last:border-0"
+                      className="flex items-center justify-between gap-4 rounded-lg border border-border/30 bg-background/40 px-4 py-3"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-sm">{item?.productName || "Product"}</span>
-                        {modelLabel && (
-                          <Badge variant="outline" className="text-xs">
-                            {modelLabel}
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">×{quantity}</span>
+                        <CreditCard size={16} className="shrink-0 text-primary" />
+                        <div>
+                          <p className="text-sm font-semibold">{item?.productName || "Product"}</p>
+                          <div className="mt-0.5 flex items-center gap-2">
+                            {modelLabel && (
+                              <Badge variant="outline" className="text-xs">
+                                {modelLabel}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">×{quantity}</span>
+                          </div>
+                        </div>
                       </div>
                       <span className="text-sm font-semibold">{formatPrice(itemTotal)}</span>
                     </div>
@@ -277,7 +306,8 @@ export default function CheckoutSuccessPage() {
             <p className="text-sm text-muted-foreground">
               {isManual ? (
                 <>
-                  Un récapitulatif sera envoyé à <span className="font-medium text-foreground">{displayEmail}</span>.
+                  {t("confirmation.manual_email_prefix")}{" "}
+                  <span className="font-medium text-foreground">{displayEmail}</span>.
                 </>
               ) : (
                 <>

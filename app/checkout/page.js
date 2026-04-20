@@ -89,7 +89,7 @@ function StripePaymentForm({ amounts, formatPrice, t, onError }) {
     });
 
     if (error) {
-      onError(error.message || "Le paiement Stripe a echoue.");
+      onError(error.message || t("checkout.stripe_error"));
       setProcessingPayment(false);
     }
   };
@@ -153,14 +153,10 @@ const Checkout = () => {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loadingMethods, setLoadingMethods] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const [shippingRates, setShippingRates] = useState([]);
+  const [loadingRates, setLoadingRates] = useState(true);
 
-  const shippingOptions = [
-    { method: "standard", labelKey: "checkout.standard", price: 9.99, timeKey: "checkout.standard_time" },
-    { method: "express", labelKey: "checkout.express", price: 19.99, timeKey: "checkout.express_time" },
-    { method: "international", labelKey: "checkout.international", price: 34.99, timeKey: "checkout.international_time" },
-  ];
-
-  const shippingCost = shippingOptions.find((option) => option.method === shipping)?.price || 9.99;
+  const shippingCost = shippingRates.find((r) => r.method === shipping)?.priceEUR ?? 0;
   const estimatedTotal = subtotal + shippingCost;
   const requiredAddressComplete = useMemo(
     () => ["fullName", "address", "city", "zip", "country"].every((field) => String(address[field] || "").trim()),
@@ -188,6 +184,18 @@ const Checkout = () => {
         setSelectedMethod(null);
       })
       .finally(() => setLoadingMethods(false));
+  }, []);
+
+  useEffect(() => {
+    setLoadingRates(true);
+    api.get("/client/orders/shipping-rates")
+      .then((res) => {
+        const rates = res?.data ?? [];
+        setShippingRates(rates);
+        if (rates.length) setShipping(rates[0].method);
+      })
+      .catch(() => setShippingRates([]))
+      .finally(() => setLoadingRates(false));
   }, []);
 
   useEffect(() => {
@@ -266,12 +274,12 @@ const Checkout = () => {
 
   const prepareCheckout = async () => {
     if (!requiredAddressComplete) {
-      setError("Completez les informations de livraison avant de continuer.");
+      setError(t("checkout.address_required"));
       return;
     }
 
     if (!selectedMethodData || !selectedPaymentFlow) {
-      setError("Selectionnez un mode de paiement valide.");
+      setError(t("checkout.select_payment"));
       return;
     }
 
@@ -297,12 +305,15 @@ const Checkout = () => {
         invoiceNumber: payload?.invoiceNumber || null,
         total: typeof payload?.amounts?.displayTotal === "number" ? payload.amounts.displayTotal : null,
         currency: payload?.amounts?.currency || null,
+        shippingCost: typeof payload?.amounts?.shippingCostEUR === "number" ? payload.amounts.shippingCostEUR : null,
         createdAt: new Date().toISOString(),
         shippingMethod: shipping,
+        shippingLabel: shippingRates.find((r) => r.method === shipping)?.label ?? null,
+        shippingDescription: shippingRates.find((r) => r.method === shipping)?.description ?? null,
         email: profile?.email || user?.email || "",
         message:
           selectedPaymentFlow === "manual"
-            ? "Votre commande a ete enregistree. Vous paierez sur place."
+            ? t("checkout.manual_snapshot_msg")
             : null,
         items: Array.isArray(items)
           ? items.map((item) => ({
@@ -319,7 +330,7 @@ const Checkout = () => {
 
       if (selectedPaymentFlow === "stripe") {
         if (!payload?.stripeClientSecret) {
-          throw new Error("Stripe n'a pas renvoye de client secret.");
+          throw new Error(t("checkout.stripe_error"));
         }
 
         setClientSecret(payload.stripeClientSecret);
@@ -346,7 +357,7 @@ const Checkout = () => {
       setError(
         requestError?.error ||
           requestError?.message ||
-          "Erreur lors de la preparation du paiement."
+          t("checkout.prepare_error")
       );
     } finally {
       setProcessingOrder(false);
@@ -407,7 +418,7 @@ const Checkout = () => {
                               : "border-yellow-500/30 bg-yellow-500/20 text-xs text-yellow-400"
                           }
                         >
-                          {item.design.status === "validated" || item.design.status === "locked" ? "Validated" : "Draft"}
+                          {item.design.status === "validated" || item.design.status === "locked" ? t("cart.validated") : t("cart.draft")}
                         </Badge>
                       )}
                       <span className="text-xs text-muted-foreground">{t("checkout.qty")}: {item.quantity}</span>
@@ -425,7 +436,7 @@ const Checkout = () => {
                 {paymentReady && (
                   <Badge className="border-green-500/30 bg-green-500/20 text-green-400">
                     <CheckCircle2 size={12} className="mr-1" />
-                    Adresse verrouillee
+                    {t("checkout.address_locked")}
                   </Badge>
                 )}
               </div>
@@ -492,29 +503,36 @@ const Checkout = () => {
                 <h3 className="font-display text-lg font-semibold">{t("checkout.shipping_method")}</h3>
                 {paymentReady && (
                   <Badge className="border-green-500/30 bg-green-500/20 text-green-400">
-                    Mode verrouille
+                    {t("checkout.shipping_locked")}
                   </Badge>
                 )}
               </div>
               <div className="space-y-3">
-                {shippingOptions.map((option) => (
+                {loadingRates ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 size={14} className="animate-spin" />
+                    {t("checkout.loading_methods")}
+                  </div>
+                ) : shippingRates.map((rate) => (
                   <button
-                    key={option.method}
+                    key={rate.method}
                     type="button"
-                    onClick={() => handleShippingChange(option.method)}
+                    onClick={() => handleShippingChange(rate.method)}
                     disabled={checkoutLocked}
                     className={`w-full rounded-lg border p-4 text-left transition-all ${
-                      shipping === option.method
+                      shipping === rate.method
                         ? "border-primary/50 bg-primary/10"
                         : "border-border/50 hover:border-border"
                     } ${checkoutLocked ? "cursor-not-allowed opacity-70" : ""}`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold">{t(option.labelKey)}</p>
-                        <p className="text-xs text-muted-foreground">{t(option.timeKey)}</p>
+                        <p className="text-sm font-semibold">{rate.label}</p>
+                        {rate.description && (
+                          <p className="text-xs text-muted-foreground">{rate.description}</p>
+                        )}
                       </div>
-                      <span className="font-semibold">{formatPrice(option.price)}</span>
+                      <span className="font-semibold">{formatPrice(rate.priceEUR)}</span>
                     </div>
                   </button>
                 ))}
@@ -523,13 +541,13 @@ const Checkout = () => {
 
             <motion.div variants={fadeUp} custom={4} className="rounded-xl border border-border/50 bg-gradient-card p-6">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
-                <CreditCard size={18} className="text-primary" /> Payment Methods
+                <CreditCard size={18} className="text-primary" /> {t("checkout.payment_methods")}
               </h3>
               <div className="mt-4 space-y-3">
                 {loadingMethods ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 size={14} className="animate-spin" />
-                    Loading payment methods...
+                    {t("checkout.loading_methods")}
                   </div>
                 ) : paymentMethods.length ? (
                   paymentMethods.map((method) => (
@@ -564,7 +582,7 @@ const Checkout = () => {
                   ))
                 ) : (
                   <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-400">
-                    Aucun mode de paiement disponible.
+                    {t("checkout.no_methods")}
                   </div>
                 )}
               </div>
@@ -579,8 +597,8 @@ const Checkout = () => {
                   <p className="text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">
                       {selectedPaymentFlow === "manual"
-                        ? "Confirmez la commande pour payer sur place"
-                        : "Chargez le paiement pour continuer"}
+                        ? t("checkout.confirm_manual")
+                        : t("checkout.load_payment")}
                     </span>
                   </p>
                 </div>
@@ -604,7 +622,7 @@ const Checkout = () => {
                 <>
                   {!stripePromise ? (
                     <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                      `NEXT_PUBLIC_STRIPE_PK` est manquant cote frontend.
+                      {t("checkout.stripe_pk_missing")}
                     </div>
                   ) : (
                     <Elements stripe={stripePromise} options={{ clientSecret, locale: "fr" }}>
@@ -660,19 +678,19 @@ const Checkout = () => {
                   ) : (
                     <>
                       <Lock size={16} className="mr-2" />
-                      Charger le paiement
+                      {selectedPaymentFlow === "manual" ? t("checkout.pay_now") : t("checkout.load_payment_btn")}
                     </>
                   )}
                 </Button>
               ) : (
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-400">
-                  Le formulaire Stripe est pret. Finalise le paiement dans le bloc ci-contre.
+                  {t("checkout.stripe_ready")}
                 </div>
               )}
 
               {!requiredAddressComplete && !paymentReady && (
                 <p className="text-xs text-muted-foreground">
-                  Renseigne l&apos;adresse de livraison pour generer le <code>stripeClientSecret</code>.
+                  {t("checkout.address_hint")}
                 </p>
               )}
 
