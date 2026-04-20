@@ -4,7 +4,7 @@ import api from "../lib/api";
 
 // GET /review/:uid
 export async function fetchBusiness(uid) {
-  const res = await api.get(`/review/${uid}`);
+  const res = await api.get(`/api/review/${uid}`);
   const data = res?.data ?? res;
   return {
     name:            data?.locationName ?? data?.business?.name ?? "",
@@ -19,13 +19,13 @@ export async function fetchBusiness(uid) {
 
 // POST /review/:uid/rate — retourne { action, googleReviewUrl? }
 export async function submitRating(uid, stars) {
-  return api.post(`/review/${uid}/rate`, { stars });
+  return api.post(`/api/review/${uid}/rate`, { stars });
 
 }
 
 // POST /review/:uid/feedback
 export async function submitFeedback({ slug, rating, message, email }) {
-  return api.post(`/review/${slug}/feedback`, { stars: rating, message, email });
+  return api.post(`/api/review/${slug}/feedback`, { stars: rating, message, email });
 }
 
 // PAGE_VIEW auto-enregistré par GET /review/:uid

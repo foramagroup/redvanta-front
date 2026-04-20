@@ -1,8 +1,9 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params, searchParams }) {
   try {
-    const res = await fetch(`${API_BASE}/api/review/${params.slug}`, {
+    const uid = searchParams?.uid ?? params.slug;
+    const res = await fetch(`${API_BASE}/api/review/${uid}`, {
       cache: "no-store",
     });
     const json = await res.json();

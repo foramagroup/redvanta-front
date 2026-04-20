@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { LoadingState } from "@/components/review/LoadingState";
 import { ErrorState } from "@/components/review/ErrorState";
@@ -13,20 +13,22 @@ import { fetchBusiness, submitRating, submitFeedback, trackEvent } from "@/servi
 
 export default function ReviewPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = typeof params?.slug === "string" ? params.slug : "";
+  const uid = searchParams.get("uid") || slug;
   const [phase, setPhase] = useState("loading");
   const [business, setBusiness] = useState(null);
   const [rating, setRating] = useState(0);
   const [googleReviewUrl, setGoogleReviewUrl] = useState(null);
 
   const track = useCallback((event, metadata) => {
-    if (slug) {
-      trackEvent({ slug, event, metadata }).catch(() => {});
+    if (uid) {
+      trackEvent({ slug: uid, event, metadata }).catch(() => {});
     }
-  }, [slug]);
+  }, [uid]);
 
   useEffect(() => {
-    if (!slug) {
+    if (!uid) {
       setPhase("error");
       return;
     }
@@ -37,7 +39,7 @@ export default function ReviewPage() {
       let biz;
 
       try {
-        const data = await fetchBusiness(slug);
+        const data = await fetchBusiness(uid);
         if (!data || !data.name) throw new Error("Invalid response");
         biz = data;
       } catch {
@@ -58,14 +60,14 @@ export default function ReviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, track]);
+  }, [uid, track]);
 
   const handleRate = async (value) => {
     setRating(value);
     track("rating_selected", { rating: value });
 
     try {
-      const result = await submitRating(slug, value);
+      const result = await submitRating(uid, value);
       if (result?.action === "GOOGLE_REDIRECT" && result?.googleReviewUrl) {
         setGoogleReviewUrl(result.googleReviewUrl);
       }
@@ -79,10 +81,10 @@ export default function ReviewPage() {
   };
 
   const handleFeedbackSubmit = async (message, email) => {
-    if (!slug) return;
+    if (!uid) return;
 
     try {
-      await submitFeedback({ slug, rating, message, email });
+      await submitFeedback({ slug: uid, rating, message, email });
     } catch {
       // keep UX non-blocking for review capture
     }
