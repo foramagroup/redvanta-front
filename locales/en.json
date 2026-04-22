@@ -2210,6 +2210,13 @@
   "customize.save_draft": "Save as Draft",
   "customize.draft_saved": "Draft saved!",
   "customize.draft_saved_desc": "Your progress has been saved as a draft.",
-  "addon.manage_plan": "Manage Plan"
+  "addon.manage_plan": "Manage Plan",
+
+  "shop.select_package" : "Choose your package",
+  "shop.qty" : "Quantity",
+  "shop.total" : "Total",
+  "shop.secure" : "Secure checkout",
+  "shop.ships_5_7_short" : "Ships in 5–7 business days",
+  "shop.setup_card" : "Set Up Your Card"
 }
 

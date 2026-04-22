@@ -14,19 +14,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Copy, Image as ImageIcon, LayoutGrid, Loader2, MoreHorizontal, Palette, Pencil, Plus, QrCode, RotateCcw, Search, Smartphone, Star, Trash2, Type, Upload } from "lucide-react";
+import { PLATFORMS as PLATFORM_DATA, getPlatform } from "@/data/plateform";
 
-const PLATFORMS = [
-  { id: "google", label: "Google", icon: "G", color: "#4285F4" },
-  { id: "facebook", label: "Facebook", icon: "f", color: "#1877F2" },
-  { id: "instagram", label: "Instagram", icon: "IG", color: "#E4405F" },
-  { id: "tiktok", label: "TikTok", icon: "TT", color: "#000000" },
-  { id: "yelp", label: "Yelp", icon: "Y", color: "#D32323" },
-  { id: "tripadvisor", label: "TripAdvisor", icon: "TA", color: "#00AA6C" },
-  { id: "trustpilot", label: "Trustpilot", icon: "TP", color: "#00B67A" },
-  { id: "booking", label: "Booking", icon: "B", color: "#003580" },
-  { id: "airbnb", label: "Airbnb", icon: "AB", color: "#FF5A5F" },
-  { id: "custom", label: "Custom", icon: "C", color: "#6B7280" },
-];
+const PLATFORMS = PLATFORM_DATA;
 
 const PATTERNS = ["none", "dots", "grid", "diagonal-lines", "stripes", "glow"];
 const MODEL_LABELS = { classic: "Classic", premium: "Premium", metal: "Metal", transparent: "Transparent" };
@@ -85,6 +75,7 @@ const EMPTY_FORM = {
   nameTextTransform:"none", sloganTextTransform:"none", nameLineHeight:"1.2", sloganLineHeight:"1.4", instructionLineHeight:"1.4", nameTextAlign:"left", sloganTextAlign:"left",
   instructionTextAlign:"left", frontLine1:"Approach your phone to the card", frontLine2:"Tap to leave a review", backLine1:"Scan the QR code with your camera", backLine2:"Write a review on our profile page",
   checkStrokeWidth:3.5, nfcIconSize:24, googleIconSize:20, showNfcIcon:true, showGoogleIcon:true, textShadow:"none", ctaPaddingTop:8, model:"classic", colorMode:"template", elementOffsets:buildOffsets(),
+  useLogo:true, selectedIconId:"cu-star", iconColor:"#4285F4",
 };
 
 const patternCss = (pattern, color) => {
@@ -134,7 +125,7 @@ const TemplateTile = ({ template }) => {
       <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 p-4">
         <div className="flex gap-0.5">{[1,2,3,4,5].map((i)=><Star key={i} size={12} fill={template.starsColor} color={template.starsColor}/>)}</div>
         <div className="text-center text-sm font-semibold" style={{ color:template.textColor }}>{template.name}</div>
-        <Badge variant="outline" className="gap-1 border-white/20 bg-white/10 text-[10px] text-white">{platform?.icon} {platform?.label}</Badge>
+        <Badge variant="outline" className="gap-1 border-white/20 bg-white/10 text-[10px] text-white">{platform?.name}</Badge>
       </div>
     </div>
   );
@@ -151,6 +142,7 @@ export default function TemplateManager() {
   const [dragMode, setDragMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateFilter, setTemplateFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const logoInputRef = useRef(null);
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const handleElementDrag = (key, x, y) => {
@@ -199,12 +191,12 @@ export default function TemplateManager() {
     if (filters.platform !== "all") list = list.filter((item) => item.platform === filters.platform);
     if (filters.isActive === "active") list = list.filter((item) => item.isActive);
     else if (filters.isActive === "inactive") list = list.filter((item) => !item.isActive);
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
       list = list.filter((item) => item.name.toLowerCase().includes(q) || item.platform.includes(q));
     }
     return list;
-  }, [filters, templates]);
+  }, [filters, templates, searchQuery]);
 
   const previewDesign = useMemo(() => ({
     businessName: form.businessName || form.name || "Template Name",
@@ -307,6 +299,10 @@ export default function TemplateManager() {
       ctaPaddingTop: t.ctaPaddingTop ?? 8,
       // Model
       model: t.model ?? "classic",
+      // Platform logo / icon
+      useLogo: t.useLogo ?? true,
+      selectedIconId: t.selectedIconId ?? "cu-star",
+      iconColor: t.iconColor ?? (PLATFORMS.find((p) => p.id === (t.platform ?? "google"))?.color || "#4285F4"),
       // Element offsets
       elementOffsets: t.elementOffsets ?? buildOffsets(),
     });
@@ -358,8 +354,8 @@ export default function TemplateManager() {
   return <SuperAdminLayout title="Template Manager" subtitle="Create and manage NFC card design templates" headerAction={<Button onClick={openCreate} className="gap-2"><Plus size={16}/>Create Template</Button>}>
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input placeholder="Search templates..." value={filters.search} onChange={(e)=>updateFilters({ search:e.target.value })} className="pl-9"/></div>
-        <Select value={filters.platform} onValueChange={(value)=>updateFilters({ platform:value })}><SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Platforms"/></SelectTrigger><SelectContent><SelectItem value="all">All Platforms</SelectItem>{PLATFORMS.map((platform)=><SelectItem key={platform.id} value={platform.id}>{platform.icon} {platform.label}</SelectItem>)}</SelectContent></Select>
+        <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><Input placeholder="Search templates..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="pl-9"/></div>
+        <Select value={filters.platform} onValueChange={(value)=>updateFilters({ platform:value })}><SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Platforms"/></SelectTrigger><SelectContent><SelectItem value="all">All Platforms</SelectItem>{PLATFORMS.map((platform)=><SelectItem key={platform.id} value={platform.id}>{platform.name}</SelectItem>)}</SelectContent></Select>
         <Select value={filters.isActive} onValueChange={(value)=>updateFilters({ isActive:value })}><SelectTrigger className="w-full sm:w-36"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
       </div>
 
@@ -374,7 +370,7 @@ export default function TemplateManager() {
             <div className="space-y-2 p-3">
               <div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-medium">{template.name}</p><Badge variant={template.isActive ? "default" : "outline"} className="text-[9px]">{template.isActive ? "Active" : "Inactive"}</Badge></div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="gap-1 text-[10px]"><span style={{ color:platform?.color }}>{platform?.icon}</span>{platform?.label}</Badge>
+                <Badge variant="outline" className="gap-1 text-[10px]" style={{ color: platform?.defaultColor }}>{platform?.name}</Badge>
                 <Badge variant="outline" className="text-[10px]">{template.pattern}</Badge>
 {template.isCardSetting && <Badge className="border-blue-500/30 bg-blue-500/15 text-[10px] text-blue-400">Card Setting</Badge>}
               </div>
@@ -427,10 +423,83 @@ export default function TemplateManager() {
               <Section icon={Palette} title="Basic Info">
                 <div className="grid gap-3 md:grid-cols-2">
                   <div><label className="text-xs text-muted-foreground">Template Name</label><Input value={form.name} onChange={(e)=>updateForm({ name:e.target.value, businessName:e.target.value })} className="mt-1"/></div>
-                  <div><label className="text-xs text-muted-foreground">Platform</label><Select value={form.platform} onValueChange={(value)=>updateForm({ platform:value, accentColor: PLATFORMS.find((item)=>item.id===value)?.color || form.accentColor })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{PLATFORMS.map((platform)=><SelectItem key={platform.id} value={platform.id}>{platform.icon} {platform.label}</SelectItem>)}</SelectContent></Select></div>
                   <div><label className="text-xs text-muted-foreground">Pattern</label><Select value={form.pattern} onValueChange={(value)=>updateForm({ pattern:value })}><SelectTrigger className="mt-1"><SelectValue/></SelectTrigger><SelectContent>{PATTERNS.map((pattern)=><SelectItem key={pattern} value={pattern}>{pattern}</SelectItem>)}</SelectContent></Select></div>
                   <div className="flex flex-col justify-end gap-2"><div className="flex items-center gap-3"><Switch checked={form.isActive} onCheckedChange={(value)=>updateForm({ isActive:value })}/><span className="text-sm">Active</span></div><div className="flex items-center gap-3"><Switch checked={form.isDefault} onCheckedChange={(value)=>updateForm({ isDefault:value })}/><span className="text-sm">Set as default</span></div></div>
                 </div>
+
+                {/* Platform selector */}
+                <div>
+                  <label className="text-xs text-muted-foreground">Platform</label>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {PLATFORMS.map((p) => {
+                      const firstIcon = p.icons[0];
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => updateForm({ platform: p.id, accentColor: p.defaultColor, iconColor: p.defaultColor, selectedIconId: p.icons[0]?.id || "" })}
+                          className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${form.platform === p.id ? "border-primary/50 bg-primary/10 text-primary" : "border-border/50 bg-secondary/30 text-foreground hover:border-border"}`}
+                        >
+                          <p.Logo size={20} />
+                          <span className="truncate">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Use Platform Logo toggle */}
+                <div className="flex items-center justify-between rounded-2xl border border-border bg-secondary/50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card">
+                      <ImageIcon size={16} className="text-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Use Platform Logo</p>
+                      <p className="text-xs text-muted-foreground">{form.useLogo ? "Showing official image" : "Showing icon"}</p>
+                    </div>
+                  </div>
+                  <Switch checked={form.useLogo} onCheckedChange={(v) => updateForm({ useLogo: v })} />
+                </div>
+
+                {/* Platform icon variants picker */}
+                {!form.useLogo && (() => {
+                  const activePlatform = getPlatform(form.platform);
+                  return (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs text-muted-foreground">{activePlatform.name} icons</label>
+                        <div className="mt-2 grid grid-cols-4 gap-2">
+                          {activePlatform.icons.map(({ id, label, Icon }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => updateForm({ selectedIconId: id })}
+                              className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-semibold uppercase tracking-wider transition-all ${form.selectedIconId === id ? "border-primary bg-background text-primary" : "border-border/50 bg-secondary/30 text-muted-foreground hover:border-border"}`}
+                            >
+                              <Icon size={22} style={{ color: form.selectedIconId === id ? form.iconColor : undefined }} />
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-muted-foreground">Icon color</label>
+                        <div className="mt-2 flex items-center gap-3">
+                          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-border shadow-sm">
+                            <input type="color" value={form.iconColor} onChange={(e) => updateForm({ iconColor: e.target.value })} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                            <div className="h-full w-full" style={{ background: form.iconColor }} />
+                          </div>
+                          <Input value={form.iconColor.toUpperCase()} onChange={(e) => updateForm({ iconColor: e.target.value })} className="font-mono text-sm uppercase" />
+                          <Button type="button" variant="outline" onClick={() => updateForm({ iconColor: activePlatform.defaultColor })}>
+                            Reset
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </Section>
 
               <Section icon={Type} title="Card Content">
@@ -618,8 +687,8 @@ export default function TemplateManager() {
               <div className="rounded-xl border border-border/50 bg-gradient-card p-6">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: currentPlatform?.color || "#666" }}>
-                      {currentPlatform?.icon || "?"}
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full overflow-hidden" style={{ backgroundColor: currentPlatform?.defaultColor || "#666" }}>
+                      {currentPlatform?.Logo ? <currentPlatform.Logo size={18} /> : "?"}
                     </div>
                     <h3 className="font-display text-lg font-semibold">Live Preview</h3>
                   </div>
@@ -636,13 +705,13 @@ export default function TemplateManager() {
                 </div>
 
                 <div className="w-full">
-                  <SharedCardPreview design={previewDesign} orientation={form.orientation} side={previewSide} frontLine1={form.frontLine1} frontLine2={form.frontLine2} backLine1={form.backLine1} backLine2={form.backLine2} gradient1={form.gradient[0]} gradient2={form.gradient[1]} accentBand1={form.bandColor1} accentBand2={form.bandColor2} pattern={form.pattern} bandPosition={form.bandPosition} colorMode={form.colorMode} nameFont={form.nameFont} sloganFont={form.sloganFont} nameFontSize={form.nameFontSize} sloganFontSize={form.sloganFontSize} nameLetterSpacing={form.nameLetterSpacing} sloganLetterSpacing={form.sloganLetterSpacing} nameTextTransform={form.nameTextTransform} sloganTextTransform={form.sloganTextTransform} nameLineHeight={form.nameLineHeight} sloganLineHeight={form.sloganLineHeight} nameTextAlign={form.nameTextAlign} sloganTextAlign={form.sloganTextAlign} qrPosition={form.qrPosition} logoPosition={form.logoPosition} logoSize={form.logoSize} qrSize={form.qrSize} instructionFont={form.instructionFont} instructionFontSize={form.instructionFontSize} instructionLetterSpacing={form.instructionLetterSpacing} instructionLineHeight={form.instructionLineHeight} instructionTextAlign={form.instructionTextAlign} nameFontWeight={form.nameFontWeight} sloganFontWeight={form.sloganFontWeight} instructionFontWeight={form.instructionFontWeight} checkStrokeWidth={form.checkStrokeWidth} starsColor={form.starsColor} iconsColor={form.iconsColor} nfcIconSize={form.nfcIconSize} showNfcIcon={form.showNfcIcon} showGoogleIcon={form.showGoogleIcon} frontBandHeight={form.frontBandHeight} backBandHeight={form.backBandHeight} textShadow={form.textShadow} ctaPaddingTop={form.ctaPaddingTop} googleIconSize={form.googleIconSize} dragMode={dragMode} elementOffsets={form.elementOffsets?.[form.orientation]?.[previewSide] || OFFSETS} onElementDrag={handleElementDrag}/>
+                  <SharedCardPreview design={previewDesign} orientation={form.orientation} side={previewSide} frontLine1={form.frontLine1} frontLine2={form.frontLine2} backLine1={form.backLine1} backLine2={form.backLine2} gradient1={form.gradient[0]} gradient2={form.gradient[1]} accentBand1={form.bandColor1} accentBand2={form.bandColor2} pattern={form.pattern} bandPosition={form.bandPosition} colorMode={form.colorMode} nameFont={form.nameFont} sloganFont={form.sloganFont} nameFontSize={form.nameFontSize} sloganFontSize={form.sloganFontSize} nameLetterSpacing={form.nameLetterSpacing} sloganLetterSpacing={form.sloganLetterSpacing} nameTextTransform={form.nameTextTransform} sloganTextTransform={form.sloganTextTransform} nameLineHeight={form.nameLineHeight} sloganLineHeight={form.sloganLineHeight} nameTextAlign={form.nameTextAlign} sloganTextAlign={form.sloganTextAlign} qrPosition={form.qrPosition} logoPosition={form.logoPosition} logoSize={form.logoSize} qrSize={form.qrSize} instructionFont={form.instructionFont} instructionFontSize={form.instructionFontSize} instructionLetterSpacing={form.instructionLetterSpacing} instructionLineHeight={form.instructionLineHeight} instructionTextAlign={form.instructionTextAlign} nameFontWeight={form.nameFontWeight} sloganFontWeight={form.sloganFontWeight} instructionFontWeight={form.instructionFontWeight} checkStrokeWidth={form.checkStrokeWidth} starsColor={form.starsColor} iconsColor={form.iconsColor} nfcIconSize={form.nfcIconSize} showNfcIcon={form.showNfcIcon} showGoogleIcon={form.showGoogleIcon} frontBandHeight={form.frontBandHeight} backBandHeight={form.backBandHeight} textShadow={form.textShadow} ctaPaddingTop={form.ctaPaddingTop} googleIconSize={form.googleIconSize} dragMode={dragMode} elementOffsets={form.elementOffsets?.[form.orientation]?.[previewSide] || OFFSETS} onElementDrag={handleElementDrag} platform={form.platform} useLogo={form.useLogo} customIcon={getPlatform(form.platform).icons.find((i) => i.id === form.selectedIconId)?.Icon || null} customIconColor={form.iconColor}/>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="gap-1 text-xs" style={{ borderColor: `${currentPlatform?.color || "#666"}40`, color: currentPlatform?.color || "#666" }}>
-                      <span className="text-[10px]">{currentPlatform?.icon || "?"}</span> {currentPlatform?.label || "Platform"}
+                    <Badge variant="outline" className="gap-1 text-xs" style={{ borderColor: `${currentPlatform?.defaultColor || "#666"}40`, color: currentPlatform?.defaultColor || "#666" }}>
+                      {currentPlatform?.name || "Platform"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">{MODEL_LABELS[form.model] || form.model}</Badge>
                     <Badge variant="outline" className="text-xs capitalize">{form.orientation}</Badge>

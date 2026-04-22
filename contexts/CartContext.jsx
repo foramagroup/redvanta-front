@@ -45,8 +45,15 @@ const getSessionScope = (sessionUser) => {
   return `user:${userId}:company:${companyId}`;
 };
 
+const LOCAL_CONFIG_KEY = "krootal_local_config_cart";
+
+const readLocalConfigItems = () => {
+  try { return JSON.parse(localStorage.getItem(LOCAL_CONFIG_KEY) || "[]"); } catch { return []; }
+};
+
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
+  const [localConfigItems, setLocalConfigItems] = useState([]);
   const [cartSummary, setCartSummary] = useState({ itemCount: 0, subtotal: 0, totalCards: 0 });
   const [currentOrder, setCurrentOrder] = useState(null);
   const [user, setUser] = useState(null);
@@ -293,6 +300,30 @@ export function CartProvider({ children }) {
     } catch {}
   }, [user]);
 
+  // ── Local configurator items (multi-location, no API) ────────
+  useEffect(() => {
+    setLocalConfigItems(readLocalConfigItems());
+  }, []);
+
+  const addLocalItem = (item) => {
+    const entry = { ...item, id: `local-${Date.now()}`, createdAt: Date.now() };
+    const next = [...readLocalConfigItems(), entry];
+    try { localStorage.setItem(LOCAL_CONFIG_KEY, JSON.stringify(next)); } catch {}
+    setLocalConfigItems(next);
+  };
+
+  const removeLocalItem = (id) => {
+    const next = readLocalConfigItems().filter((i) => i.id !== id);
+    try { localStorage.setItem(LOCAL_CONFIG_KEY, JSON.stringify(next)); } catch {}
+    setLocalConfigItems(next);
+  };
+
+  const replaceLocalItem = (id, item) => {
+    const next = readLocalConfigItems().map((i) => i.id === id ? { ...item, id, createdAt: i.createdAt } : i);
+    try { localStorage.setItem(LOCAL_CONFIG_KEY, JSON.stringify(next)); } catch {}
+    setLocalConfigItems(next);
+  };
+
   const addItem = async (item) => {
     const normalized = {
       id: item?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -522,8 +553,12 @@ export function CartProvider({ children }) {
       cartSummary,
       itemCount,
       subtotal,
+      localConfigItems,
+      addLocalItem,
+      removeLocalItem,
+      replaceLocalItem,
     }),
-    [items, currentOrder, user, authUser, isAuthenticated, isCartReady, cartSummary, itemCount, subtotal]
+    [items, localConfigItems, currentOrder, user, authUser, isAuthenticated, isCartReady, cartSummary, itemCount, subtotal, replaceLocalItem]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

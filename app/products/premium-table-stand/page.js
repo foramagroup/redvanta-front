@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Package, Minus, Plus, ShoppingCart, Lock, Truck, Star, CheckCircle2, ArrowRight } from "lucide-react";
+import { Package, Minus, Plus, Settings, Lock, Truck, Star, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ProductGallery } from "@/components/ProductGallery";
@@ -12,6 +12,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useClientProduct } from "@/hooks/useClientProduct";
+import { ConfiguratorModal } from "@/components/product/ConfiguratorModal";
 
 const PRODUCT_SLUG = "premium-table-stand";
 const FALLBACK_PRODUCT = {
@@ -47,6 +48,7 @@ const PremiumTableStand = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedPackageIndex, setSelectedPackageIndex] = useState(0);
   const [isSticky, setIsSticky] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
@@ -100,8 +102,8 @@ const PremiumTableStand = () => {
               <p className="text-xs text-muted-foreground">{selectedPackage ? `${totalQty} units - ${formatPrice(totalPrice)}` : `${quantity} x ${formatPrice(product.price)}`}</p>
             </div>
           </div>
-          <Button className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleAddToCart} disabled={!canAddToCart}>
-            <ShoppingCart size={16} className="mr-2" />{t("shop.add_to_cart")}
+          <Button className="glow-red-hover bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setModalOpen(true)} disabled={!canAddToCart}>
+            <Settings size={16} className="mr-2" />{t("shop.setup_card")}
           </Button>
         </div>
       </motion.div>
@@ -113,7 +115,7 @@ const PremiumTableStand = () => {
             <motion.div initial="hidden" animate="visible">
               <motion.h1 variants={fadeUp} custom={0} className="font-display text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">{product.title}</motion.h1>
               <motion.p variants={fadeUp} custom={1} className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">{product.description}</motion.p>
-              <motion.div variants={fadeUp} custom={2} className="mt-8 flex items-center gap-4">
+              <motion.div variants={fadeUp} custom={2} className="mt-8">
                 {packageTiers.length ? (
                   <div className="w-full space-y-4">
                     <p className="text-sm font-medium text-muted-foreground">{t("shop.select_package")}</p>
@@ -140,34 +142,38 @@ const PremiumTableStand = () => {
                       ))}
                     </div>
                     {isSingleUnitPackage ? (
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
-                        <div className="flex items-center gap-0 overflow-hidden rounded-lg border border-border/50 bg-secondary">
-                          <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 transition-colors hover:bg-muted"><Minus size={16} /></button>
-                          <span className="min-w-[3rem] px-4 py-2 text-center text-sm font-semibold">{quantity}</span>
-                          <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-2 transition-colors hover:bg-muted"><Plus size={16} /></button>
+                      <div className="flex items-start justify-start gap-6">
+                        <div className="flex flex-col gap-2">
+                          <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
+                          <div className="flex items-center overflow-hidden rounded-lg border border-border/50 bg-secondary">
+                            <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 transition-colors hover:bg-muted"><Minus size={16} /></button>
+                            <span className="min-w-[3rem] px-4 py-2 text-center text-sm font-semibold">{quantity}</span>
+                            <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-2 transition-colors hover:bg-muted"><Plus size={16} /></button>
+                          </div>
                         </div>
-                        <span className="font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
+                        <div className="flex flex-col"><span className="text-sm text-muted-foreground">{t("shop.total")}</span><span className="font-display text-2xl font-bold">{formatPrice(totalPrice)}</span></div>
                       </div>
                     ) : (
-                      <span className="block font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
+                      <div className="flex flex-col"><span className="text-sm text-muted-foreground">{t("shop.total")}</span><span className="block font-display text-2xl font-bold">{formatPrice(totalPrice)}</span></div>
                     )}
                   </div>
                 ) : (
-                  <>
-                    <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
-                    <div className="flex items-center gap-0 overflow-hidden rounded-lg border border-border/50 bg-secondary">
-                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 transition-colors hover:bg-muted"><Minus size={16} /></button>
-                      <span className="min-w-[3rem] px-4 py-2 text-center text-sm font-semibold">{quantity}</span>
-                      <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-2 transition-colors hover:bg-muted"><Plus size={16} /></button>
+                  <div className="flex items-start justify-start gap-6">
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm text-muted-foreground">{t("shop.qty")}</span>
+                      <div className="flex items-center overflow-hidden rounded-lg border border-border/50 bg-secondary">
+                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 transition-colors hover:bg-muted"><Minus size={16} /></button>
+                        <span className="min-w-[3rem] px-4 py-2 text-center text-sm font-semibold">{quantity}</span>
+                        <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-2 transition-colors hover:bg-muted"><Plus size={16} /></button>
+                      </div>
                     </div>
-                    <span className="font-display text-2xl font-bold">{formatPrice(totalPrice)}</span>
-                  </>
+                    <div className="flex flex-col"><span className="text-sm text-muted-foreground">{t("shop.total")}</span><span className="font-display text-2xl font-bold">{formatPrice(totalPrice)}</span></div>
+                  </div>
                 )}
               </motion.div>
-              <motion.div variants={fadeUp} custom={3} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button size="lg" className="glow-red-hover bg-primary px-8 text-base text-primary-foreground hover:bg-primary/90" onClick={handleAddToCart} disabled={!canAddToCart}>
-                  <ShoppingCart size={18} className="mr-2" />{t("shop.add_to_cart")} - {formatPrice(totalPrice)}
+              <motion.div variants={fadeUp} custom={3} className="mt-8 flex flex-col items-start gap-3">
+                <Button size="lg" className="glow-red-hover bg-primary px-8 text-base text-primary-foreground hover:bg-primary/90" onClick={() => setModalOpen(true)} disabled={!canAddToCart}>
+                  <Settings size={18} className="mr-2" />{t("shop.setup_card")} — {formatPrice(totalPrice)}
                 </Button>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Lock size={12} /> {t("shop.secure")}</span>
@@ -235,12 +241,22 @@ const PremiumTableStand = () => {
         <div className="container mx-auto px-6 text-center">
           <motion.h2 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="font-display text-4xl font-bold md:text-5xl">Display Your Card <span className="text-gradient-red">Proudly.</span></motion.h2>
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={1} className="mt-8">
-            <Button size="lg" className="glow-red-hover bg-primary px-10 py-6 text-base text-primary-foreground hover:bg-primary/90" onClick={handleAddToCart} disabled={!canAddToCart}>
-              <ShoppingCart size={18} className="mr-2" />{t("shop.add_to_cart")} - {formatPrice(totalPrice)}
+            <Button size="lg" className="glow-red-hover bg-primary px-10 py-6 text-base text-primary-foreground hover:bg-primary/90" onClick={() => setModalOpen(true)} disabled={!canAddToCart}>
+              <Settings size={18} className="mr-2" />{t("shop.setup_card")} — {formatPrice(totalPrice)}
             </Button>
           </motion.div>
         </div>
       </section>
+      <ConfiguratorModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        totalQuantity={totalQty}
+        unitPrice={unitPrice}
+        packageLabel={selectedPackage?.label || product.title}
+        productId={product.id}
+        packageTierId={resolvedPackageTierId}
+        productName={product.title}
+      />
     </div>
   );
 };

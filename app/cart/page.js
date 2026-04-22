@@ -12,11 +12,13 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fadeUp } from "@/lib/animations";
 import { MODEL_LABELS } from "@/types/shop";
+import { PLATFORM_META } from "@/lib/cart";
+import { ConfiguratorModal } from "@/components/product/ConfiguratorModal";
 
 const PENDING_CUSTOMIZE_KEY = "krootal_pending_customize";
 
 const Cart = () => {
-  const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartReady, isAuthenticated } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartReady, isAuthenticated, localConfigItems, removeLocalItem } = useCart();
   const { formatPrice } = useCurrency();
   const router = useRouter();
   const { t } = useLanguage();
@@ -94,6 +96,9 @@ const Cart = () => {
     router.push("/checkout");
   };
 
+  const localSubtotal = localConfigItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const totalItemCount = itemCount + localConfigItems.length;
+
   if (!isCartReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-dark pt-20">
@@ -104,7 +109,7 @@ const Cart = () => {
 
   const hasUnvalidated = items.some((i) => isDraftDesignBlockingCheckout(i.design));
 
-  if (items.length === 0) {
+  if (items.length === 0 && localConfigItems.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-dark pt-20">
         <motion.div initial="hidden" animate="visible" className="text-center">
@@ -131,7 +136,7 @@ const Cart = () => {
              {t("shop.your_cart").split(" ")[0]} <span className="text-gradient-red">{t("shop.your_cart").split(" ").slice(1).join(" ") || t("cart.title")}</span>
            </motion.h1>
            <motion.p variants={fadeUp} custom={1} className="mt-2 text-muted-foreground">
-             {itemCount} {itemCount === 1 ? t("shop.item_in_cart") : t("shop.items_in_cart")}
+             {totalItemCount} {totalItemCount === 1 ? t("shop.item_in_cart") : t("shop.items_in_cart")}
            </motion.p>
         </motion.div>
 
@@ -223,6 +228,77 @@ const Cart = () => {
               </motion.div>
               );
             })}
+            {/* Local config items (from configurator, stored in localStorage) */}
+            {localConfigItems.map((item, i) => {
+              const locationCount = item.locations?.length || 0;
+              return (
+                <motion.div
+                  key={item.id}
+                  variants={fadeUp}
+                  custom={items.length + i}
+                  className="rounded-xl border border-border/50 bg-gradient-card p-4 sm:p-6"
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-display text-sm sm:text-base font-semibold truncate">
+                        {item.productName} · {item.totalQuantity} cards
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatPrice(item.unitPrice)} per card · {locationCount} {locationCount === 1 ? "location" : "locations"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-display text-lg sm:text-xl font-bold">{formatPrice(item.totalPrice)}</span>
+                      <button
+                        onClick={() => removeLocalItem(item.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Location rows */}
+                  {item.locations?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {item.locations.map((loc, li) => {
+                        const platform = loc.platform ? PLATFORM_META[loc.platform] : null;
+                        const businessData = loc.data?.businessName || loc.data?.handle || loc.data?.url || "";
+                        return (
+                          <div
+                            key={li}
+                            className="flex items-center gap-2.5 rounded-lg border border-border/30 bg-background/40 px-3 py-2"
+                          >
+                            <div
+                              className="h-5 w-5 shrink-0 rounded"
+                              style={{ backgroundColor: loc.cardColor || "#0A0A0A" }}
+                            />
+                            <span className="text-xs font-medium text-muted-foreground shrink-0">
+                              Location {li + 1} · {loc.quantity} cards
+                            </span>
+                            {platform && (
+                              <span className="text-xs text-foreground/80 truncate">
+                                {platform.name}{businessData ? ` — ${businessData}` : ""}
+                              </span>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs ml-auto shrink-0"
+                              onClick={() => router.push(`/customize/${item.id}`)}
+                            >
+                              <Pencil size={12} className="mr-1" />
+                              {t("cart.edit_design")}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           {/* Summary */}
@@ -238,7 +314,7 @@ const Cart = () => {
                <div className="space-y-3 text-sm">
                  <div className="flex justify-between">
                    <span className="text-muted-foreground">{t("cart.subtotal")}</span>
-                   <span className="font-semibold">{formatPrice(subtotal)}</span>
+                   <span className="font-semibold">{formatPrice(subtotal + localSubtotal)}</span>
                  </div>
                  <div className="flex justify-between">
                    <span className="text-muted-foreground">{t("shop.shipping")}</span>
@@ -246,7 +322,7 @@ const Cart = () => {
                  </div>
                  <div className="border-t border-border/50 pt-3 flex justify-between">
                    <span className="font-semibold">{t("shop.estimated_total")}</span>
-                   <span className="font-display text-xl font-bold">{formatPrice(subtotal)}</span>
+                   <span className="font-display text-xl font-bold">{formatPrice(subtotal + localSubtotal)}</span>
                  </div>
                </div>
 

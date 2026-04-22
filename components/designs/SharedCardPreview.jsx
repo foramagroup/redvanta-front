@@ -191,7 +191,7 @@ const defaultOffsets = {
     cta: { x: 0, y: 0 },
 };
 const SNAP_THRESHOLD = 8;
-export default function SharedCardPreview({ design, orientation, side, frontLine1, frontLine2, backLine1, backLine2, gradient1, gradient2, accentBand1, accentBand2, pattern, bandPosition, colorMode, nameFont, sloganFont, nameFontSize, sloganFontSize, nameLetterSpacing, sloganLetterSpacing, nameTextTransform, sloganTextTransform, nameLineHeight, sloganLineHeight, nameTextAlign, sloganTextAlign, qrPosition, logoPosition, logoSize, qrSize, instructionFont, instructionFontSize, instructionLetterSpacing, instructionLineHeight, instructionTextAlign, nameFontWeight, sloganFontWeight, instructionFontWeight, checkStrokeWidth, starsColor, iconsColor, nfcIconSize, showNfcIcon, showGoogleIcon, frontBandHeight, backBandHeight, textShadow, ctaPaddingTop, googleIconSize, dragMode, elementOffsets, onElementDrag }) {
+export default function SharedCardPreview({ design, orientation, side, frontLine1, frontLine2, backLine1, backLine2, gradient1, gradient2, accentBand1, accentBand2, pattern, bandPosition, colorMode, nameFont, sloganFont, nameFontSize, sloganFontSize, nameLetterSpacing, sloganLetterSpacing, nameTextTransform, sloganTextTransform, nameLineHeight, sloganLineHeight, nameTextAlign, sloganTextAlign, qrPosition, logoPosition, logoSize, qrSize, instructionFont, instructionFontSize, instructionLetterSpacing, instructionLineHeight, instructionTextAlign, nameFontWeight, sloganFontWeight, instructionFontWeight, checkStrokeWidth, starsColor, iconsColor, nfcIconSize, showNfcIcon, showGoogleIcon, frontBandHeight, backBandHeight, textShadow, ctaPaddingTop, googleIconSize, dragMode, elementOffsets, onElementDrag, platform = "google", useLogo = true, customIcon: CustomIcon = null, customIconColor = "#4285F4" }) {
     const cardRef = useRef(null);
     const [activeGuides, setActiveGuides] = useState({ x: null, y: null });
     const activeGuidesRef = useRef({ x: null, y: null });
@@ -322,13 +322,23 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
     const instrSpacing = LETTER_SPACING_OPTIONS.find(o => o.id === instructionLetterSpacing)?.value || "0em";
     const textShadowValue = TEXT_SHADOW_OPTIONS.find(o => o.id === textShadow)?.value || "none";
     const textShadowStyle = textShadowValue === "none" ? undefined : textShadowValue;
-    // Google Logo SVG element
-    const GoogleIcon = ({ size }) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>);
+    const PLATFORM_ICONS_MAP = {
+      google: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>),
+      facebook: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="5" fill="#1877F2"/><path d="M16.5 8H14c-.3 0-.5.2-.5.5V10h3l-.4 2.5H13.5V19h-3v-6.5H9V10h1.5V8.2C10.5 6.4 11.7 5 13.8 5H16.5v3z" fill="#fff"/></svg>),
+      instagram: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ig-prev-grad" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#ig-prev-grad)"/><rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="#fff" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" strokeWidth="1.5"/><circle cx="17.2" cy="6.8" r="1" fill="#fff"/></svg>),
+      tiktok: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="5" fill="#010101"/><path d="M16.5 7.5c-.9-.6-1.5-1.5-1.7-2.5h-2.3v12c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2c.2 0 .4 0 .6.1V12.6c-.2 0-.4-.1-.6-.1-2.4 0-4.3 1.9-4.3 4.3s1.9 4.3 4.3 4.3 4.3-1.9 4.3-4.3V10c.8.6 1.7 1 2.7 1V8.8c-.5 0-1-.1-1-.1l.5-1.2z" fill="#fff"/><path d="M15.5 8c.8.5 1.7.8 2.5.8V7c-.5 0-.9-.1-1.3-.3-.6-.3-1-.8-1.2-1.4h-1.8v9.5c0 .9-.7 1.7-1.7 1.7s-1.7-.7-1.7-1.7.7-1.7 1.7-1.7h.3v-1.8h-.3c-1.9 0-3.5 1.6-3.5 3.5s1.6 3.5 3.5 3.5 3.5-1.6 3.5-3.5V8z" fill="#69C9D0"/></svg>),
+      booking: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#003580"/><text x="12" y="16.5" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="800" fontFamily="sans-serif">B.</text></svg>),
+      tripadvisor: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#34E0A1"/><circle cx="8.5" cy="12" r="3" fill="#fff" stroke="#00AA6C" strokeWidth="1"/><circle cx="15.5" cy="12" r="3" fill="#fff" stroke="#00AA6C" strokeWidth="1"/><circle cx="8.5" cy="12" r="1.2" fill="#00AA6C"/><circle cx="15.5" cy="12" r="1.2" fill="#00AA6C"/></svg>),
+      airbnb: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#FF5A5F"/><path d="M12 4c-1 2.5-3.5 5.5-3.5 8 0 1.9 1.6 3.5 3.5 3.5s3.5-1.6 3.5-3.5C15.5 9.5 13 6.5 12 4z" fill="#fff"/></svg>),
+      custom: (size) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>),
+    };
+    const PlatformIcon = ({ size }) => {
+      if (!useLogo && CustomIcon) {
+        return <CustomIcon size={size} style={{ color: customIconColor }} />;
+      }
+      const render = PLATFORM_ICONS_MAP[platform] || PLATFORM_ICONS_MAP.google;
+      return render(size);
+    };
     const bgStyle = colorMode === "single"
         ? { background: design.bgColor, color: design.textColor }
         : { background: `linear-gradient(160deg, ${gradient1} 0%, ${gradient2} 70%)`, color: design.textColor };
@@ -377,7 +387,7 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
           {showNfcIcon && renderDraggable("nfcIcon", <svg width={nfcIconSize} height={nfcIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a16.09 16.09 0 0 1 0 15.8"/>
             </svg>, "absolute top-3 right-3 opacity-30 z-20")}
-          {showGoogleIcon && renderDraggable("googleIcon", <GoogleIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
+          {showGoogleIcon && renderDraggable("googleIcon", <PlatformIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
           <div className="h-full flex flex-col justify-center gap-4 relative z-10 p-5">
             {businessRow}
             {renderDraggable("instructions", frontSecondGroup)}
@@ -393,7 +403,7 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
         {showNfcIcon && renderDraggable("nfcIcon", <svg width={nfcIconSize} height={nfcIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a16.09 16.09 0 0 1 0 15.8"/>
           </svg>, "absolute top-3 right-3 opacity-30 z-20")}
-        {showGoogleIcon && renderDraggable("googleIcon", <GoogleIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
+        {showGoogleIcon && renderDraggable("googleIcon", <PlatformIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
         <div className="h-full flex flex-col justify-between relative z-10 p-5">
           {design.logoUrl && logoPosition === "top-center" && renderDraggable("logo", <div className="flex justify-center">
               {logoImage}
@@ -494,7 +504,7 @@ export default function SharedCardPreview({ design, orientation, side, frontLine
     return (<div ref={cardRef} className={`${aspectClass} ${roundedClass} overflow-hidden shadow-2xl relative transition-all`} style={bgStyleBack}>
       <AlignmentGuides />
       {colorMode === "template" && <PatternOverlay pattern={pattern}/>}
-      {showGoogleIcon && renderDraggable("googleIcon", <GoogleIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
+      {showGoogleIcon && renderDraggable("googleIcon", <PlatformIcon size={googleIconSize}/>, "absolute bottom-3 right-3 opacity-60 z-20")}
       <div className={`h-full flex flex-col items-center justify-center gap-4 relative z-10 p-5`}>
         <div className={`flex ${isQrHorizontal ? "flex-row" : "flex-col"} items-center gap-3`}>
           {isQrFirst && renderDraggable("qrCode", qrElement)}

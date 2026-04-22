@@ -34,7 +34,7 @@ const Header = ({ showEditBar = false }) => {
   const pathname = usePathname();
   const router = useRouter();
   const userMenuRef = useRef(null);
-  const { itemCount } = useCart();
+  const { itemCount, localConfigItems } = useCart();
   const { lang, setLang, t } = useLanguage();
   const { currency, setCurrencyCode, currencies } = useCurrency();
   const { isEditing } = useLiveTextEditor();
@@ -189,7 +189,8 @@ const Header = ({ showEditBar = false }) => {
 
   const selectedLang = languageOptions.find((item) => item.code === lang) || languageOptions[0] || LANGUAGES[0];
   const selectedCurrency = currencyOptions.find((item) => item.code === currency.code) || currency;
-  const cartCount = itemCount > 0 ? itemCount : (apiCartCount ?? 0);
+  const localCardCount = (localConfigItems || []).reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+  const cartCount = (itemCount > 0 ? itemCount : (apiCartCount ?? 0)) + localCardCount;
   const isAuthenticated = !!authUser;
   const desktopNavLinks = navLinks.filter((link) => link.path !== "/dashboard" || isAuthenticated);
   const displayUserName = authUser?.name || authUser?.email || "";
