@@ -7,12 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PLATFORM_META } from "@/lib/cart";
-import { CardPreview } from "./CardPreview";
+import SharedCardPreview from "@/components/designs/SharedCardPreview";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 
 const PRESET_COLORS = ["#0A0A0A", "#E10600", "#1E40AF", "#047857", "#9333EA", "#F59E0B", "#FFFFFF"];
+
+const getTextColor = (hex) => {
+  const c = (hex || "#0A0A0A").replace("#", "");
+  if (c.length !== 6) return "#fff";
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? "#111" : "#fff";
+};
 
 const newLocation = (qty, color = "#0A0A0A") => ({
   id: `loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -29,6 +38,7 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
   const [activeId, setActiveId] = useState("");
   const [applyToAll, setApplyToAll] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [previewSide, setPreviewSide] = useState("front");
 
   useEffect(() => {
     if (open) {
@@ -166,7 +176,7 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="grid lg:grid-cols-[1fr,380px] gap-0">
+          <div className="grid lg:grid-cols-[1fr,500px] gap-0">
             {/* Left: editor */}
             <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 min-w-0">
               {/* Summary bar */}
@@ -234,12 +244,75 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
 
             {/* Right: live preview */}
             <div className="border-t lg:border-t-0 lg:border-l border-neutral-800 bg-neutral-900/40 p-5 space-y-4">
-              <div className="text-sm font-semibold text-neutral-200">Live Preview</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-neutral-200">Live Preview</div>
+                <div className="flex overflow-hidden rounded-lg border border-neutral-700 text-xs w-fit">
+                  <button
+                    onClick={() => setPreviewSide("front")}
+                    className={`px-3 py-1.5 font-medium transition-colors ${previewSide === "front" ? "bg-primary text-primary-foreground" : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"}`}
+                  >Front</button>
+                  <button
+                    onClick={() => setPreviewSide("back")}
+                    className={`px-3 py-1.5 font-medium transition-colors ${previewSide === "back" ? "bg-primary text-primary-foreground" : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"}`}
+                  >Back</button>
+                </div>
+              </div>
               {active && (
-                <CardPreview
-                  location={active}
-                  label={`Location ${locations.findIndex((l) => l.id === active.id) + 1}`}
-                />
+                <div className="w-full">
+                  <SharedCardPreview
+                    design={{
+                      businessName: active.data?.businessName || active.data?.handle || active.data?.url || "Your Business",
+                      bgColor: active.cardColor || "#0A0A0A",
+                      textColor: getTextColor(active.cardColor),
+                      cta: "Powered by Opinoor",
+                      qrColor: "#000000",
+                    }}
+                    colorMode="single"
+                    gradient1={active.cardColor || "#0A0A0A"}
+                    gradient2={active.cardColor || "#0A0A0A"}
+                    orientation="landscape"
+                    side={previewSide}
+                    frontLine1="Approach your phone to the card"
+                    frontLine2="Tap to leave a review"
+                    backLine1="Scan the QR code with your camera"
+                    backLine2="No app needed"
+                    platform={active.platform || "google"}
+                    showGoogleIcon={true}
+                    showNfcIcon={true}
+                    nameFontSize={16}
+                    sloganFontSize={12}
+                    instructionFontSize={10}
+                    nameFontWeight="700"
+                    sloganFontWeight="400"
+                    instructionFontWeight="400"
+                    nameLetterSpacing="normal"
+                    sloganLetterSpacing="normal"
+                    instructionLetterSpacing="normal"
+                    nameLineHeight="1.2"
+                    sloganLineHeight="1.4"
+                    instructionLineHeight="1.4"
+                    nameTextAlign="left"
+                    sloganTextAlign="left"
+                    instructionTextAlign="left"
+                    nameTextTransform="none"
+                    sloganTextTransform="none"
+                    qrSize={80}
+                    qrPosition="right"
+                    logoPosition="left"
+                    logoSize={32}
+                    googleIconSize={20}
+                    nfcIconSize={24}
+                    checkStrokeWidth={3.5}
+                    starsColor="#FBBF24"
+                    iconsColor="#22C55E"
+                    textShadow="none"
+                    ctaPaddingTop={8}
+                    frontBandHeight={22}
+                    backBandHeight={12}
+                    bandPosition="hidden"
+                    pattern="none"
+                  />
+                </div>
               )}
               <div className="text-xs text-neutral-400 text-center">
                 Updates in real time as you customize.

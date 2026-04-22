@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Shield, Filter, TrendingUp, Star, BarChart3, QrCode, MapPin, Zap, Arrow
 import { fadeUp } from "@/lib/animations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import dashboardMockup from "@/public/assets/dashboard-mockup.png";
 
 export default function HomePage() {
   const { formatPrice } = useCurrency();
@@ -85,10 +87,11 @@ export default function HomePage() {
               className="relative"
             >
               <div className="absolute -inset-4 rounded-2xl bg-primary/5 blur-3xl" />
-              <img
-                src="/assets/dashboard-mockup.png"
+              <Image
+                src={dashboardMockup}
                 alt={t("landing.dashboard_alt")}
                 className="relative rounded-xl border border-border/50 glow-red-sm"
+                priority
               />
             </motion.div>
           </div>
@@ -184,11 +187,18 @@ export default function HomePage() {
           >
             <div className="relative">
               <div className="absolute -inset-4 rounded-2xl bg-primary/5 blur-3xl" />
-              <img src="/assets/dashboard-mockup.png" alt={t("landing.command_center_alt")} className="relative w-full rounded-xl border border-border/50 glow-red-sm" />
+              <Image
+                src={dashboardMockup}
+                alt={t("landing.command_center_alt")}
+                className="relative w-full rounded-xl border border-border/50 glow-red-sm"
+              />
             </div>
           </motion.div>
         </div>
       </section>
+
+    
+
 
       {/* ROI SECTION */}
       <section className="section-spacing">
