@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, Upload, CheckCircle2, AlertTriangle, QrCode, Palette, Type, Image as ImageIcon, Smartphone, RotateCcw, Check, Star, Layers, Move, Save, Pencil, History, Clock, Eye, Lock, Loader2, } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -843,8 +843,10 @@ const CardPreview = ({ design, orientation, side, frontLine1, frontLine2, backLi
 // ── Main Component ──────────────────────────────────────────
 const Customize = () => {
     const params = useParams();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const itemId = Array.isArray(params?.orderId) ? params.orderId[0] : params?.orderId;
+    const locationId = searchParams?.get("locationId");
     const navigate = (path) => router.push(path);
     const { items, updateDesign, updateQuantity, isCartReady } = useCart();
     const { t } = useLanguage();
@@ -858,6 +860,11 @@ const Customize = () => {
     const item = !isEditMode
         ? items.find((i) => String(i?.id) === normalizedItemId)
         : null;
+    const activeLocation = !isEditMode && locationId
+        ? item?.locations?.find((location) => String(location?.id) === String(locationId))
+        : null;
+    const activeLocationBusinessName = activeLocation?.data?.businessName || activeLocation?.businessName || "";
+    const initialBusinessName = activeLocationBusinessName || activeLocation?.design?.businessName || item?.design?.businessName || "";
     // ── Product & Platform config ─────────────────────────────
     const productConfig = useMemo(() => getProductConfig(item?.productName), [item?.productName]);
     const platformConfig = PLATFORM_STEP_CONFIGS[productConfig.platform];
@@ -873,17 +880,22 @@ const Customize = () => {
         }
         return {
             ...defaultDesign(item?.model || "classic"),
-            ...(item?.design || {}),
-            errors: Array.isArray(item?.design?.errors) ? item.design.errors : [],
+            ...(activeLocation?.design || item?.design || {}),
+            businessName: initialBusinessName,
+            errors: Array.isArray(activeLocation?.design?.errors)
+                ? activeLocation.design.errors
+                : Array.isArray(item?.design?.errors)
+                    ? item.design.errors
+                    : [],
         };
     });
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery, setSearchQuery] = useState(() => initialBusinessName);
     const [showResults, setShowResults] = useState(false);
     const [businessResults, setBusinessResults] = useState([]);
     const [isSearchingBusinesses, setIsSearchingBusinesses] = useState(false);
     const [logoFile, setLogoFile] = useState(design.logoUrl);
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-    const [remoteDesignId, setRemoteDesignId] = useState(() => item?.design?.id || null);
+    const [remoteDesignId, setRemoteDesignId] = useState(() => activeLocation?.design?.id || item?.design?.id || null);
     const [isSyncingRemoteDesign, setIsSyncingRemoteDesign] = useState(false);
     const [isSavingDesignStep, setIsSavingDesignStep] = useState(false);
     const [orientation, setOrientation] = useState(() => editingDesign?.orientation || "landscape");
@@ -1022,6 +1034,9 @@ const Customize = () => {
     const syncCartDesignSummary = useCallback((remoteDesign) => {
         if (!item || !remoteDesign)
             return;
+        if (locationId) {
+            return;
+        }
         updateDesign(item.id, {
             ...(item.design || {}),
             id: remoteDesign.id,
@@ -1032,16 +1047,17 @@ const Customize = () => {
             validatedAt: remoteDesign.validatedAt,
             version: remoteDesign.version,
         });
-    }, [item, updateDesign]);
+    }, [item, locationId, updateDesign]);
 
     const applyRemoteDesignData = useCallback((remoteDesign) => {
         if (!remoteDesign)
             return;
+        const fallbackBusinessName = activeLocationBusinessName || activeLocation?.design?.businessName || item?.design?.businessName || "";
         setRemoteDesignId(remoteDesign.id);
         setDesign((prev) => ({
             ...prev,
             id: remoteDesign.id ?? prev.id,
-            businessName: remoteDesign.businessName ?? prev.businessName,
+            businessName: remoteDesign.businessName ?? fallbackBusinessName ?? prev.businessName,
             slogan: remoteDesign.slogan ?? prev.slogan,
             cta: remoteDesign.callToAction ?? prev.cta,
             googlePlaceId: remoteDesign.googlePlaceId ?? prev.googlePlaceId,
@@ -1054,8 +1070,8 @@ const Customize = () => {
             status: remoteDesign.status ?? prev.status,
             errors: [],
         }));
-        if (remoteDesign.businessName)
-            setSearchQuery(remoteDesign.businessName);
+        if (remoteDesign.businessName || fallbackBusinessName)
+            setSearchQuery(remoteDesign.businessName || fallbackBusinessName);
         if (remoteDesign.logoUrl)
             setLogoFile(resolveAssetUrl(remoteDesign.logoUrl));
         if (remoteDesign.orientation)
@@ -1156,14 +1172,15 @@ const Customize = () => {
           setLinkInput(remoteDesign.platformUrl);
           setDesign(d => ({ ...d, googleReviewLink: remoteDesign.platformUrl }));
         }
-    }, []);
+    }, [activeLocation?.design?.businessName, activeLocationBusinessName, item?.design?.businessName]);
 
     const ensureRemoteDesign = useCallback(async ({ forceReload = false } = {}) => {
         if (isEditMode || !item?.id || !item?.productId)
             return null;
         if (remoteDesignId && !forceReload)
             return remoteDesignId;
-        const existingResponse = await fetch(`${shopApiBase}/designs/cart-item/${item.id}`, {
+        const query = locationId ? `?locationId=${encodeURIComponent(locationId)}` : "";
+        const existingResponse = await fetch(`${shopApiBase}/designs/cart-item/${item.id}${query}`, {
             credentials: "include",
         });
         const existingPayload = await existingResponse.json().catch(() => ({}));
@@ -1179,6 +1196,7 @@ const Customize = () => {
                 body: JSON.stringify({
                     cartItemId: item.id,
                     productId: item.productId,
+                    locationId: locationId || undefined,
                 }),
             });
             const createPayload = await createResponse.json().catch(() => ({}));
@@ -1193,7 +1211,23 @@ const Customize = () => {
             return remoteDesign.id;
         }
         return null;
-    }, [applyRemoteDesignData, isEditMode, item, remoteDesignId, shopApiBase, syncCartDesignSummary]);
+    }, [applyRemoteDesignData, isEditMode, item, locationId, remoteDesignId, shopApiBase, syncCartDesignSummary]);
+
+    useEffect(() => {
+        if (isEditMode || !initialBusinessName)
+            return;
+        setDesign((prev) => {
+            if (prev.businessName === initialBusinessName) {
+                return prev;
+            }
+            return {
+                ...prev,
+                businessName: initialBusinessName,
+            };
+        });
+        setSearchQuery((prev) => prev || initialBusinessName);
+    }, [initialBusinessName, isEditMode]);
+
     const buildDesignSnapshot = useCallback(() => {
         const now = new Date().toISOString().split("T")[0];
         return {
@@ -1370,9 +1404,10 @@ const Customize = () => {
     useEffect(() => {
         if (isEditMode || !isCartReady || !item?.id || !item?.productId)
             return;
-        if (initializedCartItemRef.current === item.id)
+        const initializationKey = `${item.id}:${locationId || "default"}`;
+        if (initializedCartItemRef.current === initializationKey)
             return;
-        initializedCartItemRef.current = item.id;
+        initializedCartItemRef.current = initializationKey;
         let active = true;
         (async () => {
             setIsSyncingRemoteDesign(true);
@@ -1397,7 +1432,7 @@ const Customize = () => {
         return () => {
             active = false;
         };
-    }, [ensureRemoteDesign, isCartReady, isEditMode, item?.id, item?.productId, t]);
+    }, [ensureRemoteDesign, isCartReady, isEditMode, item?.id, item?.productId, locationId, t]);
 
     useEffect(() => {
         if (!isEditMode || !editDesignId) return;
@@ -2705,6 +2740,3 @@ const Customize = () => {
     </div>);
 };
 export default Customize;
-
-
-

@@ -13,7 +13,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fadeUp } from "@/lib/animations";
 import { MODEL_LABELS } from "@/types/shop";
 import { PLATFORM_META } from "@/lib/cart";
-import { ConfiguratorModal } from "@/components/product/ConfiguratorModal";
 
 const PENDING_CUSTOMIZE_KEY = "krootal_pending_customize";
 
@@ -54,8 +53,10 @@ const Cart = () => {
     } catch {}
   }, [isAuthenticated, isCartReady, items, router]);
 
-  const handleCustomize = (itemId) => {
-    const customizePath = `/customize/${itemId}`;
+  const handleCustomize = (itemId, locationId = null) => {
+    const customizePath = locationId
+      ? `/customize/${itemId}?locationId=${encodeURIComponent(locationId)}`
+      : `/customize/${itemId}`;
     const item = items.find((entry) => String(entry.id) === String(itemId));
 
     if (!isAuthenticated) {
@@ -148,6 +149,76 @@ const Cart = () => {
               const packageLabel = item.packageTier?.qty
                 ? `${item.packageTier.qty} ${item.packageTier.qty === 1 ? "unit" : "units"}`
                 : null;
+              const locationCount = item.locations?.length || 0;
+
+              if (item.hasLocations) {
+                return (
+                  <motion.div
+                    key={item.id}
+                    variants={fadeUp}
+                    custom={i}
+                    className="rounded-xl border border-border/50 bg-gradient-card p-4 sm:p-6"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="font-display text-sm sm:text-base font-semibold truncate">
+                          {item.productName} · {item.totalCards} cards
+                        </h3>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {formatPrice(item.unitPrice)} per card · {locationCount} {locationCount === 1 ? "location" : "locations"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="font-display text-lg sm:text-xl font-bold">{formatPrice(item.lineTotal)}</span>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {item.locations?.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {item.locations.map((loc, li) => {
+                          const platform = loc.platform ? PLATFORM_META[loc.platform] : null;
+                          const businessData = loc.data?.businessName || loc.data?.handle || loc.data?.url || "";
+
+                          return (
+                            <div
+                              key={loc.id || li}
+                              className="flex items-center gap-2.5 rounded-lg border border-border/30 bg-background/40 px-3 py-2"
+                            >
+                              <div
+                                className="h-5 w-5 shrink-0 rounded"
+                                style={{ backgroundColor: loc.cardColor || "#0A0A0A" }}
+                              />
+                              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                Location {li + 1} · {loc.quantity} cards
+                              </span>
+                              {platform && (
+                                <span className="truncate text-xs text-foreground/80">
+                                  {platform.name}{businessData ? ` — ${businessData}` : ""}
+                                </span>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="ml-auto shrink-0 text-xs"
+                                onClick={() => handleCustomize(item.id, loc.id)}
+                              >
+                                <Pencil size={12} className="mr-1" />
+                                {t("cart.edit_design")}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              }
 
               return (
               <motion.div

@@ -69,7 +69,7 @@ const buildOffsets = () => ({ landscape:{ front:{...OFFSETS}, back:{...OFFSETS} 
 const EMPTY_FORM = {
   name:"", platform:"google", gradient:["#FFFFFF","#F1F5F9"], accentColor:"#4285F4", pattern:"none", textColor:"#1A1A1A", isActive:true, isDefault:false,
   bandColor1:"#4285F4", bandColor2:"#E8F0FE", qrColor:"#4285F4", starsColor:"#FBBF24", iconsColor:"#22C55E", businessName:"", slogan:"", cta:"Powered by RedVanta",
-  logoUrl:null, orientation:"landscape", bandPosition:"bottom", frontBandHeight:22, backBandHeight:12, logoPosition:"left", logoSize:32, qrPosition:"right", qrSize:80,
+  logoUrl:null, orientation:"landscape", orientations:["landscape"], bandPosition:"bottom", frontBandHeight:22, backBandHeight:12, logoPosition:"left", logoSize:32, qrPosition:"right", qrSize:80,
   nameFont:FONTS[0].family, sloganFont:FONTS[0].family, instructionFont:FONTS[0].family, nameFontSize:16, sloganFontSize:12, instructionFontSize:10,
   nameFontWeight:"700", sloganFontWeight:"400", instructionFontWeight:"400", nameLetterSpacing:"normal", sloganLetterSpacing:"normal", instructionLetterSpacing:"normal",
   nameTextTransform:"none", sloganTextTransform:"none", nameLineHeight:"1.2", sloganLineHeight:"1.4", instructionLineHeight:"1.4", nameTextAlign:"left", sloganTextAlign:"left",
@@ -242,6 +242,7 @@ export default function TemplateManager() {
       logoUrl: t.logoUrl ?? null,
       // Layout
       orientation: t.orientation ?? "landscape",
+      orientations: Array.isArray(t.orientations) && t.orientations.length ? t.orientations : [t.orientation ?? "landscape"],
       bandPosition: t.bandPosition ?? "bottom",
       frontBandHeight: t.frontBandHeight ?? 22,
       backBandHeight: t.backBandHeight ?? 12,
@@ -521,16 +522,41 @@ export default function TemplateManager() {
                         { id:"square",    cls:"h-[22px] w-[22px] rounded-[3px]" },
                         { id:"circle",    cls:"h-[22px] w-[22px] rounded-full"  },
                       ].map(({ id, cls })=>{
-                        const mappedOrientation = id === "portrait" ? "portrait" : "landscape";
-                        const selected = previewLayout === id;
+                        const isEnabled = (form.orientations ?? [form.orientation]).includes(id);
+                        const isPreviewing = previewLayout === id;
                         return (
                         <button key={id} type="button"
-                          onClick={()=>{ setPreviewLayout(id); updateForm({ orientation:mappedOrientation, qrPosition: mappedOrientation==="portrait"?"top":"right", logoPosition: mappedOrientation==="portrait"?"top-center":"left" }); }}
-                          className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-xs font-medium capitalize transition-all ${selected ? "border-primary/50 bg-primary/10 text-primary":"border-border/50 text-muted-foreground hover:border-border hover:text-foreground"}`}>
-                          <div className={`border-2 ${cls} ${selected ? "border-current opacity-100" : "border-current opacity-40"}`}/>
+                          onClick={()=>{
+                            const current = form.orientations ?? [form.orientation ?? "landscape"];
+                            const already = current.includes(id);
+                            if (already) {
+                              if (current.length === 1) return;
+                              const next = current.filter(o => o !== id);
+                              const nextPreview = next.includes(previewLayout) ? previewLayout : next[0];
+                              setPreviewLayout(nextPreview);
+                              updateForm({ orientations: next, orientation: nextPreview });
+                            } else {
+                              const next = [...current, id];
+                              setPreviewLayout(id);
+                              updateForm({ orientations: next, orientation: id, qrPosition: id==="portrait"?"top":"right", logoPosition: id==="portrait"?"top-center":"left" });
+                            }
+                          }}
+                          className={`relative flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-xs font-medium capitalize transition-all ${isEnabled ? "border-primary/50 bg-primary/10 text-primary" : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"}`}>
+                          <div className={`border-2 ${cls} ${isEnabled ? "border-current opacity-100" : "border-current opacity-40"}`}/>
                           {id}
+                          {isPreviewing && isEnabled && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"/>}
                         </button>
                       )})}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex flex-wrap gap-1">
+                        {(form.orientations ?? [form.orientation ?? "landscape"]).map(o => (
+                          <span key={o} className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium capitalize text-primary">{o}</span>
+                        ))}
+                      </div>
+                      {(form.orientations ?? []).length > 1 && (
+                        <p className="text-[10px] text-muted-foreground">Red dot = currently previewing</p>
+                      )}
                     </div>
                   </div>
                   <div><label className="text-xs text-muted-foreground">Band Position</label><div className="mt-2 grid grid-cols-3 gap-2">{["top","bottom","hidden"].map((position)=><button key={position} type="button" onClick={()=>updateForm({ bandPosition:position })} className={`rounded-lg border px-3 py-2 text-xs font-medium ${form.bandPosition===position ? "border-primary/50 bg-primary/10 text-primary":"border-border/50"}`}>{position}</button>)}</div></div>

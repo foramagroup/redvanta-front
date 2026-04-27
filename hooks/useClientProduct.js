@@ -59,6 +59,12 @@ export const normalizeClientProduct = (product, lang, fallback) => {
   const packageTiers = normalizePackageTiers(product?.packageTiers, product?.price ?? fallback.price);
   const defaultTier = packageTiers[0] || null;
 
+  const rawCardSettings = product?.cardSettings;
+  const cardSettings =
+    rawCardSettings && typeof rawCardSettings === "string"
+      ? JSON.parse(rawCardSettings)
+      : (rawCardSettings || null);
+
   return {
     id: product?.id ?? null,
     slug: pickLocalizedValue(product?.slug, lang) || fallback.slug,
@@ -72,6 +78,8 @@ export const normalizeClientProduct = (product, lang, fallback) => {
     gallery: normalizeGallery(product, fallback.gallery || []),
     packageTiers,
     packageTierId: defaultTier?.id ?? null,
+    cardSettings,
+    defaultTemplate: product?.defaultTemplate ?? null,
   };
 };
 

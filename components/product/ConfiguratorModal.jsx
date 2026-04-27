@@ -26,10 +26,10 @@ const getTextColor = (hex) => {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? "#111" : "#fff";
 };
 
-const newLocation = (qty, color = "#0A0A0A") => ({
+const newLocation = (qty, color = null, platform = null) => ({
   id: `loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   quantity: qty,
-  platform: null,
+  platform,
   data: {},
   cardColor: color,
 });
@@ -37,12 +37,12 @@ const newLocation = (qty, color = "#0A0A0A") => ({
 // ─────────────────────────────────────────────────────────────
 // Convertit les locations du format modal → format API backend
 // ─────────────────────────────────────────────────────────────
-const toApiLocations = (locations) =>
+const toApiLocations = (locations, fallbackPlatform) =>
   locations.map((l) => ({
     quantity: l.quantity,
-    platform: l.platform,
+    platform: l.platform || fallbackPlatform || "google",
     data: l.data || {},
-    cardColor: l.cardColor || "#0A0A0A",
+    cardColor: l.cardColor ?? null,
   }));
 
 // ─────────────────────────────────────────────────────────────
@@ -71,6 +71,9 @@ export const ConfiguratorModal = ({
   initialLocations,
   editItemId,
   onSaved,
+  defaultTemplate,
+  productPlatform,
+  defaultCardColor,
 }) => {
   const router = useRouter();
   const { isAuthenticated, addLocalItem, replaceLocalItem } = useCart();
@@ -81,21 +84,81 @@ export const ConfiguratorModal = ({
   const [confirmExit, setConfirmExit] = useState(false);
   const [previewSide, setPreviewSide] = useState("front");
   const [saving, setSaving] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const [resolvedEditId, setResolvedEditId] = useState(editItemId || null);
+  const resolvedPlatform = productPlatform || defaultTemplate?.platform || "google";
+  const resolvedDefaultCardColor = defaultCardColor || defaultTemplate?.gradient?.[0] || "#0A0A0A";
+
 
   useEffect(() => {
-    if (open) {
-      if (initialLocations && initialLocations.length > 0) {
-        setLocations(initialLocations);
-        setActiveId(initialLocations[0].id);
-      } else {
-        const init = newLocation(totalQuantity);
-        setLocations([init]);
-        setActiveId(init.id);
-      }
-      setApplyToAll(false);
-      setSaving(false);
+    if (!open) return;
+
+    setApplyToAll(false);
+    setSaving(false);
+    setResolvedEditId(editItemId || null);
+
+    // Case 1: parent passed locations explicitly (edit mode)
+    if (initialLocations && initialLocations.length > 0) {
+      const normalizedLocations = initialLocations.map((location) => ({
+        ...location,
+        platform: resolvedPlatform,
+        cardColor: location.cardColor ?? null,
+      }));
+      setLocations(normalizedLocations);
+      setActiveId(normalizedLocations[0].id);
+      return;
     }
-  }, [open, totalQuantity, initialLocations]);
+
+    // Case 2: authenticated — try to auto-populate from existing cart item
+    if (isAuthenticated && productId) {
+      setLoadingExisting(true);
+      fetch(`${API_BASE}/client/shop/cart`, { credentials: "include" })
+        .then((res) => res.json())
+        .then((payload) => {
+          const cartItems = payload?.data?.items || [];
+          const match = cartItems.find(
+            (item) =>
+              item.productId === productId &&
+              (packageTierId != null
+                ? item.packageTier?.id === packageTierId
+                : true)
+          );
+
+          if (match && Array.isArray(match.locations) && match.locations.length > 0) {
+            const mapped = match.locations.map((loc) => ({
+              id: `loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              quantity: loc.quantity,
+              platform: resolvedPlatform,
+              data: {
+                ...(loc.businessName ? { businessName: loc.businessName } : {}),
+                ...(loc.handle ? { handle: loc.handle } : {}),
+                ...(loc.url ? { url: loc.url } : {}),
+              },
+              cardColor: loc.cardColor || null,
+            }));
+            setLocations(mapped);
+            setActiveId(mapped[0].id);
+            setResolvedEditId(match.id);
+          } else {
+            const init = newLocation(totalQuantity, null, resolvedPlatform);
+            setLocations([init]);
+            setActiveId(init.id);
+          }
+        })
+        .catch(() => {
+          const init = newLocation(totalQuantity, null, resolvedPlatform);
+          setLocations([init]);
+          setActiveId(init.id);
+        })
+        .finally(() => setLoadingExisting(false));
+      return;
+    }
+
+    // Case 3: unauthenticated or no productId
+    const init = newLocation(totalQuantity, null, resolvedPlatform);
+    setLocations([init]);
+    setActiveId(init.id);
+  }, [open, totalQuantity, initialLocations, isAuthenticated, productId, packageTierId, editItemId, resolvedPlatform]);
 
   const assigned = locations.reduce((s, l) => s + l.quantity, 0);
   const remaining = totalQuantity - assigned;
@@ -119,7 +182,7 @@ export const ConfiguratorModal = ({
       const largest = sorted[0];
       if (largest.quantity <= 1) return prev;
       const next = prev.map((l) => (l.id === largest.id ? { ...l, quantity: l.quantity - 1 } : l));
-      const created = newLocation(1);
+      const created = newLocation(1, null, resolvedPlatform);
       setActiveId(created.id);
       return [...next, created];
     });
@@ -197,8 +260,8 @@ export const ConfiguratorModal = ({
         packageLabel,
         locations,
       };
-      if (editItemId) {
-        replaceLocalItem(editItemId, payload);
+      if (resolvedEditId) {
+        replaceLocalItem(resolvedEditId, payload);
         toast.success("Your configuration has been updated.");
       } else {
         addLocalItem(payload);
@@ -213,13 +276,13 @@ export const ConfiguratorModal = ({
     setSaving(true);
 
     try {
-      const apiLocations = toApiLocations(locations);
+      const apiLocations = toApiLocations(locations, resolvedPlatform);
 
       let response;
 
-      if (editItemId) {
+      if (resolvedEditId) {
         // ── Cas 2 : mettre à jour les locations d'un item existant ──
-        response = await fetch(`${API_BASE}/client/shop/cart/${editItemId}/locations`, {
+        response = await fetch(`${API_BASE}/client/shop/cart/${resolvedEditId}/locations`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -246,7 +309,7 @@ export const ConfiguratorModal = ({
       }
 
       toast.success(
-        editItemId
+        resolvedEditId
           ? "Your configuration has been updated."
           : "Your cards have been added to the cart successfully."
       );
@@ -255,7 +318,7 @@ export const ConfiguratorModal = ({
       onSaved?.();
       onClose();
 
-      if (!editItemId) {
+      if (!resolvedEditId) {
         router.push("/cart");
       }
     } catch (err) {
@@ -275,7 +338,7 @@ export const ConfiguratorModal = ({
         <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
           <div className="min-w-0">
             <h2 className="text-lg sm:text-2xl font-display font-bold leading-tight">
-              {editItemId ? "Edit Card Configuration" : "Customize & Add Your Cards"}
+              {resolvedEditId ? "Edit Card Configuration" : "Customize & Add Your Cards"}
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
               Add locations, customize design, and connect your platforms.
@@ -292,6 +355,14 @@ export const ConfiguratorModal = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {loadingExisting && (
+            <div className="absolute inset-0 z-10 grid place-items-center bg-neutral-950/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-3 text-neutral-400">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-sm">Loading your existing configuration…</span>
+              </div>
+            </div>
+          )}
           <div className="grid lg:grid-cols-[1fr,500px] gap-0">
             {/* Left: editor */}
             <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 min-w-0">
@@ -361,6 +432,8 @@ export const ConfiguratorModal = ({
                   onRemove={() => removeLocation(active.id)}
                   canRemove={locations.length > 1}
                   canIncrease={remaining > 0}
+                  fixedPlatform={resolvedPlatform}
+                  defaultCardColor={resolvedDefaultCardColor}
                 />
               )}
             </div>
@@ -392,64 +465,82 @@ export const ConfiguratorModal = ({
                   </button>
                 </div>
               </div>
-              {active && (
-                <div className="w-full">
-                  <SharedCardPreview
-                    design={{
-                      businessName:
-                        active.data?.businessName || active.data?.handle || active.data?.url || "Your Business",
-                      bgColor: active.cardColor || "#0A0A0A",
-                      textColor: getTextColor(active.cardColor),
-                      cta: "Powered by Opinoor",
-                      qrColor: "#000000",
-                    }}
-                    colorMode="single"
-                    gradient1={active.cardColor || "#0A0A0A"}
-                    gradient2={active.cardColor || "#0A0A0A"}
-                    orientation="landscape"
-                    side={previewSide}
-                    frontLine1="Approach your phone to the card"
-                    frontLine2="Tap to leave a review"
-                    backLine1="Scan the QR code with your camera"
-                    backLine2="No app needed"
-                    platform={active.platform || "google"}
-                    showGoogleIcon={true}
-                    showNfcIcon={true}
-                    nameFontSize={16}
-                    sloganFontSize={12}
-                    instructionFontSize={10}
-                    nameFontWeight="700"
-                    sloganFontWeight="400"
-                    instructionFontWeight="400"
-                    nameLetterSpacing="normal"
-                    sloganLetterSpacing="normal"
-                    instructionLetterSpacing="normal"
-                    nameLineHeight="1.2"
-                    sloganLineHeight="1.4"
-                    instructionLineHeight="1.4"
-                    nameTextAlign="left"
-                    sloganTextAlign="left"
-                    instructionTextAlign="left"
-                    nameTextTransform="none"
-                    sloganTextTransform="none"
-                    qrSize={80}
-                    qrPosition="right"
-                    logoPosition="left"
-                    logoSize={32}
-                    googleIconSize={20}
-                    nfcIconSize={24}
-                    checkStrokeWidth={3.5}
-                    starsColor="#FBBF24"
-                    iconsColor="#22C55E"
-                    textShadow="none"
-                    ctaPaddingTop={8}
-                    frontBandHeight={22}
-                    backBandHeight={12}
-                    bandPosition="hidden"
-                    pattern="none"
-                  />
-                </div>
-              )}
+              {active && (() => {
+                const tpl = defaultTemplate;
+                const hasCustomColor = Boolean(active.cardColor);
+                const previewColor = active.cardColor || resolvedDefaultCardColor;
+                const templateBandPosition = tpl?.bandPosition || "bottom";
+                const previewUsesTemplate = !hasCustomColor && !!tpl && templateBandPosition !== "hidden";
+                const g1 = hasCustomColor ? previewColor : (tpl?.gradient?.[0] || previewColor || "#0A0A0A");
+                const g2 = hasCustomColor ? previewColor : (tpl?.gradient?.[1] || tpl?.gradient?.[0] || previewColor || "#0A0A0A");
+                const colorMode = previewUsesTemplate ? "template" : "single";
+                const textColor = hasCustomColor ? getTextColor(previewColor) : (tpl?.textColor || getTextColor(previewColor || "#0A0A0A"));
+                const accentColor = tpl?.accentColor || "#4285F4";
+                const bandColor1 = tpl?.bandColor1 || accentColor;
+                const bandColor2 = tpl?.bandColor2 || bandColor1;
+                const pattern = tpl?.pattern || "none";
+                return (
+                  <div className="w-full">
+                    <SharedCardPreview
+                      design={{
+                        businessName:
+                          active.data?.businessName || active.data?.handle || active.data?.url || "Your Business",
+                        bgColor: g1,
+                        textColor,
+                        accentColor,
+                        cta: "Powered by Opinoor",
+                        qrColor: tpl?.qrColor || "#000000",
+                      }}
+                      colorMode={colorMode}
+                      gradient1={g1}
+                      gradient2={g2}
+                      accentBand1={bandColor1}
+                      accentBand2={bandColor2}
+                      orientation="landscape"
+                      side={previewSide}
+                      frontLine1={tpl?.frontLine1 || "Approach your phone to the card"}
+                      frontLine2={tpl?.frontLine2 || "Tap to leave a review"}
+                      backLine1={tpl?.backLine1 || "Scan the QR code with your camera"}
+                      backLine2={tpl?.backLine2 || "No app needed"}
+                      platform={active.platform || resolvedPlatform}
+                      showGoogleIcon={tpl?.showGoogleIcon ?? true}
+                      showNfcIcon={tpl?.showNfcIcon ?? true}
+                      nameFontSize={tpl?.nameFontSize || 16}
+                      sloganFontSize={tpl?.sloganFontSize || 12}
+                      instructionFontSize={tpl?.instructionFontSize || 10}
+                      nameFontWeight={tpl?.nameFontWeight || "700"}
+                      sloganFontWeight={tpl?.sloganFontWeight || "400"}
+                      instructionFontWeight={tpl?.instructionFontWeight || "400"}
+                      nameLetterSpacing={tpl?.nameLetterSpacing || "normal"}
+                      sloganLetterSpacing="normal"
+                      instructionLetterSpacing="normal"
+                      nameLineHeight={tpl?.nameLineHeight || "1.2"}
+                      sloganLineHeight="1.4"
+                      instructionLineHeight="1.4"
+                      nameTextAlign={tpl?.nameTextAlign || "left"}
+                      sloganTextAlign="left"
+                      instructionTextAlign="left"
+                      nameTextTransform={tpl?.nameTextTransform || "none"}
+                      sloganTextTransform="none"
+                      qrSize={tpl?.qrSize || 80}
+                      qrPosition={tpl?.qrPosition || "right"}
+                      logoPosition={tpl?.logoPosition || "left"}
+                      logoSize={tpl?.logoSize || 32}
+                      googleIconSize={tpl?.googleIconSize || 20}
+                      nfcIconSize={tpl?.nfcIconSize || 24}
+                      checkStrokeWidth={tpl?.checkStrokeWidth || 3.5}
+                      starsColor={tpl?.starsColor || "#FBBF24"}
+                      iconsColor={tpl?.iconsColor || "#22C55E"}
+                      textShadow={tpl?.textShadow || "none"}
+                      ctaPaddingTop={tpl?.ctaPaddingTop ?? 8}
+                      frontBandHeight={tpl?.frontBandHeight || 22}
+                      backBandHeight={tpl?.backBandHeight || 12}
+                      bandPosition={previewUsesTemplate ? templateBandPosition : "hidden"}
+                      pattern={pattern}
+                    />
+                  </div>
+                );
+              })()}
               <div className="text-xs text-neutral-400 text-center">
                 Updates in real time as you customize.
               </div>
@@ -482,7 +573,7 @@ export const ConfiguratorModal = ({
               ) : (
                 <ShoppingCart className="w-4 h-4 mr-2" />
               )}
-              <span className="truncate">{editItemId ? "Save Changes" : "Add to Cart"}</span>
+              <span className="truncate">{resolvedEditId ? "Save Changes" : "Add to Cart"}</span>
             </Button>
           </div>
         </div>
@@ -521,76 +612,97 @@ export const ConfiguratorModal = ({
 // ─────────────────────────────────────────────────────────────
 // LocationEditor (inchangé)
 // ─────────────────────────────────────────────────────────────
-const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove, canIncrease }) => {
+const LocationEditor = ({
+  location,
+  onChange,
+  onInc,
+  onDec,
+  onRemove,
+  canRemove,
+  canIncrease,
+  fixedPlatform,
+  defaultCardColor,
+}) => {
   const platforms = ["google", "facebook", "instagram", "custom"];
-  const meta = location.platform ? PLATFORM_META[location.platform] : null;
+  const platform = location.platform || fixedPlatform || "google";
+  const meta = PLATFORM_META[platform] || PLATFORM_META.google;
+  const businessMeta = PLATFORM_META.google;
+  const resolvedCardColor = location.cardColor || defaultCardColor || "#0A0A0A";
 
   const inputValue =
-    location.platform === "google"
+    platform === "google"
       ? location.data?.businessName || ""
-      : location.platform === "instagram"
+      : platform === "instagram"
       ? location.data?.handle || ""
       : location.data?.url || "";
 
-  const setInput = (v) => {
-    if (location.platform === "google") onChange({ data: { ...location.data, businessName: v } });
-    else if (location.platform === "instagram") onChange({ data: { ...location.data, handle: v } });
-    else onChange({ data: { ...location.data, url: v } });
+  const setInput = (value) => {
+    if (platform === "google") onChange({ data: { ...location.data, businessName: value } });
+    else if (platform === "instagram") onChange({ data: { ...location.data, handle: value } });
+    else onChange({ data: { ...location.data, url: value } });
   };
 
   return (
     <div className="space-y-5 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-      {/* Platform selector */}
       <div>
         <Label className="text-xs uppercase tracking-wider text-neutral-400">Platform</Label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-          {platforms.map((p) => {
-            const m = PLATFORM_META[p];
-            const isActive = location.platform === p;
-            return (
-              <button
-                key={p}
-                onClick={() => onChange({ platform: p, data: {} })}
-                className={`px-3 py-2.5 rounded-lg border text-sm transition flex items-center justify-center ${
-                  isActive
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-neutral-700 bg-neutral-950 hover:bg-neutral-800 text-neutral-200"
-                }`}
-              >
-                <span className="truncate">{m.name}</span>
-              </button>
-            );
-          })}
+        <div className="mt-2 space-y-2">
+          <select
+            value={platform}
+            onChange={(e) => onChange({ platform: e.target.value, data: {} })}
+            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 outline-none transition focus:border-primary"
+          >
+            {platforms.map((id) => (
+              <option key={id} value={id}>
+                {PLATFORM_META[id]?.name || id}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-neutral-400">
+            Default product platform: <span className="text-neutral-200">{PLATFORM_META[fixedPlatform || "google"]?.name || fixedPlatform || "Google Reviews"}</span>
+          </p>
         </div>
       </div>
 
-      {meta && (
-        <div className="space-y-2">
-          <h4 className="font-semibold text-neutral-100">{meta.title}</h4>
-          <p className="text-xs text-neutral-400">{meta.description}</p>
-          <Label htmlFor="platform-input" className="text-xs text-neutral-300">
-            {meta.inputLabel}
-          </Label>
-          <Input
-            id="platform-input"
-            value={inputValue}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={meta.placeholder}
-            className="bg-neutral-950 border-neutral-700 text-neutral-100 placeholder:text-neutral-500"
-          />
-        </div>
-      )}
+      <div className="space-y-2">
+        <h4 className="font-semibold text-neutral-100">{businessMeta.title}</h4>
+        <Label htmlFor={`platform-input-${platform}`} className="text-xs text-neutral-300">
+          {businessMeta.inputLabel}
+        </Label>
+        <Input
+          key={platform}
+          id={`platform-input-${platform}`}
+          value={inputValue}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={businessMeta.placeholder}
+          className="bg-neutral-950 border-neutral-700 text-neutral-100 placeholder:text-neutral-500"
+        />
+      </div>
 
       {/* Color */}
       <div>
         <Label className="text-xs uppercase tracking-wider text-neutral-400">Card color</Label>
         <div className="flex flex-wrap items-center gap-2 mt-2">
+          <button
+            onClick={() => onChange({ cardColor: null })}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+              location.cardColor == null
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-neutral-700 bg-neutral-950 text-neutral-300 hover:bg-neutral-800"
+            }`}
+          >
+            <span
+              className="h-4 w-4 rounded-full border border-neutral-700"
+              style={{ backgroundColor: defaultCardColor || "#0A0A0A" }}
+            />
+            Default color
+          </button>
           {PRESET_COLORS.map((c) => (
             <button
               key={c}
               onClick={() => onChange({ cardColor: c })}
               className={`w-8 h-8 rounded-full border-2 transition ${
-                (location.cardColor || "#0A0A0A").toLowerCase() === c.toLowerCase()
+                resolvedCardColor.toLowerCase() === c.toLowerCase()
                   ? "border-primary scale-110"
                   : "border-neutral-700 hover:scale-105"
               }`}
@@ -601,7 +713,7 @@ const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove,
           <label className="ml-1 inline-flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
             <input
               type="color"
-              value={location.cardColor || "#0A0A0A"}
+              value={resolvedCardColor}
               onChange={(e) => onChange({ cardColor: e.target.value })}
               className="w-8 h-8 rounded-full overflow-hidden bg-transparent border border-neutral-700 cursor-pointer"
             />

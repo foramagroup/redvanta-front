@@ -569,6 +569,9 @@ const Product = () => {
         productId={productId}
         packageTierId={currentBundle?.id || null}
         productName={productTitle}
+         defaultTemplate={product.defaultTemplate}
+         productPlatform={product.cardSettings?.reviewPlatform || product.defaultTemplate?.platform}
+        defaultCardColor={product.defaultTemplate?.gradient?.[0] || null}
       />
     </div>
   );

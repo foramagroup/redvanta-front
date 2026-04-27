@@ -235,6 +235,9 @@ const PremiumCardUpgrade = () => {
         productId={product.id}
         packageTierId={resolvedPackageTierId}
         productName={product.title}
+         defaultTemplate={product.defaultTemplate}
+         productPlatform={product.cardSettings?.reviewPlatform || product.defaultTemplate?.platform}
+        defaultCardColor={product.defaultTemplate?.gradient?.[0] || null}
       />
     </div>
   );

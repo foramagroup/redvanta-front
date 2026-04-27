@@ -28,6 +28,21 @@ const mapRemoteCartItem = (item) => {
     lineTotal: Number(item.lineTotal) || 0,
     model: item.design?.cardModel || "classic",
     design: item.design || null,
+    hasLocations: Boolean(item.hasLocations),
+    locations: Array.isArray(item.locations)
+      ? item.locations.map((location) => ({
+          id: location.id,
+          quantity: Number(location.quantity) || 1,
+          platform: location.platform || "google",
+          data: {
+            ...(location.businessName ? { businessName: location.businessName } : {}),
+            ...(location.handle ? { handle: location.handle } : {}),
+            ...(location.url ? { url: location.url } : {}),
+          },
+          cardColor: location.cardColor || null,
+          design: location.design || null,
+        }))
+      : [],
     cardType: item.cardType || null,
     packageTier: item.packageTier || null,
     availableTiers: Array.isArray(item.availableTiers) ? item.availableTiers : [],
