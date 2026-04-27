@@ -26,6 +26,7 @@ const mainItems = [
   { icon: BarChart3, labelKey: "sa.sidebar_analytics", path: "/superadmin/analytics" },
   { icon: ShoppingBag, labelKey: "sa.sidebar_products", path: "/superadmin/products" },
   { icon: Palette, labelKey: "sa.sidebar_all_designs", path: "/superadmin/designs" },
+  { icon: Palette, labelKey: "Generated Card", path: "/superadmin/generated-card" },
   { icon: Nfc, labelKey: "NFC Cards", path: "/superadmin/nfc-cards" },
   { icon: Tags, labelKey: "NFC Tags", path: "/superadmin/nfc-tags" },
   { icon: Palette, labelKey: "Template Manager", path: "/superadmin/templates" }

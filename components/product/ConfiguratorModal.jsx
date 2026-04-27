@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Minus, Trash2, ShoppingCart, Save, Sparkles, AlertTriangle } from "lucide-react";
+import { X, Plus, Minus, Trash2, ShoppingCart, Save, Sparkles, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,9 @@ import SharedCardPreview from "@/components/designs/SharedCardPreview";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
+
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 const PRESET_COLORS = ["#0A0A0A", "#E10600", "#1E40AF", "#047857", "#9333EA", "#F59E0B", "#FFFFFF"];
 
@@ -31,14 +34,53 @@ const newLocation = (qty, color = "#0A0A0A") => ({
   cardColor: color,
 });
 
-export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, packageLabel, productId, packageTierId, productName, initialLocations, editItemId }) => {
+// ─────────────────────────────────────────────────────────────
+// Convertit les locations du format modal → format API backend
+// ─────────────────────────────────────────────────────────────
+const toApiLocations = (locations) =>
+  locations.map((l) => ({
+    quantity: l.quantity,
+    platform: l.platform,
+    data: l.data || {},
+    cardColor: l.cardColor || "#0A0A0A",
+  }));
+
+// ─────────────────────────────────────────────────────────────
+// Props :
+//   open              : boolean
+//   onClose           : () => void
+//   totalQuantity     : number      — nb total de cartes
+//   unitPrice         : number
+//   packageLabel      : string
+//   productId         : number|string
+//   packageTierId     : number|string|null
+//   productName       : string
+//   initialLocations  : Location[]  — locations existantes (mode édition)
+//   editItemId        : number|null — id du CartItem à modifier (mode édition DB)
+//   onSaved           : () => void  — callback après sauvegarde réussie (refresh du panier)
+// ─────────────────────────────────────────────────────────────
+export const ConfiguratorModal = ({
+  open,
+  onClose,
+  totalQuantity,
+  unitPrice,
+  packageLabel,
+  productId,
+  packageTierId,
+  productName,
+  initialLocations,
+  editItemId,
+  onSaved,
+}) => {
   const router = useRouter();
-  const { addLocalItem, replaceLocalItem } = useCart();
+  const { isAuthenticated, addLocalItem, replaceLocalItem } = useCart();
+
   const [locations, setLocations] = useState([newLocation(totalQuantity)]);
   const [activeId, setActiveId] = useState("");
   const [applyToAll, setApplyToAll] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [previewSide, setPreviewSide] = useState("front");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -51,6 +93,7 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
         setActiveId(init.id);
       }
       setApplyToAll(false);
+      setSaving(false);
     }
   }, [open, totalQuantity, initialLocations]);
 
@@ -118,7 +161,7 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
     if (assigned !== totalQuantity) return false;
     return locations.every((l) => {
       if (!l.platform) return false;
-      const v = l.data.businessName || l.data.handle || l.data.url;
+      const v = l.data?.businessName || l.data?.handle || l.data?.url;
       return Boolean(v && v.trim().length > 0);
     });
   }, [locations, assigned, totalQuantity]);
@@ -130,30 +173,97 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
     onClose();
   };
 
-  const handleSaveAddToCart = () => {
+  // ─────────────────────────────────────────────────────────────
+  // Sauvegarde — 3 cas :
+  //   1. Authentifié + nouveau → POST /api/client/shop/cart
+  //   2. Authentifié + édition → PUT  /api/client/shop/cart/:editItemId/locations
+  //   3. Non authentifié       → localStorage (garde le comportement legacy)
+  // ─────────────────────────────────────────────────────────────
+  const handleSaveAddToCart = async () => {
     if (!isValid) {
       toast.error("Please complete all locations and assign all cards.");
       return;
     }
-    const payload = {
-      productId: productId || undefined,
-      packageTierId: packageTierId || undefined,
-      productName,
-      unitPrice,
-      totalPrice: totalQuantity * unitPrice,
-      totalQuantity,
-      packageLabel,
-      locations,
-    };
-    if (editItemId) {
-      replaceLocalItem(editItemId, payload);
-      toast.success("Your configuration has been updated.");
-    } else {
-      addLocalItem(payload);
-      toast.success("Your cards have been added to the cart successfully.");
+
+    // ── Cas 3 : non authentifié → localStorage ──────────────
+    if (!isAuthenticated) {
+      const payload = {
+        productId: productId || undefined,
+        packageTierId: packageTierId || undefined,
+        productName,
+        unitPrice,
+        totalPrice: totalQuantity * unitPrice,
+        totalQuantity,
+        packageLabel,
+        locations,
+      };
+      if (editItemId) {
+        replaceLocalItem(editItemId, payload);
+        toast.success("Your configuration has been updated.");
+      } else {
+        addLocalItem(payload);
+        toast.success("Your cards have been added to the cart.");
+      }
+      onClose();
+      router.push("/cart");
+      return;
     }
-    onClose();
-    router.push("/cart");
+
+    // ── Cas 1 & 2 : authentifié → appel API ─────────────────
+    setSaving(true);
+
+    try {
+      const apiLocations = toApiLocations(locations);
+
+      let response;
+
+      if (editItemId) {
+        // ── Cas 2 : mettre à jour les locations d'un item existant ──
+        response = await fetch(`${API_BASE}/client/shop/cart/${editItemId}/locations`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ locations: apiLocations }),
+        });
+      } else {
+        // ── Cas 1 : ajouter un nouvel item avec ses locations ──
+        response = await fetch(`${API_BASE}/client/shop/cart`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            productId,
+            packageTierId: packageTierId || undefined,
+            locations: apiLocations,
+          }),
+        });
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "An error occurred while saving.");
+      }
+
+      toast.success(
+        editItemId
+          ? "Your configuration has been updated."
+          : "Your cards have been added to the cart successfully."
+      );
+
+      // Notifier le parent (rafraîchir le panier)
+      onSaved?.();
+      onClose();
+
+      if (!editItemId) {
+        router.push("/cart");
+      }
+    } catch (err) {
+      console.error("ConfiguratorModal save error:", err);
+      toast.error(err.message || "Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!open) return null;
@@ -164,12 +274,18 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
         {/* Header */}
         <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
           <div className="min-w-0">
-            <h2 className="text-lg sm:text-2xl font-display font-bold leading-tight">Customize & Add Your Cards</h2>
+            <h2 className="text-lg sm:text-2xl font-display font-bold leading-tight">
+              {editItemId ? "Edit Card Configuration" : "Customize & Add Your Cards"}
+            </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
               Add locations, customize design, and connect your platforms.
             </p>
           </div>
-          <button onClick={handleClose} className="shrink-0 p-2 rounded-lg hover:bg-neutral-800 transition" aria-label="Close">
+          <button
+            onClick={handleClose}
+            className="shrink-0 p-2 rounded-lg hover:bg-neutral-800 transition"
+            aria-label="Close"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -190,8 +306,14 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="outline" onClick={distributeEvenly} className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100 w-full">
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5" /> <span className="truncate">Distribute Evenly</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={distributeEvenly}
+                    className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100 w-full"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                    <span className="truncate">Distribute Evenly</span>
                   </Button>
                   <Button
                     size="sm"
@@ -199,7 +321,8 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
                     disabled={locations.length >= totalQuantity}
                     className="gradient-primary text-primary-foreground w-full"
                   >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="truncate">Add Location</span>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    <span className="truncate">Add Location</span>
                   </Button>
                 </div>
               </div>
@@ -249,19 +372,32 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
                 <div className="flex overflow-hidden rounded-lg border border-neutral-700 text-xs w-fit">
                   <button
                     onClick={() => setPreviewSide("front")}
-                    className={`px-3 py-1.5 font-medium transition-colors ${previewSide === "front" ? "bg-primary text-primary-foreground" : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"}`}
-                  >Front</button>
+                    className={`px-3 py-1.5 font-medium transition-colors ${
+                      previewSide === "front"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"
+                    }`}
+                  >
+                    Front
+                  </button>
                   <button
                     onClick={() => setPreviewSide("back")}
-                    className={`px-3 py-1.5 font-medium transition-colors ${previewSide === "back" ? "bg-primary text-primary-foreground" : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"}`}
-                  >Back</button>
+                    className={`px-3 py-1.5 font-medium transition-colors ${
+                      previewSide === "back"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-neutral-900 text-neutral-400 hover:text-neutral-100"
+                    }`}
+                  >
+                    Back
+                  </button>
                 </div>
               </div>
               {active && (
                 <div className="w-full">
                   <SharedCardPreview
                     design={{
-                      businessName: active.data?.businessName || active.data?.handle || active.data?.url || "Your Business",
+                      businessName:
+                        active.data?.businessName || active.data?.handle || active.data?.url || "Your Business",
                       bgColor: active.cardColor || "#0A0A0A",
                       textColor: getTextColor(active.cardColor),
                       cta: "Powered by Opinoor",
@@ -327,11 +463,26 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
             {assigned}/{totalQuantity} cards assigned · {locations.length} location{locations.length > 1 ? "s" : ""}
           </div>
           <div className="grid grid-cols-2 sm:flex gap-2">
-            <Button variant="outline" onClick={onClose} className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100">
-              <Save className="w-4 h-4 mr-2" /> <span className="truncate">Save</span>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+              className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              <span className="truncate">Save</span>
             </Button>
-            <Button onClick={handleSaveAddToCart} disabled={!isValid} className="gradient-primary text-primary-foreground">
-              <ShoppingCart className="w-4 h-4 mr-2" /> <span className="truncate">Add to Cart</span>
+            <Button
+              onClick={handleSaveAddToCart}
+              disabled={!isValid || saving}
+              className="gradient-primary text-primary-foreground"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-4 h-4 mr-2" />
+              )}
+              <span className="truncate">{editItemId ? "Save Changes" : "Add to Cart"}</span>
             </Button>
           </div>
         </div>
@@ -348,10 +499,16 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
                 Your configuration is not saved. Are you sure you want to exit?
               </p>
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100" onClick={() => setConfirmExit(false)}>
+                <Button
+                  variant="outline"
+                  className="border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-100"
+                  onClick={() => setConfirmExit(false)}
+                >
                   Keep editing
                 </Button>
-                <Button variant="destructive" onClick={confirmedClose}>Exit anyway</Button>
+                <Button variant="destructive" onClick={confirmedClose}>
+                  Exit anyway
+                </Button>
               </div>
             </div>
           </div>
@@ -361,16 +518,19 @@ export const ConfiguratorModal = ({ open, onClose, totalQuantity, unitPrice, pac
   );
 };
 
+// ─────────────────────────────────────────────────────────────
+// LocationEditor (inchangé)
+// ─────────────────────────────────────────────────────────────
 const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove, canIncrease }) => {
   const platforms = ["google", "facebook", "instagram", "custom"];
   const meta = location.platform ? PLATFORM_META[location.platform] : null;
 
   const inputValue =
     location.platform === "google"
-      ? location.data.businessName || ""
+      ? location.data?.businessName || ""
       : location.platform === "instagram"
-      ? location.data.handle || ""
-      : location.data.url || "";
+      ? location.data?.handle || ""
+      : location.data?.url || "";
 
   const setInput = (v) => {
     if (location.platform === "google") onChange({ data: { ...location.data, businessName: v } });
@@ -408,7 +568,9 @@ const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove,
         <div className="space-y-2">
           <h4 className="font-semibold text-neutral-100">{meta.title}</h4>
           <p className="text-xs text-neutral-400">{meta.description}</p>
-          <Label htmlFor="platform-input" className="text-xs text-neutral-300">{meta.inputLabel}</Label>
+          <Label htmlFor="platform-input" className="text-xs text-neutral-300">
+            {meta.inputLabel}
+          </Label>
           <Input
             id="platform-input"
             value={inputValue}
@@ -428,7 +590,7 @@ const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove,
               key={c}
               onClick={() => onChange({ cardColor: c })}
               className={`w-8 h-8 rounded-full border-2 transition ${
-                location.cardColor.toLowerCase() === c.toLowerCase()
+                (location.cardColor || "#0A0A0A").toLowerCase() === c.toLowerCase()
                   ? "border-primary scale-110"
                   : "border-neutral-700 hover:scale-105"
               }`}
@@ -439,7 +601,7 @@ const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove,
           <label className="ml-1 inline-flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
             <input
               type="color"
-              value={location.cardColor}
+              value={location.cardColor || "#0A0A0A"}
               onChange={(e) => onChange({ cardColor: e.target.value })}
               className="w-8 h-8 rounded-full overflow-hidden bg-transparent border border-neutral-700 cursor-pointer"
             />
@@ -472,7 +634,11 @@ const LocationEditor = ({ location, onChange, onInc, onDec, onRemove, canRemove,
         </div>
 
         {canRemove && (
-          <Button variant="ghost" onClick={onRemove} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+          <Button
+            variant="ghost"
+            onClick={onRemove}
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          >
             <Trash2 className="w-4 h-4 mr-1.5" /> Remove location
           </Button>
         )}
